@@ -8,6 +8,8 @@
    -- (x) Get DLL loaded with proper name
    -- (x) UI window toggle on button
    -- ( ) Timers file serde structs
+   --- (x) Written
+   --- ( ) Tested
    -- ( ) Get a timers set of timers running, loaded from file
    --- ( ) Correct in-world area detection
    ---- ( ) Map
