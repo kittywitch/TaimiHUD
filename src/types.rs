@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::f32::Vec3;
 use palette::rgb::Rgb;
 use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
 use palette::{Srgba};

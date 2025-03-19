@@ -18,7 +18,7 @@ use std::sync::Once;
 use arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned};
 use arcdps::Affinity;
 use std::sync::{Arc, Mutex};
-use glam::Vec3;
+use glam::f32::Vec3;
 use palette::rgb::Rgb;
 use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
 use palette::{Srgba};
@@ -31,11 +31,6 @@ use types::*;
 
 static SENDER: OnceLock<Sender<TimarksThreadEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
-
-/*
-* For our position type, we will be using glam::f32::Vec3
-* and for our colours, we will be using XNAColour.
-*/
 
 
 nexus::export! {
