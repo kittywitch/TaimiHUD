@@ -18,9 +18,25 @@ use std::sync::Once;
 use arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned};
 use arcdps::Affinity;
 use std::sync::{Arc, Mutex};
+use glam::Vec3;
+use palette::rgb::Rgb;
+use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
+use palette::{Srgba};
+use serde::{Deserialize, Serialize};
+
+mod xnacolour;
+mod types;
+use xnacolour::XNAColour;
+use types::*;
 
 static SENDER: OnceLock<Sender<TimarksThreadEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
+
+/*
+* For our position type, we will be using glam::f32::Vec3
+* and for our colours, we will be using XNAColour.
+*/
+
 
 nexus::export! {
     name: "gw2timarks-rs",
@@ -130,7 +146,6 @@ static RENDER_STATE: Mutex<RenderState> = const { Mutex::new(RenderState::new())
 
 fn load() {
     log::info!("Loading addon");
-    let intiface_server_default = "ws://localhost:12345";
     let addon_dir = get_addon_dir("timarks").expect("invalid addon dir");
     let (event_sender, event_receiver) = channel::<TimarksThreadEvent>(32);
     let tm_handler = thread::spawn(|| { load_timarks(event_receiver) });
