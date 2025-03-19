@@ -1,8 +1,8 @@
 use nexus::{
     event::{arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL}, event_subscribe, Event},
     event_consume,
-    gui::{register_render, render, RenderType},
-    imgui::{sys::cty::c_char, Window},
+    gui::{register_render, unregister_render, render, RenderType},
+    imgui::{sys::cty::c_char, Ui, Window},
     keybind::{keybind_handler, register_keybind_with_string},
     paths::get_addon_dir,
     quick_access::add_quick_access,
@@ -17,7 +17,7 @@ use std::sync::OnceLock;
 use std::sync::Once;
 use arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned};
 use arcdps::Affinity;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 static SENDER: OnceLock<Sender<TimarksThreadEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
@@ -95,6 +95,39 @@ fn load_timarks(mut tm_receiver: Receiver<TimarksThreadEvent>) {
     rt.block_on(evt_loop);
 }
 
+struct RenderState {
+    window_open: bool,
+    show: bool,
+}
+
+impl RenderState {
+    const fn new() -> Self {
+        Self{window_open: true, show: false}
+    }
+    fn keybind_handler(&mut self, id: &str, is_release: bool) {
+        if !is_release {
+            self.window_open = !self.window_open;
+        }
+    }
+    fn render(&mut self, ui: &Ui) {
+        let show = &mut self.show;
+        if self.window_open {
+            Window::new("Timarks").opened(&mut self.window_open).build(ui, || {
+                if *show {
+                    *show = !ui.button("hide");
+                    ui.text("Hello world");
+                } else {
+                    *show = ui.button("show");
+                }
+            });
+        }
+    }
+    fn build_window(&mut self, ui: &Ui) {
+    }
+}
+
+static RENDER_STATE: Mutex<RenderState> = const { Mutex::new(RenderState::new()) };
+
 fn load() {
     log::info!("Loading addon");
     let intiface_server_default = "ws://localhost:12345";
@@ -103,29 +136,12 @@ fn load() {
     let tm_handler = thread::spawn(|| { load_timarks(event_receiver) });
     TM_THREAD.set(tm_handler);
     SENDER.set(event_sender);
+    let timark_window = render!(|ui| {
+            let mut state = RENDER_STATE.lock().unwrap();
+            state.render(ui)
+        });
 
-    register_render(
-        RenderType::Render,
-        render!(|ui| {
-            Window::new("Timarks").build(ui, || {
-                // this is fine since imgui is single threaded
-                thread_local! { static SHOW: Cell<bool> = const { Cell::new(false) }; }
-
-                let mut show = SHOW.get();
-
-                if show {
-                    show = !ui.button("hide");
-                    ui.text("Hello world");
-                } else {
-                    show = ui.button("show");
-                }
-
-                SHOW.set(show);
-            });
-        }),
-    )
-    .revert_on_unload();
-
+    register_render(RenderType::Render, timark_window).revert_on_unload();
     let receive_texture =
         texture_receive!(|id: &str, _texture: Option<&Texture>| log::info!("texture {id} loaded"));
     load_texture_from_file("TIMARKS_ICON", addon_dir.join("icon.png"), Some(receive_texture));
@@ -136,10 +152,10 @@ fn load() {
     );
 
 
-    let keybind_handler = keybind_handler!(|id, is_release| log::info!(
-        "Keybind {id} {}",
-        if is_release { "released" } else { "pressed" }
-    ));
+    let keybind_handler = keybind_handler!(|id, is_release| {
+            let mut state = RENDER_STATE.lock().unwrap();
+            state.keybind_handler(id, is_release)
+    });
     register_keybind_with_string("TIMARKS_MENU_KEYBIND", keybind_handler, "ALT+SHIFT+M").revert_on_unload();
     add_quick_access(
         "Timarks Control",
