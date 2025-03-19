@@ -1,22 +1,22 @@
-** GW2Timarks
-   Timers, markers and pathing, hopefully.
+* GW2Timarks
+  Timers, markers and pathing, hopefully.
 
   Timers data: https://github.com/QuitarHero/Hero-Timers
   Marker Data: https://github.com/manlaan/BlishHud-CommanderMarkers/tree/bhud-static/Manlaan.CommanderMarkers
-*** To-do
-    - ( ) Timers
-    -- ( ) Get DLL loaded with proper name
-    -- ( ) UI window toggle on button
-    -- ( ) Timers file serde structs
-    -- ( ) Get a timers set of timers running, loaded from file
-    --- ( ) Correct in-world area detection
-    ---- ( ) Map
-    ---- ( ) Area
-    -- ( ) Load every single timer file
-    - ( ) Markers
-    -- File format serde structs
-    -- ( ) Reusable 3D rendering system over viewport
-    - ( ) Pathing
-    -- ( ) Base pack format
-    -- ( ) Lua
+** To-do
+   - ( ) Timers
+   -- (x) Get DLL loaded with proper name
+   -- ( ) UI window toggle on button
+   -- ( ) Timers file serde structs
+   -- ( ) Get a timers set of timers running, loaded from file
+   --- ( ) Correct in-world area detection
+   ---- ( ) Map
+   ---- ( ) Area
+   -- ( ) Load every single timer file
+   - ( ) Markers
+   -- File format serde structs
+   -- ( ) Reusable 3D rendering system over viewport
+   - ( ) Pathing
+   -- ( ) Base pack format
+   -- ( ) Lua
 
