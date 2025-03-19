@@ -28,9 +28,9 @@ use glob::{glob, Paths};
 use std::path::{Path, PathBuf};
 
 mod xnacolour;
-mod types;
+mod bhtimer;
 use xnacolour::XNAColour;
-use types::*;
+use bhtimer::*;
 
 static SENDER: OnceLock<Sender<TimarksThreadEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
@@ -47,11 +47,18 @@ nexus::export! {
     log_filter: "debug"
 }
 
+struct TimerState {
+    timer_file: bhtimer::TimerFile,
+    current_phase: String,
+    time_elapsed: tokio::time::Duration,
+}
+
 enum TimarksThreadEvent {
     Quit,
 }
 
 struct TimarksState {
+
 }
 
 impl TimarksState {
@@ -104,7 +111,6 @@ fn load_timarks(mut tm_receiver: Receiver<TimarksThreadEvent>) {
             log::error!("Error! {}", error);
             return
         },
-        
     };
     rt.block_on(evt_loop);
 }
@@ -142,7 +148,7 @@ impl RenderState {
 
 static RENDER_STATE: Mutex<RenderState> = const { Mutex::new(RenderState::new()) };
 
-fn load_timer_file(path: PathBuf) -> anyhow::Result<types::TimerFile> {
+fn load_timer_file(path: PathBuf) -> anyhow::Result<bhtimer::TimerFile> {
     log::info!("Attempting to load the timer file at '{path:?}'.");
     let mut file = File::open(path)?;
     let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
@@ -154,7 +160,7 @@ fn get_paths(path: &PathBuf) -> anyhow::Result<Paths> {
     Ok(timer_paths)
 }
 
-fn load_timer_files(addon_dir: &PathBuf) -> Vec<types::TimerFile> {
+fn load_timer_files(addon_dir: &PathBuf) -> Vec<bhtimer::TimerFile> {
     let mut timers = Vec::new();
     let glob_str = addon_dir.join("*.bhtimer");
     log::info!("Path to load timer files is '{glob_str:?}'.");

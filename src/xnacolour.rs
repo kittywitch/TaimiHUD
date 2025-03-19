@@ -43,20 +43,3 @@ where
             .into_color_unclamped()
     }
 }
-
-/*
-pub fn deserialize<'de, D: Deserializer<'de>>(de: D) -> Result<XNAColour, D::Error> {
-    let (r, g, b, a) = <(u8, u8, u8, f32)>::deserialize(de)?;
-
-    Ok(XNAColour { red: r,
-        green: g,
-        blue: b,
-        alpha: a
-        })
-}
-
-pub fn serialize<S: Serializer>(colour: &XNAColour, ser: S) -> Result<S::Ok, S::Error> {
-    let colour = (colour.red, colour.green, colour.blue, colour.alpha);
-
-    colour.serialize(ser)
-}*/
