@@ -19,10 +19,13 @@ use arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwn
 use arcdps::Affinity;
 use std::sync::{Arc, Mutex};
 use glam::f32::Vec3;
+use std::fs::File;
 use palette::rgb::Rgb;
 use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
 use palette::{Srgba};
 use serde::{Deserialize, Serialize};
+use glob::{glob, Paths};
+use std::path::{Path, PathBuf};
 
 mod xnacolour;
 mod types;
@@ -139,9 +142,41 @@ impl RenderState {
 
 static RENDER_STATE: Mutex<RenderState> = const { Mutex::new(RenderState::new()) };
 
+fn load_timer_file(path: PathBuf) -> anyhow::Result<types::TimerFile> {
+    log::info!("Attempting to load the timer file at '{path:?}'.");
+    let mut file = File::open(path)?;
+    let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
+    return Ok(timer_data)
+}
+
+fn get_paths(path: &PathBuf) -> anyhow::Result<Paths> {
+    let timer_paths: Paths = glob(path.to_str().expect("Pattern is unparseable"))?;
+    Ok(timer_paths)
+}
+
+fn load_timer_files(addon_dir: &PathBuf) -> Vec<types::TimerFile> {
+    let mut timers = Vec::new();
+    let glob_str = addon_dir.join("*.bhtimer");
+    log::info!("Path to load timer files is '{glob_str:?}'.");
+    let timer_paths: Paths = get_paths(&glob_str).unwrap();
+    for path in timer_paths {
+        let path = path.expect("Path illegible!");
+        match load_timer_file(path.clone()) {
+            Ok(data) => {
+                log::info!("Successfully loaded the timer file at '{path:?}'.");
+                timers.push(data)
+            },
+            Err(error) => log::warn!("Failed to load the timer file at '{path:?}': {error}."),
+        };
+    }
+    timers
+}
+
 fn load() {
     log::info!("Loading addon");
     let addon_dir = get_addon_dir("timarks").expect("invalid addon dir");
+    let timer_files = load_timer_files(&addon_dir);
+    log::debug!("Timers: {:?}", timer_files);
     let (event_sender, event_receiver) = channel::<TimarksThreadEvent>(32);
     let tm_handler = thread::spawn(|| { load_timarks(event_receiver) });
     TM_THREAD.set(tm_handler);

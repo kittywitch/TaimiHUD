@@ -21,7 +21,7 @@ impl Default for TimerTriggerType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct TimerTrigger {
+pub struct TimerTrigger {
     #[serde(rename = "type", default)]
     kind: TimerTriggerType,
     key_bind: Option<String>,
@@ -40,7 +40,7 @@ struct TimerTrigger {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct TimerFile {
+pub struct TimerFile {
     id: String,
     name: String,
     category: String,
@@ -54,7 +54,7 @@ struct TimerFile {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct TimerPhase {
+pub struct TimerPhase {
     name: String,
     start: TimerTrigger,
     alerts: Vec<TimerAlert>,
@@ -88,7 +88,7 @@ impl Default for TimerActionType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct TimerAction {
+pub struct TimerAction {
     name: String,
     #[serde(rename = "type", default)]
     kind: TimerActionType,
@@ -98,14 +98,14 @@ struct TimerAction {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct TimerAlert {
-    warning_duration: f32,
-    alert_duration: f32,
-    warning: String,
-    warning_color: XNAColour,
-    alert: String,
-    alert_color: XNAColour,
-    icon: String,
-    fill_color: XNAColour,
+pub struct TimerAlert {
+    warning_duration: Option<f32>,
+    alert_duration: Option<f32>,
+    warning: Option<String>,
+    warning_color: Option<XNAColour>,
+    alert: Option<String>,
+    alert_color: Option<XNAColour>,
+    icon: Option<String>,
+    fill_color: Option<XNAColour>,
 }
 
