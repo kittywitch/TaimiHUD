@@ -23,43 +23,45 @@ impl Default for TimerTriggerType {
 #[serde(rename_all = "camelCase")]
 pub struct TimerTrigger {
     #[serde(rename = "type", default)]
-    kind: TimerTriggerType,
-    key_bind: Option<String>,
-    position: Option<Vec3>,
-    antipode: Option<Vec3>,
-    radius: Option<f32>,
+    pub kind: TimerTriggerType,
+    pub key_bind: Option<String>,
+    pub position: Option<Vec3>,
+    pub antipode: Option<Vec3>,
+    pub radius: Option<f32>,
     #[serde(default)]
-    require_combat: bool,
+    pub require_combat: bool,
     #[serde(default)]
-    require_out_of_combat: bool,
+    pub require_out_of_combat: bool,
     #[serde(default)]
-    require_entry: bool,
+    pub require_entry: bool,
     #[serde(default)]
-    require_departure: bool,
+    pub require_departure: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerFile {
-    id: String,
-    name: String,
-    category: String,
-    description: String,
-    author: String,
-    icon: String,
-    map: u32,
-    reset: TimerTrigger,
-    phases: Vec<TimerPhase>,
+    pub id: String,
+    pub name: String,
+    pub category: String,
+    pub description: String,
+    pub author: String,
+    pub icon: String,
+    // I probably don't need to do this, but it's convenient :o
+    #[serde(rename = "map")]
+    pub map_id: u32,
+    pub reset: TimerTrigger,
+    pub phases: Vec<TimerPhase>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerPhase {
-    name: String,
-    start: TimerTrigger,
-    alerts: Vec<TimerAlert>,
+    pub name: String,
+    pub start: TimerTrigger,
+    pub alerts: Vec<TimerAlert>,
     #[serde(default)]
-    actions: Vec<TimerAction>,
+    pub actions: Vec<TimerAction>,
     /*
     * Not yet implemented:
     * - directions
@@ -89,23 +91,23 @@ impl Default for TimerActionType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerAction {
-    name: String,
+    pub name: String,
     #[serde(rename = "type", default)]
-    kind: TimerActionType,
-    sets: Option<Vec<String>>,
-    trigger: TimerTrigger,
+    pub kind: TimerActionType,
+    pub sets: Option<Vec<String>>,
+    pub trigger: TimerTrigger,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerAlert {
-    warning_duration: Option<f32>,
-    alert_duration: Option<f32>,
-    warning: Option<String>,
-    warning_color: Option<XNAColour>,
-    alert: Option<String>,
-    alert_color: Option<XNAColour>,
-    icon: Option<String>,
-    fill_color: Option<XNAColour>,
+    pub warning_duration: Option<f32>,
+    pub alert_duration: Option<f32>,
+    pub warning: Option<String>,
+    pub warning_color: Option<XNAColour>,
+    pub alert: Option<String>,
+    pub alert_color: Option<XNAColour>,
+    pub icon: Option<String>,
+    pub fill_color: Option<XNAColour>,
 }
 

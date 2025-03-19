@@ -1,5 +1,5 @@
 {
-  description = "gw2timarks-rs; timers, markers and hopefully paths for raidcore.gg nexus";
+  description = "TaimiHUD; timers, markers and hopefully paths for raidcore.gg nexus";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     rust-overlay = {
