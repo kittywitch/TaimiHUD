@@ -1,0 +1,16 @@
+[package]
+name = "gw2timarks-rs"
+authors = [ "kittywitch" ]
+description = "Timers, markers and pathing, a WIP"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1.0.95"
+log = "0.4.21"
+nexus = { git = "https://github.com/zerthox/nexus-rs", features = ["log", "arc", "extras"] }
+tokio = { version = "1.43.0", features = [ "full" ] }
+arcdps = { git = "https://github.com/zerthox/arcdps-rs", tag = "0.15.1" }
+
+[lib]
+crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)
