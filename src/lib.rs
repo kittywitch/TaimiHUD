@@ -174,7 +174,6 @@ impl TaimiState {
                     Location => {
                         let p1 = start_trigger.position().unwrap();
                         if let Some(player) = self.player_position {
-                            // I don't know why this is necessary
                             // Check a sphere
                             if let Some(radius) = start_trigger.radius {
                                     if p1.distance(player) < radius {
