@@ -2,13 +2,36 @@ use glam::f32::Vec3;
 use palette::rgb::Rgb;
 use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
 use palette::{Srgba};
-use serde::{Deserialize, Serialize};
-
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use crate::xnacolour::XNAColour;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(transparent)]
+struct BlishVec3 {
+    child: Vec3
+}
+
+impl BlishVec3 {
+    pub fn to_vec3(&self) -> Vec3 {
+        Vec3::new(self.child.x, self.child.z, self.child.y)
+    }
+
+    pub fn from_vec3(vec3: Vec3) -> Self {
+        BlishVec3 {
+            child: Vec3::new(vec3.x, vec3.z, vec3.y),
+        }
+    }
+
+    pub fn from_raw_vec3(vec3: Vec3) -> Self {
+        BlishVec3 {
+            child: vec3,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-enum TimerTriggerType {
+pub enum TimerTriggerType {
     Location,
     Key,
 }
@@ -25,8 +48,8 @@ pub struct TimerTrigger {
     #[serde(rename = "type", default)]
     pub kind: TimerTriggerType,
     pub key_bind: Option<String>,
-    pub position: Option<Vec3>,
-    pub antipode: Option<Vec3>,
+    pub position: Option<BlishVec3>,
+    pub antipode: Option<BlishVec3>,
     pub radius: Option<f32>,
     #[serde(default)]
     pub require_combat: bool,
@@ -36,6 +59,16 @@ pub struct TimerTrigger {
     pub require_entry: bool,
     #[serde(default)]
     pub require_departure: bool,
+}
+
+impl TimerTrigger {
+    pub fn position(&self) -> Option<Vec3> {
+        self.position.as_ref().map(BlishVec3::to_vec3)
+    }
+
+    pub fn antipode(&self) -> Option<Vec3> {
+        self.antipode.as_ref().map(BlishVec3::to_vec3)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -59,6 +92,7 @@ pub struct TimerFile {
 pub struct TimerPhase {
     pub name: String,
     pub start: TimerTrigger,
+    pub finish: TimerTrigger,
     pub alerts: Vec<TimerAlert>,
     #[serde(default)]
     pub actions: Vec<TimerAction>,
@@ -78,7 +112,7 @@ pub struct TimerPhase {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-enum TimerActionType {
+pub enum TimerActionType {
     SkipTime,
 }
 

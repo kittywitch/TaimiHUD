@@ -22,7 +22,7 @@ use std::sync::Once;
 use arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned};
 use arcdps::Affinity;
 use std::sync::{Arc, Mutex};
-use glam::f32::Vec3;
+use glam::{swizzles::*, f32::Vec3};
 use std::fs::File;
 use palette::rgb::Rgb;
 use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
@@ -92,6 +92,8 @@ struct TaimiState {
     category_to_timer_ids: HashMap<String, Vec<String>>,
     map_id: Option<u32>,
     player_position: Option<Vec3>,
+    timers_for_map: Vec<String>,
+    starts_to_check: HashMap<String, TimerPhase>,
 }
 
 impl TaimiState {
@@ -148,6 +150,42 @@ impl TaimiState {
     }
 
     async fn tick(&mut self) -> anyhow::Result<()> {
+            let mut started_ids = Vec::new();
+            for (timer_id, start_phase) in &self.starts_to_check {
+                use bhtimer::TimerTriggerType::*;
+                let start_trigger = &start_phase.start;
+                match &start_trigger.kind {
+                    Location => {
+                        let p1 = start_trigger.position().unwrap();
+                        if let Some(player) = self.player_position {
+                            // I don't know why this is necessary
+                            // Check a sphere
+                            if let Some(radius) = start_trigger.radius {
+                                    if p1.distance(player) < radius {
+                                        log::info!("Player is within the spherical boundary for '{}'.", start_phase.name);
+                                        started_ids.push(timer_id.clone());
+                                    }
+                            }
+                            // Check a cuboid
+                            if let Some(p2) = start_trigger.antipode() {
+                                let mins = p1.min(p2);
+                                let maxs = p1.max(p2);
+                                let min_cmp = player.cmpge(mins);
+                                let max_cmp = player.cmple(maxs);
+                                let player_in_area = min_cmp.all() && max_cmp.all();
+                                if player_in_area {
+                                    log::info!("Player is within the cuboid boundary for '{}'.", start_phase.name);
+                                    started_ids.push(timer_id.clone());
+                                }
+                            }
+                        }
+                    },
+                    Key => (),
+                }
+            }
+            for started_id in started_ids {
+               self.starts_to_check.remove(&started_id);
+            }
             Ok(())
     }
 
@@ -173,8 +211,18 @@ impl TaimiState {
                     if self.map_id_to_timer_ids.contains_key(map_id_local) {
                         let timers_for_map = &self.map_id_to_timer_ids[map_id_local];
                         let timers_list = timers_for_map.join(", ");
+                        let mut starts_to_check = HashMap::new();
+                        for timer_id in timers_for_map {
+                            let timer = &self.timers[timer_id];
+                            let start_phase = &timer.phases[0];
+                            starts_to_check.insert(timer_id.clone(), start_phase.clone());
+                        };
+                        self.starts_to_check = starts_to_check;
+                        self.timers_for_map = timers_for_map.to_vec();
                         log::info!("Timers found for map {0}: {1}", map_id_local, timers_list);
                     } else {
+                        self.starts_to_check = HashMap::new();
+                        self.timers_for_map = Vec::new();
                         log::info!("No timers found for map {0}.", map_id_local);
                     }
                 }
@@ -199,6 +247,8 @@ fn load_taimi(mut tm_receiver: Receiver<TaimiThreadEvent>, addon_dir: PathBuf) {
         category_to_timer_ids: HashMap::new(),
         map_id: None,
         player_position: None,
+        timers_for_map: Default::default(),
+        starts_to_check: Default::default(),
     };
 
     let evt_loop = async move {
