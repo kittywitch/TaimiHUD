@@ -6,10 +6,12 @@
 })}:
 
 pkgs.callPackage (
-{ mkShell, stdenv, rust-bin, windows, wine64 }:
+{ mkShell, stdenv, rust-bin, rustfmt, rust-analyzer, windows, wine64 }:
 mkShell {
   nativeBuildInputs = [
     rust-bin.stable.latest.minimal
+    rust-analyzer
+    rust-bin.nightly.latest.rustfmt
   ];
 
   depsBuildBuild = [ wine64 ];

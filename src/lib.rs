@@ -1,44 +1,54 @@
-use nexus::{
-    event::{arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL},
-        MUMBLE_IDENTITY_UPDATED, MumbleIdentityUpdate,
-        event_subscribe, Event,
+use {
+    arcdps::{
+        evtc::event::{EnterCombatEvent, Event as arcEvent},
+        Affinity, Agent, AgentOwned,
     },
-    data_link::{read_mumble_link, MUMBLE_LINK, MumbleLink},
-    event_consume,
-    gui::{register_render, unregister_render, render, RenderType},
-    imgui::{sys::cty::c_char, Ui, Window},
-    keybind::{keybind_handler, register_keybind_with_string},
-    paths::get_addon_dir,
-    quick_access::add_quick_access,
-    texture::{load_texture_from_file, texture_receive, Texture},
-    AddonFlags, UpdateProvider,
+    glam::{f32::Vec3, swizzles::*},
+    glob::{glob, Paths},
+    nexus::{
+        data_link::{read_mumble_link, MumbleLink, MUMBLE_LINK},
+        event::{
+            arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL},
+            event_subscribe, Event, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
+        },
+        event_consume,
+        gui::{register_render, render, unregister_render, RenderType},
+        imgui::{sys::cty::c_char, Ui, Window},
+        keybind::{keybind_handler, register_keybind_with_string},
+        paths::get_addon_dir,
+        quick_access::add_quick_access,
+        texture::{load_texture_from_file, texture_receive, Texture},
+        AddonFlags, UpdateProvider,
+    },
+    palette::{
+        convert::{FromColorUnclamped, IntoColorUnclamped},
+        rgb::Rgb,
+        Srgba,
+    },
+    serde::{Deserialize, Serialize},
+    std::{
+        cell::{Cell, Ref, RefCell},
+        collections::VecDeque,
+        ffi::CStr,
+        fs::File,
+        path::{Path, PathBuf},
+        ptr,
+        sync::{Arc, Mutex, Once, OnceLock},
+        thread::{self, JoinHandle},
+    },
+    tokio::{
+        io::{self, AsyncBufReadExt, BufReader},
+        runtime, select,
+        sync::mpsc::{channel, error::TryRecvError, Receiver, Sender},
+        task::JoinSet,
+    },
 };
-use tokio::{runtime, select, task::JoinSet};
-use tokio::sync::mpsc::{Receiver, Sender, channel, error::TryRecvError};
-use tokio::io::{self, AsyncBufReadExt, BufReader};
-use std::{cell::{Cell, Ref, RefCell}, collections::VecDeque, ffi::CStr, ptr, thread::{self, JoinHandle}};
-use std::sync::OnceLock;
-use std::sync::Once;
-use arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned};
-use arcdps::Affinity;
-use std::sync::{Arc, Mutex};
-use glam::{swizzles::*, f32::Vec3};
-use std::fs::File;
-use palette::rgb::Rgb;
-use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
-use palette::{Srgba};
-use serde::{Deserialize, Serialize};
-use glob::{glob, Paths};
-use std::path::{Path, PathBuf};
-mod xnacolour;
 mod bhtimer;
-use xnacolour::XNAColour;
-use bhtimer::*;
-use std::collections::HashMap;
+mod xnacolour;
+use {bhtimer::*, std::collections::HashMap, xnacolour::XNAColour};
 
 static SENDER: OnceLock<Sender<TaimiThreadEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
-
 
 nexus::export! {
     name: "TaimiHUD",
@@ -74,6 +84,7 @@ struct TimerMachine {
 
 impl TimerMachine {
     async fn process_state(&mut self, map_id: u32, position: Vec3, combat: bool) {
+        if self.machine_state == TimerMachineState::OnMap {}
     }
 }
 
@@ -112,7 +123,7 @@ impl TaimiState {
         log::info!("Attempting to load the timer file at '{path:?}'.");
         let mut file = File::open(path)?;
         let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
-        return Ok(timer_data)
+        return Ok(timer_data);
     }
 
     async fn get_paths(&self, path: &PathBuf) -> anyhow::Result<Paths> {
@@ -120,7 +131,7 @@ impl TaimiState {
         Ok(timer_paths)
     }
 
-    async fn load_timer_files(&self) -> Vec<bhtimer::TimerFile> {
+    async fn load_timer_files() -> Vec<bhtimer::TimerFile> {
         let mut timers = Vec::new();
         let glob_str = self.addon_dir.join("*.bhtimer");
         log::info!("Path to load timer files is '{glob_str:?}'.");
@@ -131,7 +142,7 @@ impl TaimiState {
                 Ok(data) => {
                     log::info!("Successfully loaded the timer file at '{path:?}'.");
                     timers.push(data);
-                },
+                }
                 Err(error) => log::warn!("Failed to load the timer file at '{path:?}': {error}."),
             };
         }
@@ -146,16 +157,27 @@ impl TaimiState {
             let timer_held = timer.clone();
             // Handle map_id to timer_id
             if !self.map_id_to_timer_ids.contains_key(&timer.map_id) {
-                self.map_id_to_timer_ids.insert(timer.map_id.clone(), Vec::new());
+                self.map_id_to_timer_ids
+                    .insert(timer.map_id.clone(), Vec::new());
             }
-            if let Some(val) = self.map_id_to_timer_ids.get_mut(&timer.map_id) { val.push(timer.id.clone()); };
+            if let Some(val) = self.map_id_to_timer_ids.get_mut(&timer.map_id) {
+                val.push(timer.id.clone());
+            };
             // Handle category to timer_id list
             if !self.category_to_timer_ids.contains_key(&timer.category) {
-                self.category_to_timer_ids.insert(timer.category.clone(), Vec::new());
+                self.category_to_timer_ids
+                    .insert(timer.category.clone(), Vec::new());
             }
-            if let Some(val) = self.category_to_timer_ids.get_mut(&timer.category) { val.push(timer.id.clone()); };
+            if let Some(val) = self.category_to_timer_ids.get_mut(&timer.category) {
+                val.push(timer.id.clone());
+            };
             // Handle id to timer file allocation
-            log::info!("Set up {0} for map {1}, category {2}", timer.id, timer.map_id, timer.category);
+            log::info!(
+                "Set up {0} for map {1}, category {2}",
+                timer.id,
+                timer.map_id,
+                timer.category
+            );
             self.timers.insert(timer.id, timer_held);
         }
     }
@@ -166,59 +188,69 @@ impl TaimiState {
     // This avoids mutating a collection and allows us to reckon with these things as checking the
     // Enum value
     async fn tick(&mut self) -> anyhow::Result<()> {
-            let mut started_ids = Vec::new();
-            for (timer_id, start_phase) in &self.starts_to_check {
-                use bhtimer::TimerTriggerType::*;
-                let start_trigger = &start_phase.start;
-                match &start_trigger.kind {
-                    Location => {
-                        let p1 = start_trigger.position().unwrap();
-                        if let Some(player) = self.player_position {
-                            // Check a sphere
-                            if let Some(radius) = start_trigger.radius {
-                                    if p1.distance(player) < radius {
-                                        log::info!("Player is within the spherical boundary for '{}'.", start_phase.name);
-                                        started_ids.push(timer_id.clone());
-                                    }
-                            }
-                            // Check a cuboid
-                            if let Some(p2) = start_trigger.antipode() {
-                                let mins = p1.min(p2);
-                                let maxs = p1.max(p2);
-                                let min_cmp = player.cmpge(mins);
-                                let max_cmp = player.cmple(maxs);
-                                let player_in_area = min_cmp.all() && max_cmp.all();
-                                if player_in_area {
-                                    log::info!("Player is within the cuboid boundary for '{}'.", start_phase.name);
-                                    started_ids.push(timer_id.clone());
-                                }
+        let mut started_ids = Vec::new();
+        for (timer_id, start_phase) in &self.starts_to_check {
+            use bhtimer::TimerTriggerType::*;
+            let start_trigger = &start_phase.start;
+            match &start_trigger.kind {
+                Location => {
+                    let p1 = start_trigger.position().unwrap();
+                    if let Some(player) = self.player_position {
+                        // Check a sphere
+                        if let Some(radius) = start_trigger.radius {
+                            if p1.distance(player) < radius {
+                                log::info!(
+                                    "Player is within the spherical boundary for '{}'.",
+                                    start_phase.name
+                                );
+                                started_ids.push(timer_id.clone());
                             }
                         }
-                    },
-                    Key => (),
+                        // Check a cuboid
+                        if let Some(p2) = start_trigger.antipode() {
+                            let mins = p1.min(p2);
+                            let maxs = p1.max(p2);
+                            let min_cmp = player.cmpge(mins);
+                            let max_cmp = player.cmple(maxs);
+                            let player_in_area = min_cmp.all() && max_cmp.all();
+                            if player_in_area {
+                                log::info!(
+                                    "Player is within the cuboid boundary for '{}'.",
+                                    start_phase.name
+                                );
+                                started_ids.push(timer_id.clone());
+                            }
+                        }
+                    }
                 }
+                Key => (),
             }
-            for started_id in started_ids {
-               self.starts_to_check.remove(&started_id);
-            }
-            Ok(())
+        }
+        for started_id in started_ids {
+            self.starts_to_check.remove(&started_id);
+        }
+        Ok(())
     }
 
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
-            self.cached_link = read_mumble_link();
-            if let Some(link) = &self.cached_link {
-                self.player_position = Some(Vec3::from_array(link.avatar.position));
-            };
-            Ok(())
+        self.cached_link = read_mumble_link();
+        if let Some(link) = &self.cached_link {
+            self.player_position = Some(Vec3::from_array(link.avatar.position));
+        };
+        Ok(())
     }
 
-   async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
+    async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
         use TaimiThreadEvent::*;
         match event {
             MumbleIdentityUpdated(identity) => {
                 if self.map_id != Some(identity.map_id) {
                     match self.map_id {
-                        Some(map_id) => log::info!("User has changed map from {0} to {1}", map_id, identity.map_id),
+                        Some(map_id) => log::info!(
+                            "User has changed map from {0} to {1}",
+                            map_id,
+                            identity.map_id
+                        ),
                         None => log::info!("User's map is {0}", identity.map_id),
                     }
                     self.map_id = Some(identity.map_id);
@@ -231,7 +263,7 @@ impl TaimiState {
                             let timer = &self.timers[timer_id];
                             let start_phase = &timer.phases[0];
                             starts_to_check.insert(timer_id.clone(), start_phase.clone());
-                        };
+                        }
                         self.starts_to_check = starts_to_check;
                         self.timers_for_map = timers_for_map.to_vec();
                         log::info!("Timers found for map {0}: {1}", map_id_local, timers_list);
@@ -242,11 +274,9 @@ impl TaimiState {
                     }
                 }
                 self.cached_identity = Some(identity);
-            },
-            Quit => {
-                return Ok(false)
-            },
-            _  => (),
+            }
+            Quit => return Ok(false),
+            _ => (),
         }
         Ok(true)
     }
@@ -257,9 +287,9 @@ fn load_taimi(mut tm_receiver: Receiver<TaimiThreadEvent>, addon_dir: PathBuf) {
         addon_dir: addon_dir,
         cached_identity: None,
         cached_link: None,
-        timers: HashMap::new(),
-        map_id_to_timer_ids: HashMap::new(),
-        category_to_timer_ids: HashMap::new(),
+        timers: Default::default(),
+        map_id_to_timer_ids: Default::default(),
+        category_to_timer_ids: Default::default(),
         map_id: None,
         player_position: None,
         timers_for_map: Default::default(),
@@ -280,7 +310,7 @@ fn load_taimi(mut tm_receiver: Receiver<TaimiThreadEvent>, addon_dir: PathBuf) {
                             Err(error) => {
                                 log::error!("Error! {}", error)
                             }
-                        } 
+                        }
                     },
                     None => {
                         break
@@ -299,8 +329,8 @@ fn load_taimi(mut tm_receiver: Receiver<TaimiThreadEvent>, addon_dir: PathBuf) {
         Ok(rt) => rt,
         Err(error) => {
             log::error!("Error! {}", error);
-            return
-        },
+            return;
+        }
     };
     rt.block_on(evt_loop);
 }
@@ -312,7 +342,10 @@ struct RenderState {
 
 impl RenderState {
     const fn new() -> Self {
-        Self{window_open: true, show: false}
+        Self {
+            window_open: true,
+            show: false,
+        }
     }
     fn keybind_handler(&mut self, id: &str, is_release: bool) {
         if !is_release {
@@ -322,18 +355,19 @@ impl RenderState {
     fn render(&mut self, ui: &Ui) {
         let show = &mut self.show;
         if self.window_open {
-            Window::new("Taimi").opened(&mut self.window_open).build(ui, || {
-                if *show {
-                    *show = !ui.button("hide");
-                    ui.text("Hello world");
-                } else {
-                    *show = ui.button("show");
-                }
-            });
+            Window::new("Taimi")
+                .opened(&mut self.window_open)
+                .build(ui, || {
+                    if *show {
+                        *show = !ui.button("hide");
+                        ui.text("Hello world");
+                    } else {
+                        *show = ui.button("show");
+                    }
+                });
         }
     }
-    fn build_window(&mut self, ui: &Ui) {
-    }
+    fn build_window(&mut self, ui: &Ui) {}
 }
 
 static RENDER_STATE: Mutex<RenderState> = const { Mutex::new(RenderState::new()) };
@@ -344,31 +378,29 @@ fn load() {
     let authors = env!("CARGO_PKG_AUTHORS");
     log::info!("Loading {name} by {authors}");
 
-
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
     let passed_addon_dir = addon_dir.clone();
     let (event_sender, event_receiver) = channel::<TaimiThreadEvent>(32);
-    let tm_handler = thread::spawn(|| { load_taimi(event_receiver, addon_dir) });
+    let tm_handler = thread::spawn(|| load_taimi(event_receiver, addon_dir));
     TM_THREAD.set(tm_handler);
     SENDER.set(event_sender);
 
     // Rendering setup
     let taimi_window = render!(|ui| {
-            let mut state = RENDER_STATE.lock().unwrap();
-            state.render(ui)
+        let mut state = RENDER_STATE.lock().unwrap();
+        state.render(ui)
     });
 
     register_render(RenderType::Render, taimi_window).revert_on_unload();
 
-
-
     // Handle window toggling with keybind and button
     let keybind_handler = keybind_handler!(|id, is_release| {
-            let mut state = RENDER_STATE.lock().unwrap();
-            state.keybind_handler(id, is_release)
+        let mut state = RENDER_STATE.lock().unwrap();
+        state.keybind_handler(id, is_release)
     });
-    register_keybind_with_string("TAIMI_MENU_KEYBIND", keybind_handler, "ALT+SHIFT+M").revert_on_unload();
+    register_keybind_with_string("TAIMI_MENU_KEYBIND", keybind_handler, "ALT+SHIFT+M")
+        .revert_on_unload();
 
     // Disused currently, icon loading for quick access
     /*
@@ -392,16 +424,18 @@ fn load() {
     .revert_on_unload();
 
     // MumbleLink Identity
-    MUMBLE_IDENTITY_UPDATED.subscribe(event_consume!(<MumbleIdentityUpdate> |mumble_identity| {
-        let sender = SENDER.get().unwrap();
-        match mumble_identity {
-            None => (),
-            Some(ident) => {
-                let copied_identity = ident.clone();
-                sender.try_send(TaimiThreadEvent::MumbleIdentityUpdated(copied_identity));
-            },
-        }
-    })).revert_on_unload();
+    MUMBLE_IDENTITY_UPDATED
+        .subscribe(event_consume!(<MumbleIdentityUpdate> |mumble_identity| {
+            let sender = SENDER.get().unwrap();
+            match mumble_identity {
+                None => (),
+                Some(ident) => {
+                    let copied_identity = ident.clone();
+                    sender.try_send(TaimiThreadEvent::MumbleIdentityUpdated(copied_identity));
+                },
+            }
+        }))
+        .revert_on_unload();
 }
 
 fn unload() {

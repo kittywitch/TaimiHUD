@@ -1,13 +1,14 @@
-use palette::rgb::Rgb;
-use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
-use palette::{Srgba,Srgb,WithAlpha};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use {
+    palette::{
+        convert::{FromColorUnclamped, IntoColorUnclamped},
+        rgb::Rgb,
+        Srgb, Srgba, WithAlpha,
+    },
+    serde::{Deserialize, Deserializer, Serialize, Serializer},
+};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, FromColorUnclamped, WithAlpha, Clone)]
-#[palette(
-    skip_derives(Rgb),
-    rgb_standard = "palette::encoding::Srgb"
-)]
+#[palette(skip_derives(Rgb), rgb_standard = "palette::encoding::Srgb")]
 pub struct XNAColour {
     red: u8,
     green: u8,
@@ -18,26 +19,25 @@ pub struct XNAColour {
 
 impl<S> FromColorUnclamped<Rgb<S, f32>> for XNAColour
 where
-    Srgb<f32>: FromColorUnclamped<Rgb<S, f32>>
+    Srgb<f32>: FromColorUnclamped<Rgb<S, f32>>,
 {
-    fn from_color_unclamped(color: Rgb<S, f32>) -> XNAColour{
-        let srgb = Srgb::from_color_unclamped(color)
-            .into_format();
+    fn from_color_unclamped(color: Rgb<S, f32>) -> XNAColour {
+        let srgb = Srgb::from_color_unclamped(color).into_format();
 
         XNAColour {
             red: srgb.red,
             green: srgb.green,
             blue: srgb.blue,
-            alpha: 1.0
+            alpha: 1.0,
         }
     }
 }
 
 impl<S> FromColorUnclamped<XNAColour> for Rgb<S, f32>
 where
-    Srgb<f32>: IntoColorUnclamped<Rgb<S, f32>>
+    Srgb<f32>: IntoColorUnclamped<Rgb<S, f32>>,
 {
-    fn from_color_unclamped(color: XNAColour) -> Rgb<S, f32>{
+    fn from_color_unclamped(color: XNAColour) -> Rgb<S, f32> {
         Srgb::new(color.red, color.green, color.blue)
             .into_format()
             .into_color_unclamped()

@@ -1,14 +1,18 @@
-use glam::f32::Vec3;
-use palette::rgb::Rgb;
-use palette::convert::{FromColorUnclamped, IntoColorUnclamped};
-use palette::{Srgba};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use crate::xnacolour::XNAColour;
+use {
+    crate::xnacolour::XNAColour,
+    glam::f32::Vec3,
+    palette::{
+        convert::{FromColorUnclamped, IntoColorUnclamped},
+        rgb::Rgb,
+        Srgba,
+    },
+    serde::{Deserialize, Deserializer, Serialize, Serializer},
+};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(transparent)]
 struct BlishVec3 {
-    child: Vec3
+    child: Vec3,
 }
 
 impl BlishVec3 {
@@ -23,9 +27,7 @@ impl BlishVec3 {
     }
 
     pub fn from_raw_vec3(vec3: Vec3) -> Self {
-        BlishVec3 {
-            child: vec3,
-        }
+        BlishVec3 { child: vec3 }
     }
 }
 
@@ -97,16 +99,16 @@ pub struct TimerPhase {
     #[serde(default)]
     pub actions: Vec<TimerAction>,
     /*
-    * Not yet implemented:
-    * - directions
-    * - markers
-    * - sounds
-    */
-    #[serde(skip_serializing,default)]
+     * Not yet implemented:
+     * - directions
+     * - markers
+     * - sounds
+     */
+    #[serde(skip_serializing, default)]
     directions: String,
-    #[serde(skip_serializing,default)]
+    #[serde(skip_serializing, default)]
     markers: String,
-    #[serde(skip_serializing,default)]
+    #[serde(skip_serializing, default)]
     sounds: String,
 }
 
@@ -144,4 +146,3 @@ pub struct TimerAlert {
     pub icon: Option<String>,
     pub fill_color: Option<XNAColour>,
 }
-
