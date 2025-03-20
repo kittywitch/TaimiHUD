@@ -149,6 +149,11 @@ impl TaimiState {
         }
     }
 
+    // TODO: refactor code such that the start triggers are handled as part of the
+    // TimerMachine, where we check if it is OnMap and untriggered...
+    // The code for checking sphere/cuboid regions should be built into the actual TimerMachine
+    // This avoids mutating a collection and allows us to reckon with these things as checking the
+    // Enum value
     async fn tick(&mut self) -> anyhow::Result<()> {
             let mut started_ids = Vec::new();
             for (timer_id, start_phase) in &self.starts_to_check {
