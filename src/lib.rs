@@ -64,6 +64,7 @@ enum TimerMachineState {
 
 #[derive(Debug, Clone)]
 struct TimerMachine {
+    // TODO: this should be an Arc<TimerFile>
     timer_file: bhtimer::TimerFile,
     current_phase: String,
     machine_state: TimerMachineState,
@@ -88,11 +89,21 @@ struct TaimiState {
     cached_identity: Option<MumbleIdentityUpdate>,
     cached_link: Option<MumbleLink>,
     timers: HashMap<String, TimerFile>,
+    // TODO: Refactor to be a hashmap of ID to pointer to timerfile
+    // instead of any use of timer_id, use the Arc as a shared reference
+    //
+    // * no longer have to worry about .clone()
+    // * don't have to worry about lifetimes thanks to arc
+    // THANKS ARC <3
+    //map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>,
+    //category_to_timers: HashMap<String, Vec<Arc<TimerFile>>,
     map_id_to_timer_ids: HashMap<u32, Vec<String>>,
     category_to_timer_ids: HashMap<String, Vec<String>>,
     map_id: Option<u32>,
     player_position: Option<Vec3>,
     timers_for_map: Vec<String>,
+    // TODO: This should be...
+    // current_timers: Vec<TimerMachine>
     starts_to_check: HashMap<String, TimerPhase>,
 }
 
