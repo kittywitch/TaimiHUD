@@ -30,7 +30,17 @@ Features:
 - [ ] Markers
 - [ ] Pathing
 
-## BlishHUD Data
+## References
 
-Timers Data: https://github.com/QuitarHero/Hero-Timers
-Marker Data: https://github.com/manlaan/BlishHud-CommanderMarkers/tree/bhud-static/Manlaan.CommanderMarkers
+### Nexus
+
+* https://docs.rs/nexus-rs/latest/nexus_rs/#
+* https://docs.rs/arcdps-imgui/0.8.0/arcdps_imgui/
+
+### Timers
+
+* Timers Data: https://github.com/QuitarHero/Hero-Timers
+* https://github.com/Dev-Zhao/Timers_BlishHUD
+
+### Markers
+* Marker Data: https://github.com/manlaan/BlishHud-CommanderMarkers/tree/bhud-static/Manlaan.CommanderMarkers
