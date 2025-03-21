@@ -227,7 +227,7 @@ impl Polytope {
             Polytope::NCuboid { pode, antipode } => {
                 let mins = pode.min(*antipode);
                 let maxes = pode.max(*antipode);
-                mins >= player && player <= maxes
+                player >= mins && player <= maxes
             }
             _ => panic!("This shouldn't happen :)"),
         }
