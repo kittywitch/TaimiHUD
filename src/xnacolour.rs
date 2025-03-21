@@ -2,9 +2,9 @@ use {
     palette::{
         convert::{FromColorUnclamped, IntoColorUnclamped},
         rgb::Rgb,
-        Srgb, Srgba, WithAlpha,
+        Srgb, WithAlpha,
     },
-    serde::{Deserialize, Deserializer, Serialize, Serializer},
+    serde::{Deserialize, Serialize},
 };
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, FromColorUnclamped, WithAlpha, Clone)]

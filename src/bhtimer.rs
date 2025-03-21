@@ -1,12 +1,7 @@
 use {
     crate::xnacolour::XNAColour,
     glam::f32::Vec3,
-    palette::{
-        convert::{FromColorUnclamped, IntoColorUnclamped},
-        rgb::Rgb,
-        Srgba,
-    },
-    serde::{Deserialize, Deserializer, Serialize, Serializer},
+    serde::{Deserialize, Serialize},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
