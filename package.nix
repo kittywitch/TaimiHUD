@@ -1,26 +1,27 @@
 { craneLib, pkgsCross }:
 
 craneLib.buildPackage rec {
-    src = ./.;
-    strictDeps = true;
+  src = ./.;
+  strictDeps = true;
 
-    depsBuildBuild = with pkgsCross; [
-      stdenv.cc
-      windows.pthreads
-    ];
+  depsBuildBuild = with pkgsCross; [
+    stdenv.cc
+    windows.pthreads
+  ];
 
-    doCheck = false;
+  doCheck = false;
 
-    # Tells Cargo that we're building for Windows.
-    # (https://doc.rust-lang.org/cargo/reference/config.html#buildtarget)
-    CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
+  # Tells Cargo that we're building for Windows.
+  # (https://doc.rust-lang.org/cargo/reference/config.html#buildtarget)
+  CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
 
-    TARGET_CC = "${pkgsCross.stdenv.cc}/bin/${pkgsCross.stdenv.cc.targetPrefix}cc";
+  TARGET_CC = "${pkgsCross.stdenv.cc}/bin/${pkgsCross.stdenv.cc.targetPrefix}cc";
 
-    # Build without a dependency not provided by wine
-    CXXFLAGS_x86_64_pc_windows_gnu="-shared -fno-threadsafe-statics";
+  # Build without a dependency not provided by wine
+  CXXFLAGS_x86_64_pc_windows_gnu = "-shared -fno-threadsafe-statics";
 
-    CARGO_BUILD_RUSTFLAGS = [
-      "-C" "linker=${TARGET_CC}"
-    ];
-  }
+  CARGO_BUILD_RUSTFLAGS = [
+    "-C"
+    "linker=${TARGET_CC}"
+  ];
+}

@@ -53,7 +53,8 @@
         taimiShell = import ./shell.nix {
           inherit fenix pkgs system;
         };
-      in rec {
+      in
+      rec {
         defaultPackage = packages.x86_64-pc-windows-gnu;
 
         devShells.default = taimiShell;
@@ -62,6 +63,6 @@
           inherit taimiHUD;
           default = taimiHUD;
         };
-    });
+      });
 }
 
