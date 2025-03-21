@@ -1,14 +1,14 @@
 use {
     crate::xnacolour::XNAColour,
     glam::{
-        f32::{Vec3, Vec2},
+        f32::{Vec2, Vec3},
         swizzles::*,
     },
     serde::{Deserialize, Serialize},
     std::cmp::Ordering,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone,Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[serde(transparent)]
 pub struct BlishVec3 {
     child: Vec3,
@@ -20,9 +20,7 @@ impl BlishVec3 {
     }
 
     pub fn from_vec3(vec3: Vec3) -> Self {
-        BlishVec3 {
-            child: vec3.xzy(),
-        }
+        BlishVec3 { child: vec3.xzy() }
     }
 
     pub fn from_raw_vec3(vec3: Vec3) -> Self {
@@ -32,7 +30,7 @@ impl BlishVec3 {
 
 pub type DeserializePosition = Position<BlishVec3>;
 
-#[derive(Serialize,Deserialize,Debug,Clone,Copy,PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(untagged)]
 pub enum Position<V3 = Vec3> {
     Vec3(V3),
@@ -47,10 +45,10 @@ impl Position {
         }
     }
     /*
-    * this turns a 3d position into a 2d position :)
-    * they wouldn't let me name it 23d
-    * who needs an additional 20 dimensions, anyway?
-    */
+     * this turns a 3d position into a 2d position :)
+     * they wouldn't let me name it 23d
+     * who needs an additional 20 dimensions, anyway?
+     */
     fn d32(vec: Vec3) -> Position {
         Self::Vec2(Self::d3vec2(vec))
     }
@@ -61,8 +59,8 @@ impl Position {
     }
 
     /*
-    * Min (is my wife in GW2,,,)
-    */
+     * Min (is my wife in GW2,,,)
+     */
 
     fn min3(&self, rhs: Vec3) -> Self {
         match self {
@@ -84,8 +82,8 @@ impl Position {
     }
 
     /*
-    * Maxxin all cool
-    */
+     * Maxxin all cool
+     */
 
     fn max3(&self, rhs: Vec3) -> Self {
         match self {
@@ -107,13 +105,13 @@ impl Position {
     }
 
     /*
-    * Distance
-    */
+     * Distance
+     */
 
     fn distance3(&self, rhs: Vec3) -> f32 {
         match self {
             &Self::Vec3(vec) => vec.distance(rhs),
-            &Self::Vec2(vec) => vec.distance(Self::d3vec2(rhs))
+            &Self::Vec2(vec) => vec.distance(Self::d3vec2(rhs)),
         }
     }
 
@@ -122,14 +120,12 @@ impl Position {
         lhs.distance(rhs)
     }
 
-
     pub fn distance(&self, rhs: Self) -> f32 {
         match rhs {
             Self::Vec3(vec) => self.distance3(vec),
             Self::Vec2(vec) => self.distance2(vec),
         }
     }
-
 }
 
 impl From<Vec3> for Position {
@@ -182,13 +178,17 @@ impl PartialOrd<Vec3> for Position {
         match self {
             Self::Vec2(lhs) => Self::d32(*other).partial_cmp(lhs).map(Ordering::reverse),
             &Self::Vec3(lhs) => {
-                match (lhs.cmpgt(*other).all(), lhs.cmpeq(*other).all(), lhs.cmplt(*other).all()) {
-                    (true,false,false) => Some(Ordering::Greater),
-                    (false,true,false) => Some(Ordering::Equal),
-                    (false,false,true) => Some(Ordering::Less),
+                match (
+                    lhs.cmpgt(*other).all(),
+                    lhs.cmpeq(*other).all(),
+                    lhs.cmplt(*other).all(),
+                ) {
+                    (true, false, false) => Some(Ordering::Greater),
+                    (false, true, false) => Some(Ordering::Equal),
+                    (false, false, true) => Some(Ordering::Less),
                     _ => None,
                 }
-            },
+            }
         }
     }
 }
@@ -196,28 +196,25 @@ impl PartialOrd<Vec3> for Position {
 impl PartialOrd<Vec2> for Position {
     fn partial_cmp(&self, other: &Vec2) -> Option<Ordering> {
         let lhs = self.to_vec2();
-        match (lhs.cmpgt(*other).all(), lhs.cmpeq(*other).all(), lhs.cmplt(*other).all()) {
-            (true,false,false) => Some(Ordering::Greater),
-            (false,true,false) => Some(Ordering::Equal),
-            (false,false,true) => Some(Ordering::Less),
+        match (
+            lhs.cmpgt(*other).all(),
+            lhs.cmpeq(*other).all(),
+            lhs.cmplt(*other).all(),
+        ) {
+            (true, false, false) => Some(Ordering::Greater),
+            (false, true, false) => Some(Ordering::Equal),
+            (false, false, true) => Some(Ordering::Less),
             _ => None,
         }
     }
 }
 
-
 // one day someone is going to look at this and think i'm deranged
 // And that's Ok! they're right, i am :)
-#[derive(Serialize,Deserialize,Debug,Clone,Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum Polytope {
-    NSphere {
-        center: Position,
-        radius: f32,
-    },
-    NCuboid {
-        pode: Position,
-        antipode: Position,
-    },
+    NSphere { center: Position, radius: f32 },
+    NCuboid { pode: Position, antipode: Position },
 }
 
 impl Polytope {
@@ -226,12 +223,12 @@ impl Polytope {
             Polytope::NSphere { radius, center } => {
                 // sphere
                 center.distance(player) < *radius
-            },
+            }
             Polytope::NCuboid { pode, antipode } => {
                 let mins = pode.min(*antipode);
                 let maxes = pode.max(*antipode);
                 mins >= player && player <= maxes
-            },
+            }
             _ => panic!("This shouldn't happen :)"),
         }
     }
@@ -251,4 +248,3 @@ impl From<DeserializePosition> for Position {
         pos.to_sane()
     }
 }
-

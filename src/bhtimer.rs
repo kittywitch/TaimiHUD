@@ -1,7 +1,7 @@
 use {
     crate::{
-        xnacolour::XNAColour,
         geometry::{BlishVec3, DeserializePosition, Polytope, Position},
+        xnacolour::XNAColour,
     },
     serde::{Deserialize, Serialize},
 };
@@ -47,10 +47,22 @@ impl TimerTrigger {
     }
     pub fn polytope(&self) -> Option<Polytope> {
         match self {
-            &Self { radius: Some(radius), position: Some(center), .. } =>
-                Some(Polytope::NSphere { radius, center: center.into() }),
-            &Self { antipode: Some(antipode), position: Some(pode), .. } =>
-                Some(Polytope::NCuboid { antipode: antipode.into(), pode: pode.into() }),
+            &Self {
+                radius: Some(radius),
+                position: Some(center),
+                ..
+            } => Some(Polytope::NSphere {
+                radius,
+                center: center.into(),
+            }),
+            &Self {
+                antipode: Some(antipode),
+                position: Some(pode),
+                ..
+            } => Some(Polytope::NCuboid {
+                antipode: antipode.into(),
+                pode: pode.into(),
+            }),
             _ => None,
         }
     }

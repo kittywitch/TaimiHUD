@@ -1,5 +1,4 @@
-use crate::bhtimer;
-use glam::f32::Vec3;
+use {crate::bhtimer, glam::f32::Vec3};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum TimerMachineState {
@@ -25,9 +24,8 @@ struct TimerMachine {
 impl TimerMachine {
     async fn process_state(&mut self, map_id: u32, position: Vec3, combat: bool) {
         match self.machine_state {
-            TimerMachineState::OnMap => {},
+            TimerMachineState::OnMap => {}
             _ => (),
         }
     }
 }
-

@@ -1,28 +1,22 @@
 use {
-    crate::*,
-    crate::bhtimer,
-    crate::geometry::{Polytope,Position},
-    crate::bhtimer::*,
-    crate::RenderThreadEvent,
+    crate::{
+        bhtimer,
+        bhtimer::*,
+        geometry::{Polytope, Position},
+        RenderThreadEvent, *,
+    },
+    glam::f32::{Vec2, Vec3},
     glob::{glob, Paths},
-    glam::{
-        f32::{Vec3,Vec2},
-    },
     nexus::data_link::{read_mumble_link, MumbleLink},
-    std::{
-        collections::HashMap,
-        sync::Arc,
-        fs::File,
-        path::PathBuf,
-    },
+    std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc},
     tokio::{
-        sync::Mutex,
-        task::JoinHandle,
-        time::{Duration,interval,sleep},
         runtime, select,
         sync::{
-            mpsc::{Sender, Receiver},
+            mpsc::{Receiver, Sender},
+            Mutex,
         },
+        task::JoinHandle,
+        time::{interval, sleep, Duration},
     },
 };
 
@@ -60,7 +54,11 @@ impl TaimiState {
         }
     }
 
-    pub fn load(mut tm_receiver: Receiver<TaimiThreadEvent>, rt_sender: Sender<crate::RenderThreadEvent>, addon_dir: PathBuf) {
+    pub fn load(
+        mut tm_receiver: Receiver<TaimiThreadEvent>,
+        rt_sender: Sender<crate::RenderThreadEvent>,
+        addon_dir: PathBuf,
+    ) {
         let mut state = TaimiState {
             addon_dir,
             rt_sender,
@@ -161,7 +159,8 @@ impl TaimiState {
             };
             // Handle category to timer_id list
             if !self.category_to_timer_ids.contains_key(&timer.category) {
-                self.category_to_timer_ids.insert(timer.category.clone(), Vec::new());
+                self.category_to_timer_ids
+                    .insert(timer.category.clone(), Vec::new());
             }
             if let Some(val) = self.category_to_timer_ids.get_mut(&timer.category) {
                 val.push(timer.id.clone());
@@ -177,7 +176,12 @@ impl TaimiState {
         }
     }
 
-    async fn send_alert(sender: Sender<RenderThreadEvent>, lock: Arc<Mutex<()>>, message: String, duration: Duration) {
+    async fn send_alert(
+        sender: Sender<RenderThreadEvent>,
+        lock: Arc<Mutex<()>>,
+        message: String,
+        duration: Duration,
+    ) {
         let alert_handle = lock.lock().await;
         let _ = sender.send(RenderThreadEvent::AlertStart(message)).await;
         sleep(duration).await;
@@ -187,7 +191,12 @@ impl TaimiState {
     }
 
     fn alert(&self, message: String, duration: Duration) -> JoinHandle<()> {
-        tokio::spawn(Self::send_alert(self.rt_sender.clone(), self.alert_sem.clone(), message, duration))
+        tokio::spawn(Self::send_alert(
+            self.rt_sender.clone(),
+            self.alert_sem.clone(),
+            message,
+            duration,
+        ))
     }
 
     // TODO: refactor code such that the start triggers are handled as part of the
@@ -215,7 +224,7 @@ impl TaimiState {
                             started_ids.push(timer_id.clone());
                         }
                     }
-                },
+                }
                 Key => (),
             }
         }
@@ -273,7 +282,6 @@ impl TaimiState {
         Ok(true)
     }
 }
-
 
 #[derive(Debug, Clone)]
 pub enum TaimiThreadEvent {

@@ -1,35 +1,33 @@
 mod bhtimer;
-mod xnacolour;
-mod timermachine;
-mod taimistate;
 mod geometry;
+mod taimistate;
+mod timermachine;
+mod xnacolour;
 
 use {
     nexus::{
-        event::{
-            event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
-        },
+        event::{event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED},
         gui::{register_render, render, RenderType},
         imgui::{Ui, Window, WindowFlags},
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
         //texture::{load_texture_from_file, texture_receive, Texture},
-        AddonFlags, UpdateProvider,
+        AddonFlags,
+        UpdateProvider,
     },
     std::{
-        sync::{Mutex, OnceLock, MutexGuard},
-        thread::{self, JoinHandle},
         collections::VecDeque,
+        sync::{Mutex, MutexGuard, OnceLock},
+        thread::{self, JoinHandle},
     },
-    tokio::sync::mpsc::{channel, Sender, Receiver},
     taimistate::{TaimiState, TaimiThreadEvent},
+    tokio::sync::mpsc::{channel, Receiver, Sender},
 };
 
 static TS_SENDER: OnceLock<Sender<taimistate::TaimiThreadEvent>> = OnceLock::new();
 static RT_RECEIVER: OnceLock<Receiver<RenderThreadEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
-
 
 nexus::export! {
     name: "TaimiHUD",
@@ -77,12 +75,12 @@ impl RenderState {
                 match event {
                     AlertStart(message) => {
                         self.alert = Some(message);
-                    },
+                    }
                     AlertEnd => {
                         self.alert = None;
                     }
                 }
-            },
+            }
             Err(_error) => (),
         }
         if let Some(message) = &self.alert {
@@ -113,15 +111,17 @@ impl RenderState {
         let above_y = game_height * 0.2;
         let text_x = centre_x - offset_x;
         let text_y = centre_y - above_y;
-        Window::new("TAIMIHUD_ALERT_AREA").flags(
-            WindowFlags::ALWAYS_AUTO_RESIZE |
-            WindowFlags::NO_TITLE_BAR |
-            WindowFlags::NO_RESIZE |
-            WindowFlags::NO_MOVE |
-            WindowFlags::NO_SCROLLBAR |
-            WindowFlags::NO_INPUTS |
-            WindowFlags::NO_FOCUS_ON_APPEARING |
-            WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS)
+        Window::new("TAIMIHUD_ALERT_AREA")
+            .flags(
+                WindowFlags::ALWAYS_AUTO_RESIZE
+                    | WindowFlags::NO_TITLE_BAR
+                    | WindowFlags::NO_RESIZE
+                    | WindowFlags::NO_MOVE
+                    | WindowFlags::NO_SCROLLBAR
+                    | WindowFlags::NO_INPUTS
+                    | WindowFlags::NO_FOCUS_ON_APPEARING
+                    | WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS,
+            )
             .build(ui, || {
                 ui.set_cursor_screen_pos([text_x, text_y]);
                 ui.set_cursor_screen_pos(prior_cursor_position);
@@ -146,13 +146,12 @@ fn load() {
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
     let (ts_event_sender, ts_event_receiver) = channel::<TaimiThreadEvent>(32);
     let (rt_event_sender, rt_event_receiver) = channel::<RenderThreadEvent>(32);
-    let tm_handler = thread::spawn(|| TaimiState::load(ts_event_receiver, rt_event_sender, addon_dir));
+    let tm_handler =
+        thread::spawn(|| TaimiState::load(ts_event_receiver, rt_event_sender, addon_dir));
     // muh queues
     let _ = TM_THREAD.set(tm_handler);
     let _ = TS_SENDER.set(ts_event_sender);
-    RENDER_STATE.set(Mutex::new(
-        RenderState::new(rt_event_receiver)
-    ));
+    RENDER_STATE.set(Mutex::new(RenderState::new(rt_event_receiver)));
 
     // Rendering setup
     let taimi_window = render!(|ui| {
