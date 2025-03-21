@@ -1,30 +1,10 @@
 use {
-    crate::xnacolour::XNAColour,
-    glam::f32::Vec3,
+    crate::{
+        xnacolour::XNAColour,
+        geometry::{BlishVec3, DeserializePosition, Polytope, Position},
+    },
     serde::{Deserialize, Serialize},
 };
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(transparent)]
-struct BlishVec3 {
-    child: Vec3,
-}
-
-impl BlishVec3 {
-    pub fn to_vec3(&self) -> Vec3 {
-        Vec3::new(self.child.x, self.child.z, self.child.y)
-    }
-
-    pub fn from_vec3(vec3: Vec3) -> Self {
-        BlishVec3 {
-            child: Vec3::new(vec3.x, vec3.z, vec3.y),
-        }
-    }
-
-    pub fn from_raw_vec3(vec3: Vec3) -> Self {
-        BlishVec3 { child: vec3 }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -45,8 +25,8 @@ pub struct TimerTrigger {
     #[serde(rename = "type", default)]
     pub kind: TimerTriggerType,
     pub key_bind: Option<String>,
-    pub position: Option<BlishVec3>,
-    pub antipode: Option<BlishVec3>,
+    pub position: Option<DeserializePosition>,
+    pub antipode: Option<DeserializePosition>,
     pub radius: Option<f32>,
     #[serde(default)]
     pub require_combat: bool,
@@ -59,12 +39,20 @@ pub struct TimerTrigger {
 }
 
 impl TimerTrigger {
-    pub fn position(&self) -> Option<Vec3> {
-        self.position.as_ref().map(BlishVec3::to_vec3)
+    pub fn position(&self) -> Option<Position> {
+        self.position.map(Into::into)
     }
-
-    pub fn antipode(&self) -> Option<Vec3> {
-        self.antipode.as_ref().map(BlishVec3::to_vec3)
+    pub fn antipode(&self) -> Option<Position> {
+        self.antipode.map(Into::into)
+    }
+    pub fn polytope(&self) -> Option<Polytope> {
+        match self {
+            &Self { radius: Some(radius), position: Some(center), .. } =>
+                Some(Polytope::NSphere { radius, center: center.into() }),
+            &Self { antipode: Some(antipode), position: Some(pode), .. } =>
+                Some(Polytope::NCuboid { antipode: antipode.into(), pode: pode.into() }),
+            _ => None,
+        }
     }
 }
 
@@ -99,11 +87,11 @@ pub struct TimerPhase {
      * - markers
      * - sounds
      */
-    #[serde(skip_serializing, default)]
+    #[serde(skip, default)]
     directions: String,
-    #[serde(skip_serializing, default)]
+    #[serde(skip, default)]
     markers: String,
-    #[serde(skip_serializing, default)]
+    #[serde(skip, default)]
     sounds: String,
 }
 

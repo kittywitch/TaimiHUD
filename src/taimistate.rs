@@ -1,23 +1,34 @@
 use {
     crate::*,
     crate::bhtimer,
+    crate::geometry::{Polytope,Position},
     crate::bhtimer::*,
+    crate::RenderThreadEvent,
     glob::{glob, Paths},
-    glam::f32::Vec3,
+    glam::{
+        f32::{Vec3,Vec2},
+    },
     nexus::data_link::{read_mumble_link, MumbleLink},
     std::{
         collections::HashMap,
+        sync::Arc,
         fs::File,
         path::PathBuf,
     },
     tokio::{
+        sync::Mutex,
+        task::JoinHandle,
+        time::{Duration,interval,sleep},
         runtime, select,
-        sync::mpsc::Receiver,
+        sync::{
+            mpsc::{Sender, Receiver},
+        },
     },
 };
 
 #[derive(Debug, Clone)]
 pub struct TaimiState {
+    pub rt_sender: Sender<RenderThreadEvent>,
     pub addon_dir: PathBuf,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub cached_link: Option<MumbleLink>,
@@ -38,26 +49,37 @@ pub struct TaimiState {
     // TODO: This should be...
     // current_timers: Vec<TimerMachine>
     pub starts_to_check: HashMap<String, TimerPhase>,
+    alert_sem: Arc<Mutex<()>>,
 }
+
 impl TaimiState {
-    pub fn load(mut tm_receiver: Receiver<TaimiThreadEvent>, addon_dir: PathBuf) {
+    pub fn player_position(&self) -> Option<Position> {
+        match self.player_position {
+            Some(pos) => Some(Position::Vec3(pos)),
+            None => None,
+        }
+    }
+
+    pub fn load(mut tm_receiver: Receiver<TaimiThreadEvent>, rt_sender: Sender<crate::RenderThreadEvent>, addon_dir: PathBuf) {
         let mut state = TaimiState {
             addon_dir,
-            cached_identity: None,
-            cached_link: None,
+            rt_sender,
+            cached_identity: Default::default(),
+            cached_link: Default::default(),
             timers: Default::default(),
             map_id_to_timer_ids: Default::default(),
             category_to_timer_ids: Default::default(),
-            map_id: None,
-            player_position: None,
+            map_id: Default::default(),
+            player_position: Default::default(),
             timers_for_map: Default::default(),
             starts_to_check: Default::default(),
+            alert_sem: Default::default(),
         };
 
         let evt_loop = async move {
             state.setup_timers().await;
-            let mut taimi_interval = tokio::time::interval(tokio::time::Duration::from_millis(250));
-            let mut mumblelink_interval = tokio::time::interval(tokio::time::Duration::from_millis(20));
+            let mut taimi_interval = interval(Duration::from_millis(250));
+            let mut mumblelink_interval = interval(Duration::from_millis(20));
             loop {
                 select! {
                     evt = tm_receiver.recv() => match evt {
@@ -139,8 +161,7 @@ impl TaimiState {
             };
             // Handle category to timer_id list
             if !self.category_to_timer_ids.contains_key(&timer.category) {
-                self.category_to_timer_ids
-                    .insert(timer.category.clone(), Vec::new());
+                self.category_to_timer_ids.insert(timer.category.clone(), Vec::new());
             }
             if let Some(val) = self.category_to_timer_ids.get_mut(&timer.category) {
                 val.push(timer.id.clone());
@@ -156,6 +177,19 @@ impl TaimiState {
         }
     }
 
+    async fn send_alert(sender: Sender<RenderThreadEvent>, lock: Arc<Mutex<()>>, message: String, duration: Duration) {
+        let alert_handle = lock.lock().await;
+        let _ = sender.send(RenderThreadEvent::AlertStart(message)).await;
+        sleep(duration).await;
+        let _ = sender.send(RenderThreadEvent::AlertEnd).await;
+        // this is my EMOTIONAL SUPPORT drop
+        drop(alert_handle);
+    }
+
+    fn alert(&self, message: String, duration: Duration) -> JoinHandle<()> {
+        tokio::spawn(Self::send_alert(self.rt_sender.clone(), self.alert_sem.clone(), message, duration))
+    }
+
     // TODO: refactor code such that the start triggers are handled as part of the
     // TimerMachine, where we check if it is OnMap and untriggered...
     // The code for checking sphere/cuboid regions should be built into the actual TimerMachine
@@ -168,35 +202,20 @@ impl TaimiState {
             let start_trigger = &start_phase.start;
             match &start_trigger.kind {
                 Location => {
-                    let p1 = start_trigger.position().unwrap();
-                    if let Some(player) = self.player_position {
-                        // Check a sphere
-                        if let Some(radius) = start_trigger.radius {
-                            if p1.distance(player) < radius {
-                                log::info!(
-                                    "Player is within the spherical boundary for '{}'.",
-                                    start_phase.name
-                                );
-                                started_ids.push(timer_id.clone());
-                            }
-                        }
-                        // Check a cuboid
-                        if let Some(p2) = start_trigger.antipode() {
-                            let mins = p1.min(p2);
-                            let maxs = p1.max(p2);
-                            let min_cmp = player.cmpge(mins);
-                            let max_cmp = player.cmple(maxs);
-                            let player_in_area = min_cmp.all() && max_cmp.all();
-                            if player_in_area {
-                                log::info!(
-                                    "Player is within the cuboid boundary for '{}'.",
-                                    start_phase.name
-                                );
-                                started_ids.push(timer_id.clone());
-                            }
+                    let shape = start_trigger.polytope().unwrap();
+                    if let Some(player_pos) = self.player_position() {
+                        let player_pos = self.player_position().unwrap();
+                        if shape.point_is_within(player_pos) {
+                            let message = format!(
+                                "Player is within the boundary for '{}'.",
+                                start_phase.name
+                            );
+                            log::info!("{}", message);
+                            let _ = self.alert(message, Duration::from_secs(5));
+                            started_ids.push(timer_id.clone());
                         }
                     }
-                }
+                },
                 Key => (),
             }
         }
@@ -205,7 +224,6 @@ impl TaimiState {
         }
         Ok(())
     }
-
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         self.cached_link = read_mumble_link();
         if let Some(link) = &self.cached_link {

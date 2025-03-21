@@ -24,7 +24,10 @@ struct TimerMachine {
 
 impl TimerMachine {
     async fn process_state(&mut self, map_id: u32, position: Vec3, combat: bool) {
-        if self.machine_state == TimerMachineState::OnMap {}
+        match self.machine_state {
+            TimerMachineState::OnMap => {},
+            _ => (),
+        }
     }
 }
 

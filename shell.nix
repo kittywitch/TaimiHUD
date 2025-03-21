@@ -22,7 +22,6 @@ pkgs.callPackage
       (fenix'.combine [
         (fenix'.complete.withComponents [
           "cargo"
-          "clippy"
           "rust-src"
           "rustc"
         ])
