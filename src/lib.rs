@@ -8,7 +8,8 @@ use {
     nexus::{
         event::{event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED},
         gui::{register_render, render, RenderType},
-        imgui::{Ui, Window, WindowFlags},
+        imgui::{internal::RawCast, sys::ImFont, Font, FontId, Ui, Window, WindowFlags, Condition},
+        data_link::{read_nexus_link, NexusLink},
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
@@ -84,7 +85,10 @@ impl RenderState {
             Err(_error) => (),
         }
         if let Some(message) = &self.alert {
-            Self::render_alert(ui, io, message)
+            let nexus_link = read_nexus_link().unwrap();
+            let imfont_pointer = nexus_link.font_big;
+            let imfont = unsafe { Font::from_raw(&*imfont_pointer) };
+            Self::render_alert(ui, io, message, imfont.id(), imfont.scale);
         }
         if self.primary_window_open {
             Window::new("Taimi")
@@ -99,9 +103,12 @@ impl RenderState {
                 });
         }
     }
-    fn render_alert(ui: &Ui, io: &nexus::imgui::Io, text: &String) {
+    fn render_alert(ui: &Ui, io: &nexus::imgui::Io, text: &String, font: FontId, font_scale: f32) {
         use WindowFlags;
+        let font_handle = ui.push_font(font);
+        let fb_scale = io.display_framebuffer_scale;
         let [text_width, text_height] = ui.calc_text_size(text);
+        let text_width = text_width * font_scale;
         let offset_x = text_width / 2.0;
         let prior_cursor_position = ui.cursor_screen_pos();
         let [game_width, game_height] = io.display_size;
@@ -109,24 +116,26 @@ impl RenderState {
         let centre_y = game_height / 2.0;
         // this will either be 80% or 20%, i don't know how their coordinates work
         let above_y = game_height * 0.2;
-        let text_x = centre_x - offset_x;
-        let text_y = centre_y - above_y;
+        let text_x = (centre_x - offset_x); //* fb_scale[0];
+        let text_y = (centre_y - above_y); //* fb_scale[1];
         Window::new("TAIMIHUD_ALERT_AREA")
             .flags(
                 WindowFlags::ALWAYS_AUTO_RESIZE
                     | WindowFlags::NO_TITLE_BAR
                     | WindowFlags::NO_RESIZE
+                    | WindowFlags::NO_BACKGROUND
                     | WindowFlags::NO_MOVE
                     | WindowFlags::NO_SCROLLBAR
                     | WindowFlags::NO_INPUTS
                     | WindowFlags::NO_FOCUS_ON_APPEARING
                     | WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS,
             )
+            .position([text_x, text_y], Condition::Always)
+            .size([text_width * 1.25, text_height * 2.0], Condition::Always)
             .build(ui, || {
-                ui.set_cursor_screen_pos([text_x, text_y]);
-                ui.set_cursor_screen_pos(prior_cursor_position);
                 ui.text(text);
             });
+            font_handle.pop();
     }
 
     fn lock() -> MutexGuard<'static, RenderState> {
