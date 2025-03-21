@@ -2,23 +2,66 @@
   description = "TaimiHUD; timers, markers and hopefully paths for raidcore.gg nexus";
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    fenix = {
+      url = "github:nix-community/fenix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    flake-utils = {
+      url = "github:numtide/flake-utils";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    crane.url = "github:ipetkov/crane";
     rust-overlay = {
       url = "github:oxalica/rust-overlay/master";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs = { ... }@inputs: let
-    rust-overlay = import inputs.rust-overlay;
-    pkgs = (import inputs.nixpkgs {
-      system = "x86_64-linux";
-      crossSystem = {
-        config = "x86_64-w64-mingw32";
-      };
-      overlays = [ rust-overlay ];
+
+  outputs = { self, fenix, flake-utils, crane, nixpkgs, rust-overlay }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = (import nixpkgs) {
+          inherit system;
+          crossSystem.config = "x86_64-w64-mingw32";
+        };
+
+        # TaimiHUD Package
+        packageToolchain = with fenix.packages.${system};
+          combine [
+            minimal.rustc
+            minimal.cargo
+            targets.x86_64-pc-windows-gnu.latest.rust-std
+          ];
+
+        packageCraneLib = (crane.mkLib pkgs).overrideToolchain (p: packageToolchain);
+
+        taimiHUD = import ./package.nix {
+          pkgsCross = pkgs.pkgsCross.mingwW64;
+          craneLib = packageCraneLib;
+        };
+
+        # TaimiHUD devShell
+        shellToolchain = with fenix.packages.${system};
+          combine [
+            complete
+            rust-analyzer
+            targets.x86_64-pc-windows-gnu.latest.rust-std
+          ];
+
+        shellCraneLib = (crane.mkLib pkgs).overrideToolchain (p: shellToolchain);
+
+        taimiShell = import ./shell.nix {
+          inherit fenix pkgs system;
+        };
+      in rec {
+        defaultPackage = packages.x86_64-pc-windows-gnu;
+
+        devShells.default = taimiShell;
+
+        packages = {
+          inherit taimiHUD;
+          default = taimiHUD;
+        };
     });
-  in {
-    devShells."x86_64-linux".default = import ./shell.nix {
-      inherit pkgs rust-overlay;
-    };
-  };
 }
+

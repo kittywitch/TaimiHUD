@@ -61,7 +61,7 @@ nexus::export! {
     log_filter: "debug"
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum TimerMachineState {
     // This possibly shouldn't happen?
     OffMap,
@@ -84,7 +84,8 @@ struct TimerMachine {
 
 impl TimerMachine {
     async fn process_state(&mut self, map_id: u32, position: Vec3, combat: bool) {
-        if self.machine_state == TimerMachineState::OnMap {}
+        if self.machine_state == TimerMachineState::OnMap {
+        }
     }
 }
 
@@ -121,7 +122,7 @@ struct TaimiState {
 impl TaimiState {
     async fn load_timer_file(&self, path: PathBuf) -> anyhow::Result<bhtimer::TimerFile> {
         log::info!("Attempting to load the timer file at '{path:?}'.");
-        let mut file = File::open(path)?;
+        let file = File::open(path)?;
         let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
         return Ok(timer_data);
     }
@@ -131,7 +132,7 @@ impl TaimiState {
         Ok(timer_paths)
     }
 
-    async fn load_timer_files() -> Vec<bhtimer::TimerFile> {
+    async fn load_timer_files(&self) -> Vec<bhtimer::TimerFile> {
         let mut timers = Vec::new();
         let glob_str = self.addon_dir.join("*.bhtimer");
         log::info!("Path to load timer files is '{glob_str:?}'.");
