@@ -114,10 +114,9 @@ impl RenderState {
         let [game_width, game_height] = io.display_size;
         let centre_x = game_width / 2.0;
         let centre_y = game_height / 2.0;
-        // this will either be 80% or 20%, i don't know how their coordinates work
         let above_y = game_height * 0.2;
-        let text_x = (centre_x - offset_x); //* fb_scale[0];
-        let text_y = (centre_y - above_y); //* fb_scale[1];
+        let text_x = (centre_x - offset_x) * fb_scale[0];
+        let text_y = (centre_y - above_y) * fb_scale[1];
         Window::new("TAIMIHUD_ALERT_AREA")
             .flags(
                 WindowFlags::ALWAYS_AUTO_RESIZE

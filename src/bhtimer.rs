@@ -6,7 +6,7 @@ use {
     serde::{Deserialize, Serialize},
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub enum TimerTriggerType {
     Location,
@@ -89,7 +89,8 @@ pub struct TimerFile {
 pub struct TimerPhase {
     pub name: String,
     pub start: TimerTrigger,
-    pub finish: TimerTrigger,
+    pub finish: Option<TimerTrigger>,
+    #[serde(default)]
     pub alerts: Vec<TimerAlert>,
     #[serde(default)]
     pub actions: Vec<TimerAction>,
@@ -140,4 +141,5 @@ pub struct TimerAlert {
     pub alert_color: Option<XNAColour>,
     pub icon: Option<String>,
     pub fill_color: Option<XNAColour>,
+    pub timestamps: Option<Vec<f32>>,
 }

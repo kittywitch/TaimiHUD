@@ -23,6 +23,7 @@ pkgs.callPackage
         (fenix'.complete.withComponents [
           "cargo"
           "rust-src"
+          "clippy"
           "rustc"
         ])
         fenix'.rust-analyzer
