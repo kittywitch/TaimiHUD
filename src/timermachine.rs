@@ -108,11 +108,13 @@ impl TimerMachine {
                 sleep(dur_d);
                 log::info!("{} Warning Duration End@{}", warning, ts);
             };
+        }
+        if let Some(alert_msg) = alert.alert {
             if let Some(dur) = alert.alert_duration {
-                log::info!("{} Alert Duration Start@{}", warning, ts);
+                log::info!("{} Alert Duration Start@{}", alert_msg, ts);
                 let dur_d = Duration::from_secs_f32(dur);
                 sleep(dur_d);
-                log::info!("{} Alert Duration End@{}", warning, ts);
+                log::info!("{} Alert Duration End@{}", alert_msg, ts);
             };
         };
     }
@@ -124,7 +126,9 @@ impl TimerMachine {
     pub fn tick(&mut self, pos: Position) {
         let tf_ref = self.timer_file.clone();
         let tf_reset = tf_ref.reset.clone();
+        // TODO: create reset trigger
 
+        log::info!("Current state: {:?}", self.state);
         use TimerMachineState::*;
         match &self.state {
             // We exist, but is there anything to do about that?
@@ -135,13 +139,14 @@ impl TimerMachine {
             // OnMap means time to start looking for our conditions, with location and
             // (unimplemented) key first.
             OnMap => {
+                log::info!("On map for {}", tf_ref.name);
                 let trigger = self.get_trigger(self.phase_id, TriggerType::Start).unwrap();
                 use TimerTriggerType::*;
                 match &trigger.kind {
                     Location => {
                         let shape = trigger.polytope().unwrap();
                         if trigger.require_entry && shape.point_is_within(pos) {
-                            if trigger.require_combat {
+                            if trigger.require_combat || true {
                                 if self.combat_state == CombatState::Entered {
                                     self.state = TimerMachineState::OnPhase(self.phase_id);
                                 }
@@ -158,6 +163,7 @@ impl TimerMachine {
             OnPhase(phase) => {
                 // let's handle the alerts!
                 let tf_ref = self.timer_file.clone();
+                log::info!("On phase {} for {}", phase, tf_ref.name);
                 let phase_proper = tf_ref.phases[*phase].clone();
                 let alerts = phase_proper.alerts.clone();
                 for alert in alerts {
@@ -177,14 +183,12 @@ impl TimerMachine {
                         Location => {
                             let shape = trigger.polytope().unwrap();
                             if trigger.require_departure && !shape.point_is_within(pos) {
-                                if trigger.require_combat {
                                     if self.combat_state == CombatState::Exited {
                                         self.state = TimerMachineState::Finished(self.phase_id);
                                     }
-                                } else {
+                            } else {
                                     self.state = TimerMachineState::Finished(self.phase_id);
                                 }
-                            }
                         },
                         Key => ()
                     }
@@ -194,6 +198,7 @@ impl TimerMachine {
             // We're cooked, son.
             Finished(phase) => {
                 let tf_ref = self.timer_file.clone();
+                log::info!("Finished phase {} for {}", phase, tf_ref.name);
                 // is there a next phase?
                 if tf_ref.phases.len() < (phase + 2) {
                     // go to it
@@ -219,8 +224,10 @@ impl TimerMachine {
     pub fn update_on_map(&mut self, map_id: u32) {
         let machine_map_id = self.timer_file.clone().map_id;
         if machine_map_id == map_id {
+            log::info!("I'm on the map now!");
             self.state = TimerMachineState::OnMap;
         } else {
+            log::info!("I'm off the map now!");
             self.state = TimerMachineState::OffMap;
         }
     }

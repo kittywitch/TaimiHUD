@@ -178,7 +178,7 @@ impl TaimiState {
             log::info!(
                 "Set up {0}: {3} for map {1}, category {2}",
                 timer.id,
-                timer.name.replace("\n", " "),
+                timer.name,
                 timer.map_id,
                 timer.category
             );
@@ -258,40 +258,49 @@ impl TaimiState {
 
     async fn handle_mumble(&mut self, identity: MumbleIdentityUpdate) {
         let new_map_id = identity.map_id;
-        if let Some(map_id) = self.map_id {
-            for mut machine in self.current_timers.clone() {
-                machine.update_on_map(new_map_id)
+        if Some(new_map_id) != self.map_id {
+            self.current_timers.clear();
+            log::info!("{:?} {:?}", new_map_id, self.map_id_to_timers.keys());
+            if self.map_id_to_timers.contains_key(&new_map_id) {
+                let map_timers = self.map_id_to_timers[&new_map_id].clone();
+                for timer in map_timers {
+                    self.current_timers.push(TimerMachine::new(timer, self.alert_sem.clone(), self.rt_sender.clone()));
+                }
+                for mut machine in self.current_timers.clone() {
+                    machine.update_on_map(new_map_id)
+                }
             }
+            self.map_id = Some(new_map_id);
+        }
+        self.cached_identity = Some(identity);
+        /*if self.map_id != Some(identity.map_id) {
+        match self.map_id {
+        Some(map_id) => log::info!(
+        "User has changed map from {0} to {1}",
+        map_id,
+        identity.map_id
+        ),
+        None => log::info!("User's map is {0}", identity.map_id),
         }
         self.map_id = Some(identity.map_id);
-        /*if self.map_id != Some(identity.map_id) {
-            match self.map_id {
-                Some(map_id) => log::info!(
-                    "User has changed map from {0} to {1}",
-                    map_id,
-                    identity.map_id
-                ),
-                None => log::info!("User's map is {0}", identity.map_id),
-            }
-            self.map_id = Some(identity.map_id);
-            let map_id_local = &self.map_id.unwrap();
-            if self.map_id_to_timer_ids.contains_key(map_id_local) {
-                let timers_for_map = &self.map_id_to_timer_ids[map_id_local];
-                let timers_list = timers_for_map.join(", ");
-                let mut starts_to_check = HashMap::new();
-                for timer_id in timers_for_map {
-                    let timer = &self.timers[timer_id];
-                    let start_phase = &timer.phases[0];
-                    starts_to_check.insert(timer_id.clone(), start_phase.clone());
-                }
-                self.starts_to_check = starts_to_check;
-                self.timers_for_map = timers_for_map.to_vec();
-                log::info!("Timers found for map {0}: {1}", map_id_local, timers_list);
-            } else {
-                self.starts_to_check = HashMap::new();
-                self.timers_for_map = Vec::new();
-                log::info!("No timers found for map {0}.", map_id_local);
-            }
+        let map_id_local = &self.map_id.unwrap();
+        if self.map_id_to_timer_ids.contains_key(map_id_local) {
+        let timers_for_map = &self.map_id_to_timer_ids[map_id_local];
+        let timers_list = timers_for_map.join(", ");
+        let mut starts_to_check = HashMap::new();
+        for timer_id in timers_for_map {
+        let timer = &self.timers[timer_id];
+        let start_phase = &timer.phases[0];
+        starts_to_check.insert(timer_id.clone(), start_phase.clone());
+        }
+        self.starts_to_check = starts_to_check;
+        self.timers_for_map = timers_for_map.to_vec();
+        log::info!("Timers found for map {0}: {1}", map_id_local, timers_list);
+        } else {
+        self.starts_to_check = HashMap::new();
+        self.timers_for_map = Vec::new();
+        log::info!("No timers found for map {0}.", map_id_local);
+        }
         }
         self.cached_identity = Some(identity);*/
     }

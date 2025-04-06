@@ -89,6 +89,7 @@ pub struct TimerFile {
 pub struct TimerPhase {
     pub name: String,
     pub start: TimerTrigger,
+    #[serde(default)]
     pub finish: Option<TimerTrigger>,
     #[serde(default)]
     pub alerts: Vec<TimerAlert>,
@@ -101,11 +102,25 @@ pub struct TimerPhase {
      * - sounds
      */
     #[serde(skip, default)]
-    directions: String,
+    directions: Vec<String>,
     #[serde(skip, default)]
-    markers: String,
+    markers: Vec<TimerMarker>,
     #[serde(skip, default)]
-    sounds: String,
+    sounds: Vec<String>,
+}
+
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TimerMarker {
+    pub position: BlishVec3,
+    pub size: Option<f32>,
+    #[serde(default)]
+    pub fade_center: bool,
+    pub opacity: Option<f32>,
+    pub texture: String,
+    pub duration: f32,
+    pub timestamps: Option<Vec<f32>>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
