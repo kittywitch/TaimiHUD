@@ -154,9 +154,9 @@ impl TaimiState {
 
     async fn setup_timers(&mut self) {
         log::info!("Preparing to setup timers");
-        let timers = self.load_timer_files().await;
+        self.timers = self.load_timer_files().await;
 
-        for timer in timers.clone() {
+        for timer in &self.timers {
             let timer_machine = TimerMachine::new(timer.clone(),  self.alert_sem.clone(), self.rt_sender.clone());
             // Handle map_id to timer_id
             if !self.map_id_to_timers.contains_key(&timer.map_id) {
@@ -182,7 +182,6 @@ impl TaimiState {
                 timer.map_id,
                 timer.category
             );
-            self.timers = timers.clone();
         }
     }
 
@@ -248,7 +247,7 @@ impl TaimiState {
         if let Some(link) = &self.cached_link {
             self.player_position = Some(Vec3::from_array(link.avatar.position));
             if let Some(pos) = self.player_position() {
-                for mut machine in self.current_timers.clone() {
+                for machine in &mut self.current_timers {
                     machine.tick(pos)
                 }
             }
@@ -266,7 +265,7 @@ impl TaimiState {
                 for timer in map_timers {
                     self.current_timers.push(TimerMachine::new(timer, self.alert_sem.clone(), self.rt_sender.clone()));
                 }
-                for mut machine in self.current_timers.clone() {
+                for machine in &mut self.current_timers {
                     machine.update_on_map(new_map_id)
                 }
             }
@@ -326,13 +325,13 @@ impl TaimiState {
                     },
                     StateChange::EnterCombat => {
                         log::info!("Combat begins at {}!", evt.time);
-                        for mut machine in self.current_timers.clone() {
+                        for machine in &mut self.current_timers {
                             machine.combat_entered()
                         }
                     },
                     StateChange::ExitCombat => {
                         log::info!("Combat ends at {}!", evt.time);
-                        for mut machine in self.current_timers.clone() {
+                        for machine in &mut self.current_timers {
                             machine.combat_exited()
                         }
                     },

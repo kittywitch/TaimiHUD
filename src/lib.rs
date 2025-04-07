@@ -6,7 +6,10 @@ mod xnacolour;
 
 use {
     nexus::{
-        event::{event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED},
+        event::{
+            arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL},
+            event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED
+        },
         gui::{register_render, render, RenderType},
         imgui::{internal::RawCast, sys::ImFont, Font, FontId, Ui, Window, WindowFlags, Condition},
         data_link::{read_nexus_link, NexusLink},
@@ -21,9 +24,11 @@ use {
         collections::VecDeque,
         sync::{Mutex, MutexGuard, OnceLock},
         thread::{self, JoinHandle},
+        ptr,
     },
     taimistate::{TaimiState, TaimiThreadEvent},
     tokio::sync::mpsc::{channel, Receiver, Sender},
+    arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned},
 };
 
 static TS_SENDER: OnceLock<Sender<taimistate::TaimiThreadEvent>> = OnceLock::new();
@@ -197,6 +202,19 @@ fn load() {
         "Open Taimi control menu",
     )
     .revert_on_unload();
+
+    let combat_callback = event_consume!(|cdata: Option<&CombatData>| {
+        let sender = TS_SENDER.get().unwrap();
+        if let Some(combat_data) = cdata {
+            if let Some(evt) = combat_data.event() {
+                if let Some(agt) = combat_data.src() {
+                    let agt = AgentOwned::from(unsafe { ptr::read(agt) });
+                    sender.try_send(TaimiThreadEvent::CombatEvent {src: agt, evt: evt.clone()});
+                }
+            }
+        }
+    });
+    COMBAT_LOCAL.subscribe(combat_callback).revert_on_unload();
 
     // MumbleLink Identity
     MUMBLE_IDENTITY_UPDATED

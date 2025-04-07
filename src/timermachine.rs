@@ -60,6 +60,7 @@ pub struct TimerMachine {
     state: TimerMachineState,
     timer_file: Arc<TimerFile>,
     phase_id: usize,
+    reset: TimerTrigger,
     alert_sem: Arc<Mutex<()>>,
     sender: Sender<RenderThreadEvent>,
     combat_state: CombatState,
@@ -78,6 +79,7 @@ impl TimerMachine {
         TimerMachine {
             state: TimerMachineState::AwakeUnaware,
             phase_id: 0,
+            reset: timer_file.clone().reset.clone(),
             timer_file,
             alert_sem,
             sender,
@@ -85,7 +87,7 @@ impl TimerMachine {
             tasks: Default::default(),
         }
     }
-    pub fn get_trigger(&self, id: usize, trigger: TriggerType) -> Option<TimerTrigger> {
+    pub fn get_trigger(&mut self, id: usize, trigger: TriggerType) -> Option<TimerTrigger> {
         let tf_ref = self.timer_file.clone();
         use TriggerType::*;
         match trigger {
@@ -97,24 +99,79 @@ impl TimerMachine {
             },
         }
     }
+    
+    async fn send_alert(
+        sender: Sender<RenderThreadEvent>,
+        lock: Arc<Mutex<()>>,
+        message: String,
+        sleeb: Duration,
+        duration: Duration,
+    ) {
+        log::info!("Sleeping {:?} seconds for {}: a message with {:?} duration", sleeb, message, duration);
+        sleep(sleeb).await;
+        let alert_handle = lock.lock().await;
+        log::info!("Slept {:?} seconds, displaying {}: a message with {:?} duration", sleeb, message, duration);
+        let _ = sender.send(RenderThreadEvent::AlertStart(message.clone())).await;
+        sleep(duration).await;
+        let _ = sender.send(RenderThreadEvent::AlertEnd).await;
+        log::info!("Stopping displaying {}: we slept for {:?} a message with {:?} duration", message, sleeb, duration);
+        // this is my EMOTIONAL SUPPORT drop
+        drop(alert_handle);
+    }
+
+    fn text_alert(&self, message: String, duration: Duration) -> JoinHandle<()> {
+        tokio::spawn(Self::send_alert(
+            self.sender.clone(),
+            self.alert_sem.clone(),
+            message,
+            duration,
+            Duration::from_secs(1),
+        ))
+    }
+
+    fn ambiguous_alert(&mut self, ts: f32, alert: TimerAlert) {
+        let ts_d = Duration::from_secs_f32(ts);
+        if let Some(warn) = alert.warning {
+                if let Some(warn_dur) = alert.warning_duration {
+                    let message = format!("{} in {} seconds", warn, warn_dur);
+                    let join = self.text_alert(message, ts_d);
+                    let jarc = Arc::new(join);
+                    self.tasks.push(jarc);
+                }
+        } else {
+            if let Some(alrt) = alert.alert {
+                if let Some(alrt_dur) = alert.alert_duration {
+                    let message = format!("{} in {} seconds", alrt, alrt_dur);
+                    let join = self.text_alert(message, ts_d);
+                    let jarc = Arc::new(join);
+                    self.tasks.push(jarc);
+                }
+            }
+        }
+    }
+
+
     pub async fn alert(ts: f32, alert: TimerAlert) {
         let ts_d = Duration::from_secs_f32(ts);
-        sleep(ts_d);
         if let Some(warning) = alert.warning {
+            log::info!("Sleeping {} for {}", ts, warning);
+            sleep(ts_d).await;
             log::info!("{} Start@{}", warning, ts);
             if let Some(dur) = alert.warning_duration {
-                log::info!("{} Warning Duration Start@{}", warning, ts);
+                log::info!("{} Warning Duration Start@{}, Length: {}", warning, ts, dur);
                 let dur_d = Duration::from_secs_f32(dur);
-                sleep(dur_d);
-                log::info!("{} Warning Duration End@{}", warning, ts);
+                sleep(dur_d).await;
+                log::info!("{} Warning Duration End@{}, Length: {}", warning, ts, dur);
             };
         }
         if let Some(alert_msg) = alert.alert {
+            log::info!("Sleeping {} for {}", ts, alert_msg);
+            sleep(ts_d).await;
             if let Some(dur) = alert.alert_duration {
-                log::info!("{} Alert Duration Start@{}", alert_msg, ts);
+                log::info!("{} Alert Duration Start@{}, Length: {}", alert_msg, ts, dur);
                 let dur_d = Duration::from_secs_f32(dur);
-                sleep(dur_d);
-                log::info!("{} Alert Duration End@{}", alert_msg, ts);
+                sleep(dur_d).await;
+                log::info!("{} Alert Duration End@{}, Length: {}", alert_msg, ts, dur);
             };
         };
     }
@@ -123,12 +180,74 @@ impl TimerMachine {
         tokio::spawn(Self::alert(ts, alert))
     }
 
+    fn start_phase(&mut self, phase: usize) {
+        let tf_ref = self.timer_file.clone();
+        log::info!("On phase {} for {}", phase, tf_ref.name);
+        let phase_proper = tf_ref.phases[phase].clone();
+        let alerts = phase_proper.alerts.clone();
+        for alert in alerts {
+            let alert_c = alert.clone();
+            if let Some(timestamps) = alert_c.timestamps {
+                for timestamp in timestamps {
+                    self.ambiguous_alert(timestamp, alert.clone());
+                }
+            }
+        }
+        self.state = TimerMachineState::OnPhase(phase);
+    }
+
+    fn reset_check(&mut self, pos: Position) {
+        let trigger = &self.reset;
+        let shape = trigger.polytope().unwrap();
+        use TimerMachineState::*;
+        match &self.state {
+            OnPhase(_) => {
+                if trigger.require_entry && shape.point_is_within(pos) {
+                        log::info!("{:?}",self.combat_state);
+                    if trigger.require_out_of_combat {
+                        if self.combat_state == CombatState::Exited {
+                            self.do_reset();
+                        }
+                    } else {
+                        self.do_reset();
+                    }
+                }
+            },
+            Finished(_) => { 
+                if trigger.require_entry && shape.point_is_within(pos) {
+                    if trigger.require_out_of_combat {
+                        if self.combat_state == CombatState::Exited {
+                            self.do_reset();
+                        }
+                    } else {
+                        self.do_reset();
+                    }
+                }
+            },
+            _ => (),
+        }
+    }
+
+    fn do_reset(&mut self) {
+        log::info!("Reset triggered!");
+        self.state = TimerMachineState::OnMap;
+        for task in &self.tasks {
+            log::info!("Aborting task for reset: {:?}", task.id());
+            task.abort()
+        }
+        let alert_handle = self.alert_sem.lock();
+        let _ = self.sender.send(RenderThreadEvent::AlertEnd);
+        self.combat_state = CombatState::Outside;
+        let zero_s = Duration::from_secs(0);
+        let one_s = Duration::from_secs(4);
+        self.text_alert("Reset triggered!".to_string(), one_s);
+    }
+
     pub fn tick(&mut self, pos: Position) {
         let tf_ref = self.timer_file.clone();
-        let tf_reset = tf_ref.reset.clone();
-        // TODO: create reset trigger
 
-        log::info!("Current state: {:?}", self.state);
+        self.reset_check(pos);
+
         use TimerMachineState::*;
         match &self.state {
             // We exist, but is there anything to do about that?
@@ -139,19 +258,18 @@ impl TimerMachine {
             // OnMap means time to start looking for our conditions, with location and
             // (unimplemented) key first.
             OnMap => {
-                log::info!("On map for {}", tf_ref.name);
                 let trigger = self.get_trigger(self.phase_id, TriggerType::Start).unwrap();
                 use TimerTriggerType::*;
                 match &trigger.kind {
                     Location => {
                         let shape = trigger.polytope().unwrap();
                         if trigger.require_entry && shape.point_is_within(pos) {
-                            if trigger.require_combat || true {
+                            if trigger.require_combat {
                                 if self.combat_state == CombatState::Entered {
-                                    self.state = TimerMachineState::OnPhase(self.phase_id);
-                                }
+                                    self.start_phase(self.phase_id);
+                                } 
                             } else {
-                                self.state = TimerMachineState::OnPhase(self.phase_id);
+                                self.start_phase(self.phase_id);
                             }
                         }
                     },
@@ -161,21 +279,6 @@ impl TimerMachine {
             },
             // within a phase (nth)
             OnPhase(phase) => {
-                // let's handle the alerts!
-                let tf_ref = self.timer_file.clone();
-                log::info!("On phase {} for {}", phase, tf_ref.name);
-                let phase_proper = tf_ref.phases[*phase].clone();
-                let alerts = phase_proper.alerts.clone();
-                for alert in alerts {
-                    let alert_c = alert.clone();
-                    if let Some(timestamps) = alert_c.timestamps {
-                        for timestamp in timestamps {
-                            let join = self.spawn_alert(timestamp, alert.clone());
-                            let jarc = Arc::new(join);
-                            self.tasks.push(jarc);
-                        }
-                    }
-                }
                 // handle the finish check
                 if let Some(trigger) = self.get_trigger(*phase, TriggerType::Finish) {
                     use TimerTriggerType::*;
@@ -187,28 +290,32 @@ impl TimerMachine {
                                         self.state = TimerMachineState::Finished(self.phase_id);
                                     }
                             } else {
-                                    self.state = TimerMachineState::Finished(self.phase_id);
+                                if trigger.require_entry && shape.point_is_within(pos) {
+                                    if trigger.require_out_of_combat && self.combat_state == CombatState::Exited {
+                                        self.state = TimerMachineState::Finished(self.phase_id);
+                                    }
                                 }
+                            }
                         },
                         Key => ()
                     }
-                    self.combat_state = CombatState::Outside;
                 }
             },
             // We're cooked, son.
             Finished(phase) => {
-                let tf_ref = self.timer_file.clone();
                 log::info!("Finished phase {} for {}", phase, tf_ref.name);
                 // is there a next phase?
-                if tf_ref.phases.len() < (phase + 2) {
+                if tf_ref.phases.len() < (phase + 1) {
                     // go to it
                     self.state = TimerMachineState::OnPhase(phase + 1)
                 } else {
                     // otherwise, we're DONE DONE
                     self.state = TimerMachineState::FullFinish;
+                    self.combat_state = CombatState::Outside;
                 }
             },
             FullFinish => {
+                log::info!("damn bitch you really finished there huh");
             },
         }
     }
