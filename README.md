@@ -11,19 +11,19 @@ Features:
                 - [x] Sphere
                 - [x] Cuboid
             - [ ] Keybind
-            - [ ] Conditions
-                - [ ] Entry
-                - [ ] Departure
-                - [ ] Combat
-                - [ ] Left Combat
-        - [ ] Timer actions
+            - [x] Conditions
+                - [x] Entry
+                - [x] Departure
+                - [x] Combat
+                - [x] Left Combat
+        - [x] Timer actions
             - [ ] Display progress bar
         - [ ] Directions
         - [ ] Markers
             - [ ] 3D rendering
         - [ ] Sounds
-    - [ ] Get a timer running
-        - [ ] Timer state machine
+    - [x] Get a timer running
+        - [x] Timer state machine
     - [ ] Load every timer file
     - [ ] UI work
         - [ ] Allow enabling and disabling timers with categories
