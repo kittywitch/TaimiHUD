@@ -143,23 +143,26 @@ impl TaimiState {
         let glob_str = self.addon_dir.join("*.bhtimer");
         log::info!("Path to load timer files is '{glob_str:?}'.");
         let timer_paths: Paths = self.get_paths(&glob_str).await.unwrap();
+        let mut total_files = 0;
         for path in timer_paths {
+            total_files = total_files + 1;
             let path = path.expect("Path illegible!");
             match self.load_timer_file(path.clone()).await {
                 Ok(data) => {
-                    log::info!("Successfully loaded the timer file at '{path:?}'.");
+                    //log::info!("Successfully loaded the timer file at '{path:?}'.");
                     timers.push(Arc::new(data));
                 }
                 Err(error) => log::warn!("Failed to load the timer file at '{path:?}': {error}."),
             };
         }
+        let timers_len = timers.len();
+        log::info!("Loaded {} out of {} timers successfully. {} failed to load.", timers_len, total_files, total_files - timers_len);
         timers
     }
 
     async fn setup_timers(&mut self) {
         log::info!("Preparing to setup timers");
         self.timers = self.load_timer_files().await;
-
         for timer in &self.timers {
             let timer_machine = TimerMachine::new(timer.clone(),  self.alert_sem.clone(), self.rt_sender.clone());
             // Handle map_id to timer_id
@@ -182,11 +185,12 @@ impl TaimiState {
             log::info!(
                 "Set up {0}: {3} for map {1}, category {2}",
                 timer.id,
-                timer.name,
+                timer.name.replace("\n"," "),
                 timer.map_id,
                 timer.category
             );
         }
+        log::info!("Set up {} timers.", self.timers.len())
     }
 
     async fn send_alert(
@@ -263,7 +267,6 @@ impl TaimiState {
         let new_map_id = identity.map_id;
         if Some(new_map_id) != self.map_id {
             self.current_timers.clear();
-            log::info!("{:?} {:?}", new_map_id, self.map_id_to_timers.keys());
             if self.map_id_to_timers.contains_key(&new_map_id) {
                 let map_timers = self.map_id_to_timers[&new_map_id].clone();
                 for timer in map_timers {
