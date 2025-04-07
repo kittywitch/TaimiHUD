@@ -4,6 +4,7 @@ use {
         xnacolour::XNAColour,
     },
     serde::{Deserialize, Serialize},
+    serde_json::Value,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -102,11 +103,11 @@ pub struct TimerPhase {
      * - sounds
      */
     #[serde(skip, default)]
-    directions: Vec<String>,
+    directions: Value,
     #[serde(skip, default)]
-    markers: Vec<TimerMarker>,
+    markers: Value,
     #[serde(skip, default)]
-    sounds: Vec<String>,
+    sounds: Value,
 }
 
 

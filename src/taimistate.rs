@@ -9,7 +9,7 @@ use {
     glam::f32::{Vec2, Vec3},
     glob::{glob, Paths},
     nexus::data_link::{read_mumble_link, MumbleLink},
-    std::{collections::HashMap, fs::File, path::PathBuf, sync::Arc},
+    std::{collections::HashMap, fs::{read_to_string, File}, path::PathBuf, sync::Arc},
     tokio::{
         runtime, select,
         sync::{
@@ -124,8 +124,12 @@ impl TaimiState {
     }
     async fn load_timer_file(&self, path: PathBuf) -> anyhow::Result<bhtimer::TimerFile> {
         log::info!("Attempting to load the timer file at '{path:?}'.");
-        let file = File::open(path)?;
-        let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
+        //let file = File::open(path)?;
+        //let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
+        let mut file_data = read_to_string(path)?;
+        json_strip_comments::strip(&mut file_data)?;
+        let timer_data: TimerFile = serde_json::from_str(&file_data)?;
+
         Ok(timer_data)
     }
 
