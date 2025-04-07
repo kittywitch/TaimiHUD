@@ -123,7 +123,7 @@ impl TaimiState {
         rt.block_on(evt_loop);
     }
     async fn load_timer_file(&self, path: PathBuf) -> anyhow::Result<bhtimer::TimerFile> {
-        log::info!("Attempting to load the timer file at '{path:?}'.");
+        log::debug!("Attempting to load the timer file at '{path:?}'.");
         //let file = File::open(path)?;
         //let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
         let mut file_data = read_to_string(path)?;
@@ -141,7 +141,7 @@ impl TaimiState {
     async fn load_timer_files(&self) -> Vec<Arc<TimerFile>> {
         let mut timers = Vec::new();
         let glob_str = self.addon_dir.join("*.bhtimer");
-        log::info!("Path to load timer files is '{glob_str:?}'.");
+        log::info!("Path to load timer files from is '{glob_str:?}'.");
         let timer_paths: Paths = self.get_paths(&glob_str).await.unwrap();
         let mut total_files = 0;
         for path in timer_paths {
@@ -149,7 +149,7 @@ impl TaimiState {
             let path = path.expect("Path illegible!");
             match self.load_timer_file(path.clone()).await {
                 Ok(data) => {
-                    //log::info!("Successfully loaded the timer file at '{path:?}'.");
+                    log::debug!("Successfully loaded the timer file at '{path:?}'.");
                     timers.push(Arc::new(data));
                 }
                 Err(error) => log::warn!("Failed to load the timer file at '{path:?}': {error}."),
