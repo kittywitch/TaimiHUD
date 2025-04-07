@@ -107,8 +107,9 @@ impl TimerMachine {
         sleeb: Duration,
         duration: Duration,
     ) {
+        let sleeb_real = sleeb - duration;
         log::info!("Sleeping {:?} seconds for {}: a message with {:?} duration", sleeb, message, duration);
-        sleep(sleeb).await;
+        sleep(sleeb_real).await;
         let alert_handle = lock.lock().await;
         log::info!("Slept {:?} seconds, displaying {}: a message with {:?} duration", sleeb, message, duration);
         let _ = sender.send(RenderThreadEvent::AlertStart(message.clone())).await;
@@ -133,18 +134,32 @@ impl TimerMachine {
         let ts_d = Duration::from_secs_f32(ts);
         if let Some(warn) = alert.warning {
                 if let Some(warn_dur) = alert.warning_duration {
+                    let warn_dur_d = Duration::from_secs_f32(warn_dur);
                     let message = format!("{} in {} seconds", warn, warn_dur);
-                    let join = self.text_alert(message, ts_d);
-                    let jarc = Arc::new(join);
-                    self.tasks.push(jarc);
+                    if let Some(dury) = ts_d.checked_sub(warn_dur_d) {
+                        let join = self.text_alert(message, dury);
+                        let jarc = Arc::new(join);
+                        self.tasks.push(jarc);
+                    } else {
+                        let join = self.text_alert(message, ts_d);
+                        let jarc = Arc::new(join);
+                        self.tasks.push(jarc);
+                    }
                 }
         } else {
             if let Some(alrt) = alert.alert {
                 if let Some(alrt_dur) = alert.alert_duration {
+                    let alrt_dur_d = Duration::from_secs_f32(alrt_dur);
                     let message = format!("{} in {} seconds", alrt, alrt_dur);
-                    let join = self.text_alert(message, ts_d);
-                    let jarc = Arc::new(join);
-                    self.tasks.push(jarc);
+                    if let Some(dury) = ts_d.checked_sub(alrt_dur_d) {
+                        let join = self.text_alert(message, dury);
+                        let jarc = Arc::new(join);
+                        self.tasks.push(jarc);
+                    } else {
+                        let join = self.text_alert(message, ts_d);
+                        let jarc = Arc::new(join);
+                        self.tasks.push(jarc);
+                    }
                 }
             }
         }
