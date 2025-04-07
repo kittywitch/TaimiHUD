@@ -57,7 +57,7 @@ in {
             artifact-upload = {
               order = 1110;
               name = "artifact upload";
-              uses.path = "actions/upload-artifact@v3";
+              uses.path = "actions/upload-artifact@v4";
               "with" = {
                 name = "taimiHUD";
                 path = artifacts;
