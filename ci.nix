@@ -1,6 +1,6 @@
 { config, pkgs, lib, ... }: with pkgs; with lib; let
-  taimiHUD-rs = import ./. { inherit pkgs; };
-  inherit (taimiHUD-rs) checks packages;
+  taimiHUD-rs = import ./.;
+  packages = taimiHUD-rs.packages.${pkgs.system};
   artifactRoot = ".ci/artifacts";
   artifacts = "${artifactRoot}/bin/taimiHUD*";
 in {
@@ -17,7 +17,6 @@ in {
     };
     tasks = {
       build.inputs = singleton packages.taimiHUD;
-      fmt.inputs = singleton checks.rustfmt;
     };
     jobs = {
       nixos = {
