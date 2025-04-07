@@ -21,7 +21,7 @@ in {
     jobs = {
       nixos = {
         tasks = {
-          build-windows.inputs = singleton packages.taimiHUD-w64;
+          build-windows.inputs = singleton packages.taimiHUD;
         };
         artifactPackages = {
           win64 = packages.taimiHUD;
