@@ -2,7 +2,7 @@
   taimiHUD-rs = import ./.;
   packages = taimiHUD-rs.packages.${pkgs.system};
   artifactRoot = ".ci/artifacts";
-  artifacts = "${artifactRoot}/bin/taimiHUD*";
+  artifacts = "${artifactRoot}/lib/TaimiHUD.dll";
 in {
   config = {
     name = "taimiHUD";
@@ -58,7 +58,7 @@ in {
               name = "artifact upload";
               uses.path = "actions/upload-artifact@v4";
               "with" = {
-                name = "taimiHUD";
+                name = "TaimiHUD";
                 path = artifacts;
               };
             };
