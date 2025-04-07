@@ -1,6 +1,10 @@
 {
   description = "TaimiHUD; timers, markers and hopefully paths for raidcore.gg nexus";
   inputs = {
+    flake-compat = {
+      url = "github:edolstra/flake-compat";
+      flake = false;
+    };
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     fenix = {
       url = "github:nix-community/fenix";
@@ -17,7 +21,7 @@
     };
   };
 
-  outputs = { self, fenix, flake-utils, crane, nixpkgs, rust-overlay }:
+  outputs = { self, fenix, flake-utils, crane, nixpkgs, rust-overlay, ... }:
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = (import nixpkgs) {
