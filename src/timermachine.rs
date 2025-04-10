@@ -186,9 +186,10 @@ impl TimerMachine {
         }
         // Clean up HUD text
         let alert_handle = self.alert_sem.lock();
-        let _ = self.sender.send(RenderThreadEvent::AlertEnd);
+        let event_send = self.sender.send(RenderThreadEvent::AlertEnd);
         // The usual emotional support drop
         drop(alert_handle);
+        drop(event_send);
     }
 
     fn start_tasks(&mut self, phase: &TimerFilePhase) {
