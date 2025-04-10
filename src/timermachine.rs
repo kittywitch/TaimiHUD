@@ -248,7 +248,9 @@ impl TimerMachine {
                 match &trigger.kind {
                     Location => {
                         if trigger.check(pos, self.combat_state) {
-                            self.state_change(OnPhase(0));
+                            if let Some(phase) = TimerFilePhase::new(self.timer.clone()) {
+                                self.state_change(OnPhase(phase));
+                            }
                         }
                     },
                     // Go home clown
@@ -258,12 +260,12 @@ impl TimerMachine {
             // within a phase (nth)
             OnPhase(phase) => {
                 // handle the finish check
-                if let Some(trigger) = phase.finish {
+                if let Some(trigger) = &phase.finish {
                     use TimerTriggerType::*;
                     match &trigger.kind {
                         Location => {
                             if trigger.check(pos, self.combat_state) {
-                                self.state_change(FinishedPhase(phase));
+                                self.state_change(FinishedPhase(phase.clone()));
                             }
                         },
                         Key => ()
