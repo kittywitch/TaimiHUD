@@ -5,6 +5,8 @@ use {
     },
     serde::{Deserialize, Serialize},
     serde_json::Value,
+    strum_macros::Display,
+    tokio::time::Duration,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone, Eq, PartialEq)]
@@ -39,6 +41,13 @@ pub struct TimerTrigger {
     pub require_departure: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Copy)]
+pub enum CombatState {
+    Outside,
+    Entered,
+    Exited,
+}
+
 impl TimerTrigger {
     pub fn position(&self) -> Option<Position> {
         self.position.map(Into::into)
@@ -67,6 +76,17 @@ impl TimerTrigger {
             _ => None,
         }
     }
+    pub fn check(&self, pos: Position, cb: CombatState) -> bool {
+        if let Some(shape) = self.polytope() {
+            let position_check = shape.point_is_within(pos);
+            let combat_exited_check = self.require_out_of_combat && cb == CombatState::Exited;
+            let entry_check = !self.require_entry || position_check;
+            let departure_check = !self.require_departure || !position_check;
+            entry_check && departure_check && combat_exited_check
+        } else {
+            false
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -83,6 +103,12 @@ pub struct TimerFile {
     pub map_id: u32,
     pub reset: TimerTrigger,
     pub phases: Vec<TimerPhase>,
+}
+
+impl TimerFile {
+    pub fn name(&self) -> String {
+        self.name.replace("\n", " ")
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -109,7 +135,6 @@ pub struct TimerPhase {
     #[serde(skip, default)]
     sounds: Value,
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -158,4 +183,74 @@ pub struct TimerAlert {
     pub icon: Option<String>,
     pub fill_color: Option<XNAColour>,
     pub timestamps: Option<Vec<f32>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct TaimiAlert {
+    pub kind: TimerAlertType,
+    pub text: String,
+    pub color: Option<XNAColour>,
+    pub fill_color: Option<XNAColour>,
+    pub icon: Option<String>,
+    pub timestamps: Option<Vec<f32>>,
+    pub duration: f32,
+}
+
+impl TimerAlert {
+    pub fn kind(&self) -> TimerAlertType {
+        use TimerAlertType::*;
+        match (&self.warning, &self.alert) {
+            (Some(_warn), Some(_alrt)) => panic!("A timer alert that is both an alert and a warning was defined!"),
+            (Some(_warn), None) => Warning,
+            (None, Some(_alrt)) => Alert,
+(None, None) => panic!("A timer alert that has neither an alert or a warning was defined!"),
+        }
+}
+
+    pub fn ambiguous(self) -> TaimiAlert {
+        let cloned = self.clone();
+        let kind = cloned.kind();
+        use TimerAlertType::*;
+        match kind {
+            Warning => {
+                TaimiAlert {
+                    kind,
+                    icon: cloned.icon,
+                    text: cloned.warning.unwrap(),
+                    color: cloned.warning_color,
+                    fill_color: cloned.fill_color,
+                    timestamps: cloned.timestamps,
+                    duration: cloned.warning_duration.unwrap(),
+
+                }
+            },
+            Alert => {
+                TaimiAlert {
+                    kind,
+                    icon: cloned.icon,
+                    text: cloned.alert.unwrap(),
+                    color: cloned.alert_color,
+                    fill_color: cloned.fill_color,
+                    timestamps: cloned.timestamps,
+                    duration: cloned.alert_duration.unwrap(),
+
+                }
+            },
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Display, Copy)]
+pub enum TimerAlertType {
+    Alert,
+    Warning
+}
+
+impl TaimiAlert {
+    pub fn descriptor(&self, ts: f32) -> String {
+        return format!("\"{}\"${}@{}[{}]", self.text, self.kind, ts, self.duration)
+    }
+    pub fn duration(&self) -> Duration {
+        Duration::from_secs_f32(self.duration)
+    }
 }
