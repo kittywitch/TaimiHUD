@@ -79,10 +79,12 @@ impl TimerTrigger {
     pub fn check(&self, pos: Position, cb: CombatState) -> bool {
         if let Some(shape) = self.polytope() {
             let position_check = shape.point_is_within(pos);
-            let combat_exited_check = self.require_out_of_combat && cb == CombatState::Exited;
+            let combat_entered_check = !self.require_combat || cb == CombatState::Entered;
+            let combat_exited_check = !self.require_out_of_combat || cb == CombatState::Exited;
+            let combat_check = combat_entered_check && combat_exited_check;
             let entry_check = !self.require_entry || position_check;
             let departure_check = !self.require_departure || !position_check;
-            entry_check && departure_check && combat_exited_check
+            entry_check && departure_check && combat_check
         } else {
             false
         }

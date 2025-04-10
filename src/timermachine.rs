@@ -81,9 +81,12 @@ impl TimerMachine {
         wait_duration: Duration,
         display_duration: Duration,
     ) {
-        let wait_duration_real = wait_duration - display_duration;
-        log::info!("Sleeping {:?} seconds for {}: a message with {:?} duration", wait_duration, message, display_duration);
-        sleep(wait_duration_real).await;
+        if let Some(wait_duration_real) = wait_duration.checked_sub(display_duration) {
+            log::info!("Sleeping {:?} seconds for {}: a message with {:?} duration", wait_duration, message, display_duration);
+            sleep(wait_duration_real).await;
+        } else {
+            log::info!("Immediate {}: a message with {:?} duration", message, display_duration);
+        }
         let alert_handle = lock.lock().await;
         log::info!("Slept {:?} seconds, displaying {}: a message with {:?} duration", wait_duration, message, display_duration);
         let _ = sender.send(RenderThreadEvent::AlertStart(message.clone())).await;
