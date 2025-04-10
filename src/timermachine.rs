@@ -118,7 +118,7 @@ impl TimerMachine {
         display_duration: Duration,
     ) {
         log::info!(
-            "Sleeping {:?} seconds for {}: a message with {:?} duration",
+            "Sleeping {:?} for {}: a message with {:?} duration",
             wait_duration,
             message,
             display_duration
@@ -126,7 +126,7 @@ impl TimerMachine {
         sleep(wait_duration).await;
         let alert_handle = lock.lock().await;
         log::info!(
-            "Slept {:?} seconds, displaying {}: a message with {:?} duration",
+            "Slept {:?}, displaying {}: a message with {:?} duration",
             wait_duration,
             message,
             display_duration
