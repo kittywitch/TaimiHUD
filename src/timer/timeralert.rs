@@ -81,9 +81,6 @@ pub struct TimerAlert {
 
 
 impl TimerAlert {
-    pub fn descriptor(&self, ts: f32) -> String {
-        return format!("\"{}\"${}@{}[{}]", self.text, self.kind, ts, self.duration)
-    }
     pub fn raw_timestamp(&self) -> Duration {
         Duration::from_secs_f32(self.timestamp)
     }

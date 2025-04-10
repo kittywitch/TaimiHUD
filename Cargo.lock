@@ -3,27 +3,6 @@
 version = 4
 
 [[package]]
-name = "TaimiHUD"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "arcdps",
- "glam",
- "glob",
- "json-strip-comments",
- "log",
- "nexus",
- "palette",
- "serde",
- "serde_json",
- "serde_jsonrc",
- "serde_with",
- "strum 0.27.1",
- "strum_macros 0.27.1",
- "tokio",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1011,6 +990,27 @@ dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
+]
+
+[[package]]
+name = "taimi_hud"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "arcdps",
+ "glam",
+ "glob",
+ "json-strip-comments",
+ "log",
+ "nexus",
+ "palette",
+ "serde",
+ "serde_json",
+ "serde_jsonrc",
+ "serde_with",
+ "strum 0.27.1",
+ "strum_macros 0.27.1",
+ "tokio",
 ]
 
 [[package]]

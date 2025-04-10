@@ -30,15 +30,19 @@ pub enum CombatState {
 }
 
 impl TimerTrigger {
+    #[allow(dead_code)]
     pub fn position(&self) -> Option<Position> {
         self.position.map(Into::into)
     }
+
+    #[allow(dead_code)]
     pub fn antipode(&self) -> Option<Position> {
         self.antipode.map(Into::into)
     }
+
     pub fn polytope(&self) -> Option<Polytope> {
-        match self {
-            &Self {
+        match *self {
+            Self {
                 radius: Some(radius),
                 position: Some(center),
                 ..
@@ -46,7 +50,7 @@ impl TimerTrigger {
                 radius,
                 center: center.into(),
             }),
-            &Self {
+            Self {
                 antipode: Some(antipode),
                 position: Some(pode),
                 ..

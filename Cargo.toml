@@ -1,5 +1,5 @@
 [package]
-name = "TaimiHUD"
+name = "taimi_hud"
 authors = [ "kittywitch" ]
 description = "Timers, markers and pathing, eventually."
 version = "0.1.0"

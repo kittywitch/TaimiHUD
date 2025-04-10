@@ -1,5 +1,4 @@
 use {
-    crate::xnacolour::XNAColour,
     glam::{
         f32::{Vec2, Vec3},
         swizzles::*,
@@ -15,7 +14,7 @@ pub struct BlishVec3 {
 }
 
 impl BlishVec3 {
-    pub fn to_vec3(&self) -> Vec3 {
+    pub fn to_vec3(self) -> Vec3 {
         self.child.xzy()
     }
 
@@ -38,10 +37,10 @@ pub enum Position<V3 = Vec3> {
 }
 
 impl Position {
-    fn to_vec2(&self) -> Vec2 {
+    fn to_vec2(self) -> Vec2 {
         match self {
-            &Self::Vec3(vec) => vec.xz(),
-            &Self::Vec2(vec) => vec,
+            Self::Vec3(vec) => vec.xz(),
+            Self::Vec2(vec) => vec,
         }
     }
     /*
@@ -63,9 +62,9 @@ impl Position {
      */
 
     fn min3(&self, rhs: Vec3) -> Self {
-        match self {
-            &Self::Vec2(vec) => self.min2(Self::d3vec2(rhs)),
-            &Self::Vec3(vec) => vec.min(rhs).into(),
+        match *self {
+            Self::Vec2(_vec) => self.min2(Self::d3vec2(rhs)),
+            Self::Vec3(vec) => vec.min(rhs).into(),
         }
     }
 
@@ -86,9 +85,9 @@ impl Position {
      */
 
     fn max3(&self, rhs: Vec3) -> Self {
-        match self {
-            &Self::Vec2(vec) => self.max2(Self::d3vec2(rhs)),
-            &Self::Vec3(vec) => vec.max(rhs).into(),
+        match *self {
+            Self::Vec2(_vec) => self.max2(Self::d3vec2(rhs)),
+            Self::Vec3(vec) => vec.max(rhs).into(),
         }
     }
 
@@ -97,7 +96,7 @@ impl Position {
         lhs.max(rhs).into()
     }
 
-    pub fn max(self, rhs: Position) -> Self {
+    pub fn max(self, _rhs: Position) -> Self {
         match self {
             Self::Vec3(vec) => self.max3(vec),
             Self::Vec2(vec) => self.max2(vec),
@@ -109,9 +108,9 @@ impl Position {
      */
 
     fn distance3(&self, rhs: Vec3) -> f32 {
-        match self {
-            &Self::Vec3(vec) => vec.distance(rhs),
-            &Self::Vec2(vec) => vec.distance(Self::d3vec2(rhs)),
+        match *self {
+            Self::Vec3(vec) => vec.distance(rhs),
+            Self::Vec2(vec) => vec.distance(Self::d3vec2(rhs)),
         }
     }
 
@@ -229,16 +228,15 @@ impl Polytope {
                 let maxes = pode.max(*antipode);
                 player >= mins && player <= maxes
             }
-            _ => panic!("This shouldn't happen :)"),
         }
     }
 }
 
 impl DeserializePosition {
-    pub fn to_sane(&self) -> Position<Vec3> {
+    pub fn to_sane(self) -> Position<Vec3> {
         match self {
-            &DeserializePosition::Vec3(vec) => Position::Vec3(vec.to_vec3()),
-            &DeserializePosition::Vec2(vec) => Position::Vec2(vec),
+            DeserializePosition::Vec3(vec) => Position::Vec3(vec.to_vec3()),
+            DeserializePosition::Vec2(vec) => Position::Vec2(vec),
         }
     }
 }

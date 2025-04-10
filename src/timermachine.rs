@@ -7,9 +7,8 @@ use {
             timertrigger::{TimerTriggerType, CombatState},
         },
         RenderThreadEvent,
-        geometry::{Position, Polytope},
+        geometry::Position,
     },
-    glam::f32::Vec3,
     std::{
         sync::Arc,
         ops::Deref,
@@ -18,7 +17,7 @@ use {
         task::JoinHandle,
         time::{sleep, Duration},
         sync::{
-            mpsc::{Receiver, Sender},
+            mpsc::Sender,
             Mutex,
         },
     },
@@ -66,6 +65,7 @@ impl TimerFilePhase {
         }
     }
 
+    #[allow(dead_code)]
     fn reset(mut self) -> Self {
         self.phase = 0;
         self

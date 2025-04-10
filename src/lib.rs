@@ -7,32 +7,31 @@ mod timer;
 use {
     nexus::{
         event::{
-            arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL},
+            arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED
         },
         gui::{register_render, render, RenderType},
-        imgui::{internal::RawCast, sys::ImFont, Font, FontId, Ui, Window, WindowFlags, Condition},
-        data_link::{read_nexus_link, NexusLink},
+        imgui::{internal::RawCast, Font, FontId, Ui, Window, WindowFlags, Condition},
+        data_link::read_nexus_link,
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
+        // TODO
         //texture::{load_texture_from_file, texture_receive, Texture},
         AddonFlags,
         UpdateProvider,
     },
     std::{
-        collections::VecDeque,
         sync::{Mutex, MutexGuard, OnceLock},
         thread::{self, JoinHandle},
         ptr,
     },
     taimistate::{TaimiState, TaimiThreadEvent},
     tokio::sync::mpsc::{channel, Receiver, Sender},
-    arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned},
+    arcdps::{AgentOwned},
 };
 
 static TS_SENDER: OnceLock<Sender<taimistate::TaimiThreadEvent>> = OnceLock::new();
-static RT_RECEIVER: OnceLock<Receiver<RenderThreadEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
 
 nexus::export! {
@@ -115,7 +114,6 @@ impl RenderState {
         let [text_width, text_height] = ui.calc_text_size(text);
         let text_width = text_width * font_scale;
         let offset_x = text_width / 2.0;
-        let prior_cursor_position = ui.cursor_screen_pos();
         let [game_width, game_height] = io.display_size;
         let centre_x = game_width / 2.0;
         let centre_y = game_height / 2.0;
@@ -164,7 +162,7 @@ fn load() {
     // muh queues
     let _ = TM_THREAD.set(tm_handler);
     let _ = TS_SENDER.set(ts_event_sender);
-    RENDER_STATE.set(Mutex::new(RenderState::new(rt_event_receiver)));
+    let _ = RENDER_STATE.set(Mutex::new(RenderState::new(rt_event_receiver)));
 
     // Rendering setup
     let taimi_window = render!(|ui| {
@@ -209,7 +207,8 @@ fn load() {
             if let Some(evt) = combat_data.event() {
                 if let Some(agt) = combat_data.src() {
                     let agt = AgentOwned::from(unsafe { ptr::read(agt) });
-                    sender.try_send(TaimiThreadEvent::CombatEvent {src: agt, evt: evt.clone()});
+                    let event_send = sender.try_send(TaimiThreadEvent::CombatEvent {src: agt, evt: evt.clone()});
+                    drop(event_send);
                 }
             }
         }
@@ -224,7 +223,8 @@ fn load() {
                 None => (),
                 Some(ident) => {
                     let copied_identity = ident.clone();
-                    sender.try_send(TaimiThreadEvent::MumbleIdentityUpdated(copied_identity));
+                    let event_send = sender.try_send(TaimiThreadEvent::MumbleIdentityUpdated(copied_identity));
+                    drop(event_send);
                 },
             }
         }))
@@ -235,5 +235,6 @@ fn unload() {
     log::info!("Unloading addon");
     // all actions passed to on_load() or revert_on_unload() are performed automatically
     let sender = TS_SENDER.get().unwrap();
-    let _ = sender.try_send(TaimiThreadEvent::Quit);
+    let event_send = sender.try_send(TaimiThreadEvent::Quit);
+    drop(event_send);
 }

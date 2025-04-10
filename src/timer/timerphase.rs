@@ -28,10 +28,13 @@ pub struct TimerPhase {
      * - sounds
      */
     #[serde(skip, default)]
+    #[allow(dead_code)]
     directions: Value,
     #[serde(skip, default)]
+    #[allow(dead_code)]
     markers: Value,
     #[serde(skip, default)]
+    #[allow(dead_code)]
     sounds: Value,
 }
 

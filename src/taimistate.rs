@@ -1,16 +1,14 @@
 use {
     crate::{
         timermachine::TimerMachine,
-        timer::{
-            timerfile::TimerFile,
-        },
-        geometry::{Polytope, Position},
+        timer::timerfile::TimerFile,
+        geometry::Position,
         RenderThreadEvent, *,
     },
-    glam::f32::{Vec2, Vec3},
+    glam::f32::Vec3,
     glob::{glob, Paths},
     nexus::data_link::{read_mumble_link, MumbleLink},
-    std::{collections::HashMap, fs::{read_to_string, File}, path::PathBuf, sync::Arc},
+    std::{collections::HashMap, fs::read_to_string, path::{Path, PathBuf}, sync::Arc},
     tokio::{
         runtime, select,
         sync::{
@@ -20,7 +18,7 @@ use {
         task::JoinHandle,
         time::{interval, sleep, Duration},
     },
-    arcdps::{evtc::event::{EnterCombatEvent, Event as arcEvent}, Agent, AgentOwned},
+    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
 };
 
 #[derive(Debug, Clone)]
@@ -38,8 +36,6 @@ pub struct TaimiState {
     pub current_timers: Vec<TimerMachine>,
     pub map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>>,
     pub category_to_timers: HashMap<String, Vec<Arc<TimerFile>>>,
-    pub timers_for_map: Vec<Arc<TimerFile>>,
-    pub starts_to_check: Vec<Arc<TimerFile>>,
 }
 
 impl TaimiState {
@@ -68,10 +64,8 @@ impl TaimiState {
             // originally timer_ids
             timers: Default::default(),
             current_timers: Default::default(),
-            timers_for_map: Default::default(),
             map_id_to_timers: Default::default(),
             category_to_timers: Default::default(),
-            starts_to_check: Default::default(),
         };
 
         let evt_loop = async move {
@@ -123,7 +117,7 @@ impl TaimiState {
         Ok(timer_data)
     }
 
-    async fn get_paths(&self, path: &PathBuf) -> anyhow::Result<Paths> {
+    async fn get_paths(&self, path: &Path) -> anyhow::Result<Paths> {
         let timer_paths: Paths = glob(path.to_str().expect("Pattern is unparseable"))?;
         Ok(timer_paths)
     }
@@ -135,7 +129,7 @@ impl TaimiState {
         let timer_paths: Paths = self.get_paths(&glob_str).await.unwrap();
         let mut total_files = 0;
         for path in timer_paths {
-            total_files = total_files + 1;
+            total_files += 1;
             let path = path.expect("Path illegible!");
             match self.load_timer_file(path.clone()).await {
                 Ok(data) => {
@@ -154,12 +148,8 @@ impl TaimiState {
         log::info!("Preparing to setup timers");
         self.timers = self.load_timer_files().await;
         for timer in &self.timers {
-            let timer_machine = TimerMachine::new(timer.clone(),  self.alert_sem.clone(), self.rt_sender.clone());
             // Handle map_id to timer_id
-            if !self.map_id_to_timers.contains_key(&timer.map_id) {
-                self.map_id_to_timers
-                    .insert(timer.map_id.clone(), Vec::new());
-            }
+            self.map_id_to_timers.entry(timer.map_id).or_default();
             if let Some(val) = self.map_id_to_timers.get_mut(&timer.map_id) {
                 val.push(timer.clone());
             };
@@ -183,6 +173,7 @@ impl TaimiState {
         log::info!("Set up {} timers.", self.timers.len())
     }
 
+    #[allow(dead_code)]
     async fn send_alert(
         sender: Sender<RenderThreadEvent>,
         lock: Arc<Mutex<()>>,
@@ -197,6 +188,7 @@ impl TaimiState {
         drop(alert_handle);
     }
 
+    #[allow(dead_code)]
     fn alert(&self, message: String, duration: Duration) -> JoinHandle<()> {
         tokio::spawn(Self::send_alert(
             self.rt_sender.clone(),
