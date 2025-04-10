@@ -3,7 +3,8 @@
   packages = taimiHUD-rs.packages.${pkgs.system};
   artifactRoot = ".ci/artifacts";
   artifacts = "${artifactRoot}/lib/TaimiHUD.dll";
-in {
+in
+{
   config = {
     name = "taimiHUD";
     ci.gh-actions.enable = true;
