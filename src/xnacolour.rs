@@ -7,7 +7,7 @@ use {
     serde::{Deserialize, Serialize},
 };
 
-#[derive(Serialize, Deserialize, PartialEq, Debug, FromColorUnclamped, WithAlpha, Clone)]
+#[derive(Serialize, Deserialize, PartialEq, Debug, FromColorUnclamped, WithAlpha, Copy, Clone)]
 #[palette(skip_derives(Rgb), rgb_standard = "palette::encoding::Srgb")]
 pub struct XNAColour {
     red: u8,

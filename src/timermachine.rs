@@ -3,8 +3,7 @@ use {
         bhtimer::{
             TimerFile,
             TimerTriggerType,
-            TimerTrigger,
-            TimerAlert,
+            TaimiAlert,
             TimerPhase,
             CombatState,
         },
@@ -12,7 +11,10 @@ use {
         geometry::{Position, Polytope},
     },
     glam::f32::Vec3,
-    std::sync::Arc,
+    std::{
+        sync::Arc,
+        ops::Deref,
+    },
     tokio::{
         task::JoinHandle,
         time::{sleep, Duration},
@@ -33,7 +35,7 @@ use {
 * - finished, denoted by a different area, departure, out of combat, ...
 * - failed, with reset condition
 */
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 enum TimerMachineState {
     /*
     * Ensolyss: I am awake.
@@ -43,17 +45,59 @@ enum TimerMachineState {
     AwakeUnaware,
     OffMap,
     OnMap,
-    OnPhase(usize),
-    FinishedPhase(usize),
+    OnPhase(TimerFilePhase),
+    FinishedPhase(TimerFilePhase),
     Finished,
+}
+
+#[derive(Debug,Clone)]
+struct TimerFilePhase {
+    timer: Arc<TimerFile>,
+    phase: usize,
+}
+
+impl TimerFilePhase {
+    fn new(timer: Arc<TimerFile>) -> Option<Self> {
+        match timer.phases.is_empty() {
+            true => None,
+            false => Some(Self {
+                timer,
+                phase: 0
+            }),
+        }
+    }
+
+    fn reset(mut self) -> Self {
+        self.phase = 0;
+        self
+    }
+
+    fn next(self) -> Option<Self> {
+        let phase_len = self.timer.phases.len();
+        let phase = (self.phase..phase_len).next()?;
+        Some(Self {
+            timer: self.timer,
+            phase,
+        })
+    }
+
+    fn phase(&self) -> &TimerPhase {
+        &self.timer.phases[self.phase]
+    }
+}
+
+impl Deref for TimerFilePhase {
+    type Target = TimerPhase;
+
+    fn deref(&self) -> &Self::Target {
+        self.phase()
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct TimerMachine {
     state: TimerMachineState,
-    timer_file: Arc<TimerFile>,
-    phases: Vec<TimerPhase>,
-    reset: TimerTrigger,
+    timer: Arc<TimerFile>,
     alert_sem: Arc<Mutex<()>>,
     sender: Sender<RenderThreadEvent>,
     combat_state: CombatState,
@@ -61,12 +105,10 @@ pub struct TimerMachine {
 }
 
 impl TimerMachine {
-    pub fn new(timer_file: Arc<TimerFile>, alert_sem: Arc<Mutex<()>>, sender: Sender<RenderThreadEvent>) -> Self {
+    pub fn new(timer: Arc<TimerFile>, alert_sem: Arc<Mutex<()>>, sender: Sender<RenderThreadEvent>) -> Self {
         TimerMachine {
             state: TimerMachineState::AwakeUnaware,
-            phases: timer_file.clone().phases.clone(),
-            reset: timer_file.clone().reset.clone(),
-            timer_file,
+            timer,
             alert_sem,
             sender,
             combat_state: CombatState::Outside,
@@ -81,12 +123,8 @@ impl TimerMachine {
         wait_duration: Duration,
         display_duration: Duration,
     ) {
-        if let Some(wait_duration_real) = wait_duration.checked_sub(display_duration) {
-            log::info!("Sleeping {:?} seconds for {}: a message with {:?} duration", wait_duration, message, display_duration);
-            sleep(wait_duration_real).await;
-        } else {
-            log::info!("Immediate {}: a message with {:?} duration", message, display_duration);
-        }
+        log::info!("Sleeping {:?} seconds for {}: a message with {:?} duration", wait_duration, message, display_duration);
+        sleep(wait_duration).await;
         let alert_handle = lock.lock().await;
         log::info!("Slept {:?} seconds, displaying {}: a message with {:?} duration", wait_duration, message, display_duration);
         let _ = sender.send(RenderThreadEvent::AlertStart(message.clone())).await;
@@ -107,20 +145,16 @@ impl TimerMachine {
         ))
     }
 
-    fn timer_alert(&mut self, ts: f32, alert: TimerAlert) {
-        let alert = alert.ambiguous();
-        let ts_d = Duration::from_secs_f32(ts);
-        let text = format!("{}: {}", alert.kind, alert.text);
-
-        let join = self.text_alert(text, ts_d, alert.duration());
+    fn timer_alert(&mut self, alert: TaimiAlert) {
+        let (timestamp, duration) = (alert.timestamp(), alert.duration());
+        let join = self.text_alert(alert.text,timestamp, duration);
         let jarc = Arc::new(join);
         self.tasks.push(jarc);
     }
 
 
     fn reset_check(&mut self, pos: Position) {
-        let trigger = &self.reset;
-        let shape = trigger.polytope().unwrap();
+        let trigger = &self.timer.reset;
         use TimerMachineState::*;
         match &self.state {
             OnPhase(_) | FinishedPhase(_) => {
@@ -133,7 +167,7 @@ impl TimerMachine {
     }
 
     fn do_reset(&mut self) {
-        let reason = format!("Reset triggered for \"{}\"", self.timer_file.name);
+        let reason = format!("Reset triggered for \"{}\"", self.timer.name);
         log::info!("Reset triggered!");
         self.combat_state = CombatState::Outside;
         self.state_change(TimerMachineState::OnMap);
@@ -157,71 +191,37 @@ impl TimerMachine {
         drop(alert_handle);
     }
 
-    fn phase_count(&mut self) -> usize {
-        self.phases.len()
-    }
-
-    fn next_phase(&mut self, current_phase: usize) -> Option<(TimerPhase, usize)> {
-        let next_phase_id = self.get_next_phase_id(current_phase);
-        if let Some(phase_id) = next_phase_id {
-            Some((self.phases[phase_id].clone(), phase_id))
-        } else {
-            None
+    fn start_tasks(&mut self, phase: &TimerFilePhase) {
+        let timers = phase.get_alerts();
+        for timer in timers {
+            self.timer_alert(timer);
         }
-    }
-
-    fn get_next_phase_id(&mut self, current_phase: usize) -> Option<usize> {
-        if current_phase + 1 < self.phase_count() - 1 {
-            let next_phase_id = current_phase + 1;
-            Some(next_phase_id)
-        } else {
-            None
-        }
-    }
-
-    fn start_tasks(&mut self, phase: usize) {
-        let mut phase = self.timer_file.phases.get(phase).unwrap().clone();
-            for alert in &mut phase.alerts {
-                if let Some(timestamps) = &alert.timestamps {
-                    for timestamp in timestamps {
-                        self.timer_alert(*timestamp, alert.clone())
-                    }
-                }
-            }
-    }
-
-    fn set_state(&mut self, state: TimerMachineState) {
-        let reason = format!("Switching from state {:?} to {:?}", self.state, state);
-        log::info!("{}", reason);
-        self.abort_tasks(reason);
-        self.state = state;
     }
 
     /**
         state_change is about code that should run once, upon a stage or phase change.
     */
     fn state_change(&mut self, state: TimerMachineState) {
-        self.set_state(state);
         use TimerMachineState::*;
-        match self.state {
-            AwakeUnaware => (),
-            OffMap => (),
-            OnMap => (),
-            OnPhase(current_phase) => {
-                self.start_tasks(current_phase);
-            },
-            FinishedPhase(current_phase) => {
+        let final_state = match state {
+            FinishedPhase(phase) => {
                 // if there are any more phases, we should go back to OnPhase
-                if let Some((_phase, phase_id)) = self.next_phase(current_phase) {
-                    self.set_state(OnPhase(phase_id));
+                if let Some(next_phase) = phase.next() {
+                    OnPhase(next_phase)
                 }
                 // otherwise, we're done
                 else {
-                    self.set_state(Finished);
+                    Finished
                 }
             },
-            Finished => (),
+            _ => state,
+        };
+        let reason = format!("Switching from state {:?} to {:?}", self.state, final_state);
+        self.abort_tasks(reason);
+        if let OnPhase(phase) = &final_state {
+            self.start_tasks(phase);
         }
+        self.state = final_state;
     }
 
     /**
@@ -243,7 +243,7 @@ impl TimerMachine {
             // (unimplemented) key first.
             OnMap => {
                 // All timers have a start trigger and a zeroth (first) phase
-                let trigger = &self.timer_file.phases.first().unwrap().start;
+                let trigger = &self.timer.phases.first().unwrap().start;
                 use TimerTriggerType::*;
                 match &trigger.kind {
                     Location => {
@@ -256,9 +256,9 @@ impl TimerMachine {
                 }
             },
             // within a phase (nth)
-            &OnPhase(phase) => {
+            OnPhase(phase) => {
                 // handle the finish check
-                if let Some(trigger) = &self.timer_file.phases[phase].finish {
+                if let Some(trigger) = phase.finish {
                     use TimerTriggerType::*;
                     match &trigger.kind {
                         Location => {
@@ -270,7 +270,7 @@ impl TimerMachine {
                     }
                 }
             },
-            &FinishedPhase(_phase) => (),
+            FinishedPhase(_phase) => (),
             Finished => (),
         }
     }
@@ -284,12 +284,12 @@ impl TimerMachine {
     }
 
     pub fn update_on_map(&mut self, map_id: u32) {
-        let machine_map_id = &self.timer_file.map_id;
+        let machine_map_id = &self.timer.map_id;
         if *machine_map_id == map_id {
-            log::info!("On map with ID \"{}\" for \"{}\"", map_id, self.timer_file.name());
+            log::info!("On map with ID \"{}\" for \"{}\"", map_id, self.timer.name());
             self.state = TimerMachineState::OnMap;
         } else {
-            log::info!("Off map with ID \"{}\" for \"{}\"", map_id, self.timer_file.name());
+            log::info!("Off map with ID \"{}\" for \"{}\"", map_id, self.timer.name());
             self.state = TimerMachineState::OffMap;
         }
     }

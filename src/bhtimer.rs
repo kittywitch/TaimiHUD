@@ -77,17 +77,17 @@ impl TimerTrigger {
         }
     }
     pub fn check(&self, pos: Position, cb: CombatState) -> bool {
-        if let Some(shape) = self.polytope() {
-            let position_check = shape.point_is_within(pos);
-            let combat_entered_check = !self.require_combat || cb == CombatState::Entered;
-            let combat_exited_check = !self.require_out_of_combat || cb == CombatState::Exited;
-            let combat_check = combat_entered_check && combat_exited_check;
-            let entry_check = !self.require_entry || position_check;
-            let departure_check = !self.require_departure || !position_check;
-            entry_check && departure_check && combat_check
-        } else {
-            false
-        }
+        let shape = match self.polytope() {
+            Some(s) => s,
+            None => return false,
+        };
+        let position_check = shape.point_is_within(pos);
+        let combat_entered_check = !self.require_combat || cb == CombatState::Entered;
+        let combat_exited_check = !self.require_out_of_combat || cb == CombatState::Exited;
+        let combat_check = combat_entered_check && combat_exited_check;
+        let entry_check = !self.require_entry || position_check;
+        let departure_check = !self.require_departure || !position_check;
+        entry_check && departure_check && combat_check
     }
 }
 
@@ -138,6 +138,12 @@ pub struct TimerPhase {
     sounds: Value,
 }
 
+impl TimerPhase {
+    pub fn get_alerts(&self) -> Vec<TaimiAlert> {
+        self.alerts.iter().flat_map(TimerAlert::get_alerts).collect()
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerMarker {
@@ -176,25 +182,34 @@ pub struct TimerAction {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerAlert {
+    #[serde(default)]
     pub warning_duration: Option<f32>,
+    #[serde(default)]
     pub alert_duration: Option<f32>,
+    #[serde(default)]
     pub warning: Option<String>,
+    #[serde(default)]
     pub warning_color: Option<XNAColour>,
+    #[serde(default)]
     pub alert: Option<String>,
+    #[serde(default)]
     pub alert_color: Option<XNAColour>,
+    #[serde(default)]
     pub icon: Option<String>,
+    #[serde(default)]
     pub fill_color: Option<XNAColour>,
-    pub timestamps: Option<Vec<f32>>,
+    #[serde(default)]
+    pub timestamps: Vec<f32>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TaimiAlert {
     pub kind: TimerAlertType,
     pub text: String,
-    pub color: Option<XNAColour>,
-    pub fill_color: Option<XNAColour>,
+    pub colour: Option<XNAColour>,
+    pub fill_colour: Option<XNAColour>,
     pub icon: Option<String>,
-    pub timestamps: Option<Vec<f32>>,
+    pub timestamp: f32,
     pub duration: f32,
 }
 
@@ -207,39 +222,28 @@ impl TimerAlert {
             (None, Some(_alrt)) => Alert,
 (None, None) => panic!("A timer alert that has neither an alert or a warning was defined!"),
         }
-}
-
-    pub fn ambiguous(self) -> TaimiAlert {
-        let cloned = self.clone();
-        let kind = cloned.kind();
-        use TimerAlertType::*;
-        match kind {
-            Warning => {
-                TaimiAlert {
-                    kind,
-                    icon: cloned.icon,
-                    text: cloned.warning.unwrap(),
-                    color: cloned.warning_color,
-                    fill_color: cloned.fill_color,
-                    timestamps: cloned.timestamps,
-                    duration: cloned.warning_duration.unwrap(),
-
-                }
-            },
-            Alert => {
-                TaimiAlert {
-                    kind,
-                    icon: cloned.icon,
-                    text: cloned.alert.unwrap(),
-                    color: cloned.alert_color,
-                    fill_color: cloned.fill_color,
-                    timestamps: cloned.timestamps,
-                    duration: cloned.alert_duration.unwrap(),
-
-                }
-            },
-        }
     }
+
+    pub fn get_alerts(&self) -> Vec<TaimiAlert> {
+        let kind = self.kind();
+        use TimerAlertType::*;
+        let (text, colour, duration) = match kind {
+            Warning => (self.warning.as_ref().unwrap(), self.warning_color, self.warning_duration.unwrap()),
+            Alert => (self.alert.as_ref().unwrap(), self.alert_color, self.alert_duration.unwrap()),
+        };
+        self.timestamps.iter().map(|&timestamp| {
+            TaimiAlert {
+                kind,
+                text: text.clone(),
+                colour,
+                duration,
+                fill_colour: self.fill_color,
+                timestamp,
+                icon: self.icon.clone(),
+            }
+        }).collect()
+    }
+
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Display, Copy)]
@@ -251,6 +255,12 @@ pub enum TimerAlertType {
 impl TaimiAlert {
     pub fn descriptor(&self, ts: f32) -> String {
         return format!("\"{}\"${}@{}[{}]", self.text, self.kind, ts, self.duration)
+    }
+    pub fn raw_timestamp(&self) -> Duration {
+        Duration::from_secs_f32(self.timestamp)
+    }
+    pub fn timestamp(&self) -> Duration {
+        self.raw_timestamp().checked_sub(self.duration()).unwrap_or_default()
     }
     pub fn duration(&self) -> Duration {
         Duration::from_secs_f32(self.duration)
