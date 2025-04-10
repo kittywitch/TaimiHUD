@@ -171,13 +171,12 @@ impl TimerMachine {
     }
 
     fn get_next_phase_id(&mut self, current_phase: usize) -> Option<usize> {
-        let mut next_phase_id;
         if current_phase + 1 < self.phase_count() - 1 {
-            next_phase_id = current_phase + 1;
+            let next_phase_id = current_phase + 1;
+            Some(next_phase_id)
         } else {
-            return None;
+            None
         }
-        Some(next_phase_id)
     }
 
     fn start_tasks(&mut self, phase: usize) {
@@ -285,13 +284,12 @@ impl TimerMachine {
     }
 
     pub fn update_on_map(&mut self, map_id: u32) {
-        let tf_ref = self.timer_file.clone();
-        let machine_map_id = tf_ref.map_id;
-        if machine_map_id == map_id {
-            log::info!("On map with ID \"{}\" for \"{}\"", map_id, tf_ref.name());
+        let machine_map_id = &self.timer_file.map_id;
+        if *machine_map_id == map_id {
+            log::info!("On map with ID \"{}\" for \"{}\"", map_id, self.timer_file.name());
             self.state = TimerMachineState::OnMap;
         } else {
-            log::info!("Off map with ID \"{}\" for \"{}\"", map_id, tf_ref.name());
+            log::info!("Off map with ID \"{}\" for \"{}\"", map_id, self.timer_file.name());
             self.state = TimerMachineState::OffMap;
         }
     }

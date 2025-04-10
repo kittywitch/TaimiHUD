@@ -30,20 +30,9 @@ pub struct TaimiState {
     pub addon_dir: PathBuf,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub cached_link: Option<MumbleLink>,
-    // TODO: Refactor to be a hashmap of ID to pointer to timerfile
-    // instead of any use of timer_id, use the Arc as a shared reference
-    //
-    // * no longer have to worry about .clone()
-    // * don't have to worry about lifetimes thanks to arc
-    // THANKS ARC <3
-    //pub timers: HashMap<String, TimerFile>,
-    //pub map_id_to_timer_ids: HashMap<u32, Vec<String>>,
-    //pub category_to_timer_ids: HashMap<String, Vec<String>>,
-
     pub map_id: Option<u32>,
     pub player_position: Option<Vec3>,
     alert_sem: Arc<Mutex<()>>,
-
     pub timers: Vec<Arc<TimerFile>>,
     pub current_timers: Vec<TimerMachine>,
     pub map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>>,
@@ -216,40 +205,10 @@ impl TaimiState {
         ))
     }
 
-    // TODO: refactor code such that the start triggers are handled as part of the
-    // TimerMachine, where we check if it is OnMap and untriggered...
-    // The code for checking sphere/cuboid regions should be built into the actual TimerMachine
-    // This avoids mutating a collection and allows us to reckon with these things as checking the
-    // Enum value
     async fn tick(&mut self) -> anyhow::Result<()> {
-        /*let mut started_ids = Vec::new();
-        for (timer_id, start_phase) in &self.starts_to_check {
-            use bhtimer::TimerTriggerType::*;
-            let start_trigger = &start_phase.start;
-            match &start_trigger.kind {
-                Location => {
-                    let shape = start_trigger.polytope().unwrap();
-                    if let Some(player_pos) = self.player_position() {
-                        let player_pos = self.player_position().unwrap();
-                        if shape.point_is_within(player_pos) {
-                            let message = format!(
-                                "Player is within the boundary for '{}'.",
-                                start_phase.name
-                            );
-                            log::info!("{}", message);
-                            let _ = self.alert(message, Duration::from_secs(5));
-                            started_ids.push(timer_id.clone());
-                        }
-                    }
-                }
-                Key => (),
-            }
-        }
-        for started_id in started_ids {
-            self.starts_to_check.remove(&started_id);
-        }*/
         Ok(())
     }
+
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         self.cached_link = read_mumble_link();
         if let Some(link) = &self.cached_link {
@@ -279,36 +238,6 @@ impl TaimiState {
             self.map_id = Some(new_map_id);
         }
         self.cached_identity = Some(identity);
-        /*if self.map_id != Some(identity.map_id) {
-        match self.map_id {
-        Some(map_id) => log::info!(
-        "User has changed map from {0} to {1}",
-        map_id,
-        identity.map_id
-        ),
-        None => log::info!("User's map is {0}", identity.map_id),
-        }
-        self.map_id = Some(identity.map_id);
-        let map_id_local = &self.map_id.unwrap();
-        if self.map_id_to_timer_ids.contains_key(map_id_local) {
-        let timers_for_map = &self.map_id_to_timer_ids[map_id_local];
-        let timers_list = timers_for_map.join(", ");
-        let mut starts_to_check = HashMap::new();
-        for timer_id in timers_for_map {
-        let timer = &self.timers[timer_id];
-        let start_phase = &timer.phases[0];
-        starts_to_check.insert(timer_id.clone(), start_phase.clone());
-        }
-        self.starts_to_check = starts_to_check;
-        self.timers_for_map = timers_for_map.to_vec();
-        log::info!("Timers found for map {0}: {1}", map_id_local, timers_list);
-        } else {
-        self.starts_to_check = HashMap::new();
-        self.timers_for_map = Vec::new();
-        log::info!("No timers found for map {0}.", map_id_local);
-        }
-        }
-        self.cached_identity = Some(identity);*/
     }
 
     async fn handle_combat_event(&mut self, src: arcdps::AgentOwned, evt: arcEvent) {
@@ -319,7 +248,7 @@ impl TaimiState {
                    log::info!("Character changed from {:?} to {:?}!", agent.name, src.name);
                     *agent = src;
                 },
-                Some(agent) => { },
+                Some(_agent) => (),
                 None => {
                     log::info!("Character selected, {:?}!", src.name);
                     self.agent = Some(src);
