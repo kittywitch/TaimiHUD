@@ -1,6 +1,6 @@
 use {
-    serde::{Serialize,Deserialize},
     crate::geometry::BlishVec3,
+    serde::{Deserialize, Serialize},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -15,4 +15,3 @@ pub struct TimerMarker {
     pub duration: f32,
     pub timestamps: Option<Vec<f32>>,
 }
-

@@ -1,9 +1,8 @@
-
 use {
     crate::xnacolour::XNAColour,
     serde::{Deserialize, Serialize},
-    tokio::time::Duration,
     strum_macros::Display,
+    tokio::time::Duration,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -32,17 +31,21 @@ pub struct DeserializeAlert {
 #[derive(Serialize, Deserialize, Debug, Clone, Display, Copy)]
 pub enum TimerAlertType {
     Alert,
-    Warning
+    Warning,
 }
 
 impl DeserializeAlert {
     pub fn kind(&self) -> TimerAlertType {
         use TimerAlertType::*;
         match (&self.warning, &self.alert) {
-            (Some(_warn), Some(_alrt)) => panic!("A timer alert that is both an alert and a warning was defined!"),
+            (Some(_warn), Some(_alrt)) => {
+                panic!("A timer alert that is both an alert and a warning was defined!")
+            }
             (Some(_warn), None) => Warning,
             (None, Some(_alrt)) => Alert,
-(None, None) => panic!("A timer alert that has neither an alert or a warning was defined!"),
+            (None, None) => {
+                panic!("A timer alert that has neither an alert or a warning was defined!")
+            }
         }
     }
 
@@ -50,11 +53,20 @@ impl DeserializeAlert {
         let kind = self.kind();
         use TimerAlertType::*;
         let (text, colour, duration) = match kind {
-            Warning => (self.warning.as_ref().unwrap(), self.warning_color, self.warning_duration.unwrap()),
-            Alert => (self.alert.as_ref().unwrap(), self.alert_color, self.alert_duration.unwrap()),
+            Warning => (
+                self.warning.as_ref().unwrap(),
+                self.warning_color,
+                self.warning_duration.unwrap(),
+            ),
+            Alert => (
+                self.alert.as_ref().unwrap(),
+                self.alert_color,
+                self.alert_duration.unwrap(),
+            ),
         };
-        self.timestamps.iter().map(|&timestamp| {
-            TimerAlert {
+        self.timestamps
+            .iter()
+            .map(|&timestamp| TimerAlert {
                 kind,
                 text: text.clone(),
                 colour,
@@ -62,10 +74,9 @@ impl DeserializeAlert {
                 fill_colour: self.fill_color,
                 timestamp,
                 icon: self.icon.clone(),
-            }
-        }).collect()
+            })
+            .collect()
     }
-
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -79,13 +90,14 @@ pub struct TimerAlert {
     pub duration: f32,
 }
 
-
 impl TimerAlert {
     pub fn raw_timestamp(&self) -> Duration {
         Duration::from_secs_f32(self.timestamp)
     }
     pub fn timestamp(&self) -> Duration {
-        self.raw_timestamp().checked_sub(self.duration()).unwrap_or_default()
+        self.raw_timestamp()
+            .checked_sub(self.duration())
+            .unwrap_or_default()
     }
     pub fn duration(&self) -> Duration {
         Duration::from_secs_f32(self.duration)

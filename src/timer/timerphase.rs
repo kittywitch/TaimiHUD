@@ -1,13 +1,11 @@
 use {
-    serde_json::Value,
-    crate::{
-        timer::{
-            timertrigger::TimerTrigger,
-            timeraction::TimerAction,
-            timeralert::{DeserializeAlert, TimerAlert},
-        },
+    crate::timer::{
+        timeraction::TimerAction,
+        timeralert::{DeserializeAlert, TimerAlert},
+        timertrigger::TimerTrigger,
     },
-    serde::{Serialize, Deserialize},
+    serde::{Deserialize, Serialize},
+    serde_json::Value,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -40,8 +38,9 @@ pub struct TimerPhase {
 
 impl TimerPhase {
     pub fn get_alerts(&self) -> Vec<TimerAlert> {
-        self.alerts.iter().flat_map(DeserializeAlert::get_alerts).collect()
+        self.alerts
+            .iter()
+            .flat_map(DeserializeAlert::get_alerts)
+            .collect()
     }
 }
-
-

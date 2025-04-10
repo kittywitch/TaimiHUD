@@ -1,6 +1,6 @@
 use {
+    crate::geometry::{DeserializePosition, Polytope, Position},
     serde::{Deserialize, Serialize},
-    crate::geometry::{Polytope, Position, DeserializePosition},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -88,4 +88,3 @@ impl Default for TimerTriggerType {
         Self::Location
     }
 }
-

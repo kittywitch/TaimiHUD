@@ -1,14 +1,18 @@
 use {
     crate::{
-        timermachine::TimerMachine,
-        timer::timerfile::TimerFile,
-        geometry::Position,
+        geometry::Position, timer::timerfile::TimerFile, timermachine::TimerMachine,
         RenderThreadEvent, *,
     },
+    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
     glob::{glob, Paths},
     nexus::data_link::{read_mumble_link, MumbleLink},
-    std::{collections::HashMap, fs::read_to_string, path::{Path, PathBuf}, sync::Arc},
+    std::{
+        collections::HashMap,
+        fs::read_to_string,
+        path::{Path, PathBuf},
+        sync::Arc,
+    },
     tokio::{
         runtime, select,
         sync::{
@@ -18,7 +22,6 @@ use {
         task::JoinHandle,
         time::{interval, sleep, Duration},
     },
-    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
 };
 
 #[derive(Debug, Clone)]
@@ -140,7 +143,12 @@ impl TaimiState {
             };
         }
         let timers_len = timers.len();
-        log::info!("Loaded {} out of {} timers successfully. {} failed to load.", timers_len, total_files, total_files - timers_len);
+        log::info!(
+            "Loaded {} out of {} timers successfully. {} failed to load.",
+            timers_len,
+            total_files,
+            total_files - timers_len
+        );
         timers
     }
 
@@ -165,7 +173,7 @@ impl TaimiState {
             log::info!(
                 "Set up {0}: {3} for map {1}, category {2}",
                 timer.id,
-                timer.name.replace("\n"," "),
+                timer.name.replace("\n", " "),
                 timer.map_id,
                 timer.category
             );
@@ -222,7 +230,11 @@ impl TaimiState {
             if self.map_id_to_timers.contains_key(&new_map_id) {
                 let map_timers = self.map_id_to_timers[&new_map_id].clone();
                 for timer in map_timers {
-                    self.current_timers.push(TimerMachine::new(timer, self.alert_sem.clone(), self.rt_sender.clone()));
+                    self.current_timers.push(TimerMachine::new(
+                        timer,
+                        self.alert_sem.clone(),
+                        self.rt_sender.clone(),
+                    ));
                 }
                 for machine in &mut self.current_timers {
                     machine.update_on_map(new_map_id)
@@ -238,9 +250,9 @@ impl TaimiState {
         if is_self {
             match &mut self.agent {
                 Some(agent) if src.name != agent.name => {
-                   log::info!("Character changed from {:?} to {:?}!", agent.name, src.name);
+                    log::info!("Character changed from {:?} to {:?}!", agent.name, src.name);
                     *agent = src;
-                },
+                }
                 Some(_agent) => (),
                 None => {
                     log::info!("Character selected, {:?}!", src.name);
@@ -250,21 +262,20 @@ impl TaimiState {
         }
         use arcdps::StateChange;
         match evt.get_statechange() {
-                   StateChange::None => {
-                    },
-                    StateChange::EnterCombat => {
-                        log::info!("Combat begins at {}!", evt.time);
-                        for machine in &mut self.current_timers {
-                            machine.combat_entered()
-                        }
-                    },
-                    StateChange::ExitCombat => {
-                        log::info!("Combat ends at {}!", evt.time);
-                        for machine in &mut self.current_timers {
-                            machine.combat_exited()
-                        }
-                    },
-                    _  => (),
+            StateChange::None => {}
+            StateChange::EnterCombat => {
+                log::info!("Combat begins at {}!", evt.time);
+                for machine in &mut self.current_timers {
+                    machine.combat_entered()
+                }
+            }
+            StateChange::ExitCombat => {
+                log::info!("Combat ends at {}!", evt.time);
+                for machine in &mut self.current_timers {
+                    machine.combat_exited()
+                }
+            }
+            _ => (),
         }
     }
 
@@ -284,6 +295,9 @@ impl TaimiState {
 #[derive(Debug, Clone)]
 pub enum TaimiThreadEvent {
     MumbleIdentityUpdated(MumbleIdentityUpdate),
-    CombatEvent{src: arcdps::AgentOwned, evt: arcEvent},
+    CombatEvent {
+        src: arcdps::AgentOwned,
+        evt: arcEvent,
+    },
     Quit,
 }

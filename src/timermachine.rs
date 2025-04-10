@@ -1,25 +1,19 @@
 use {
     crate::{
+        geometry::Position,
         timer::{
-            timerfile::TimerFile,
             timeralert::TimerAlert,
+            timerfile::TimerFile,
             timerphase::TimerPhase,
-            timertrigger::{TimerTriggerType, CombatState},
+            timertrigger::{CombatState, TimerTriggerType},
         },
         RenderThreadEvent,
-        geometry::Position,
     },
-    std::{
-        sync::Arc,
-        ops::Deref,
-    },
+    std::{ops::Deref, sync::Arc},
     tokio::{
+        sync::{mpsc::Sender, Mutex},
         task::JoinHandle,
         time::{sleep, Duration},
-        sync::{
-            mpsc::Sender,
-            Mutex,
-        },
     },
 };
 
@@ -36,10 +30,10 @@ use {
 #[derive(Debug, Clone)]
 enum TimerMachineState {
     /*
-    * Ensolyss: I am awake.
-    * Ensolyss: I am aware.
-    * Ensolyss: Suffer, mortal things.
-    */
+     * Ensolyss: I am awake.
+     * Ensolyss: I am aware.
+     * Ensolyss: Suffer, mortal things.
+     */
     AwakeUnaware,
     OffMap,
     OnMap,
@@ -48,7 +42,7 @@ enum TimerMachineState {
     Finished,
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 struct TimerFilePhase {
     timer: Arc<TimerFile>,
     phase: usize,
@@ -58,10 +52,7 @@ impl TimerFilePhase {
     fn new(timer: Arc<TimerFile>) -> Option<Self> {
         match timer.phases.is_empty() {
             true => None,
-            false => Some(Self {
-                timer,
-                phase: 0
-            }),
+            false => Some(Self { timer, phase: 0 }),
         }
     }
 
@@ -104,7 +95,11 @@ pub struct TimerMachine {
 }
 
 impl TimerMachine {
-    pub fn new(timer: Arc<TimerFile>, alert_sem: Arc<Mutex<()>>, sender: Sender<RenderThreadEvent>) -> Self {
+    pub fn new(
+        timer: Arc<TimerFile>,
+        alert_sem: Arc<Mutex<()>>,
+        sender: Sender<RenderThreadEvent>,
+    ) -> Self {
         TimerMachine {
             state: TimerMachineState::AwakeUnaware,
             timer,
@@ -122,19 +117,41 @@ impl TimerMachine {
         wait_duration: Duration,
         display_duration: Duration,
     ) {
-        log::info!("Sleeping {:?} seconds for {}: a message with {:?} duration", wait_duration, message, display_duration);
+        log::info!(
+            "Sleeping {:?} seconds for {}: a message with {:?} duration",
+            wait_duration,
+            message,
+            display_duration
+        );
         sleep(wait_duration).await;
         let alert_handle = lock.lock().await;
-        log::info!("Slept {:?} seconds, displaying {}: a message with {:?} duration", wait_duration, message, display_duration);
-        let _ = sender.send(RenderThreadEvent::AlertStart(message.clone())).await;
+        log::info!(
+            "Slept {:?} seconds, displaying {}: a message with {:?} duration",
+            wait_duration,
+            message,
+            display_duration
+        );
+        let _ = sender
+            .send(RenderThreadEvent::AlertStart(message.clone()))
+            .await;
         sleep(display_duration).await;
         let _ = sender.send(RenderThreadEvent::AlertEnd).await;
-        log::info!("Stopping displaying {}: we slept for {:?} a message with {:?} duration", message, wait_duration, display_duration);
+        log::info!(
+            "Stopping displaying {}: we slept for {:?} a message with {:?} duration",
+            message,
+            wait_duration,
+            display_duration
+        );
         // this is my EMOTIONAL SUPPORT drop
         drop(alert_handle);
     }
 
-    fn text_alert(&self, message: String, wait_duration: Duration, display_duration: Duration) -> JoinHandle<()> {
+    fn text_alert(
+        &self,
+        message: String,
+        wait_duration: Duration,
+        display_duration: Duration,
+    ) -> JoinHandle<()> {
         tokio::spawn(Self::send_alert_event(
             self.sender.clone(),
             self.alert_sem.clone(),
@@ -146,11 +163,10 @@ impl TimerMachine {
 
     fn timer_alert(&mut self, alert: TimerAlert) {
         let (timestamp, duration) = (alert.timestamp(), alert.duration());
-        let join = self.text_alert(alert.text,timestamp, duration);
+        let join = self.text_alert(alert.text, timestamp, duration);
         let jarc = Arc::new(join);
         self.tasks.push(jarc);
     }
-
 
     fn reset_check(&mut self, pos: Position) {
         let trigger = &self.timer.reset;
@@ -160,7 +176,7 @@ impl TimerMachine {
                 if trigger.check(pos, self.combat_state) {
                     self.do_reset();
                 }
-            },
+            }
             _ => (),
         }
     }
@@ -177,7 +193,11 @@ impl TimerMachine {
     }
 
     fn abort_tasks(&mut self, reason: String) {
-        log::info!("Aborting {} tasks for reason: \"{}\".", self.tasks.len(), reason);
+        log::info!(
+            "Aborting {} tasks for reason: \"{}\".",
+            self.tasks.len(),
+            reason
+        );
         // Kill currently running timers
         for task in &self.tasks {
             log::debug!("Aborting task with ID \"{:?}\".", task.id());
@@ -213,7 +233,7 @@ impl TimerMachine {
                 else {
                     Finished
                 }
-            },
+            }
             _ => state,
         };
         let reason = format!("Switching from state {:?} to {:?}", self.state, final_state);
@@ -225,9 +245,9 @@ impl TimerMachine {
     }
 
     /**
-    * tick, in comparison to state_change, runs perpetually and is used for
-    * checking to see if conditions for a next phase are met
-    */
+     * tick, in comparison to state_change, runs perpetually and is used for
+     * checking to see if conditions for a next phase are met
+     */
     pub fn tick(&mut self, pos: Position) {
         // It is always important to check if we have met the conditions for resetting the timer
         self.reset_check(pos);
@@ -252,11 +272,11 @@ impl TimerMachine {
                                 self.state_change(OnPhase(phase));
                             }
                         }
-                    },
+                    }
                     // Go home clown
                     Key => (),
                 }
-            },
+            }
             // within a phase (nth)
             OnPhase(phase) => {
                 // handle the finish check
@@ -267,11 +287,11 @@ impl TimerMachine {
                             if trigger.check(pos, self.combat_state) {
                                 self.state_change(FinishedPhase(phase.clone()));
                             }
-                        },
-                        Key => ()
+                        }
+                        Key => (),
                     }
                 }
-            },
+            }
             FinishedPhase(_phase) => (),
             Finished => (),
         }
@@ -288,10 +308,18 @@ impl TimerMachine {
     pub fn update_on_map(&mut self, map_id: u32) {
         let machine_map_id = &self.timer.map_id;
         if *machine_map_id == map_id {
-            log::info!("On map with ID \"{}\" for \"{}\"", map_id, self.timer.name());
+            log::info!(
+                "On map with ID \"{}\" for \"{}\"",
+                map_id,
+                self.timer.name()
+            );
             self.state = TimerMachineState::OnMap;
         } else {
-            log::info!("Off map with ID \"{}\" for \"{}\"", map_id, self.timer.name());
+            log::info!(
+                "Off map with ID \"{}\" for \"{}\"",
+                map_id,
+                self.timer.name()
+            );
             self.state = TimerMachineState::OffMap;
         }
     }

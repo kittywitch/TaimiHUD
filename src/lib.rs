@@ -1,18 +1,19 @@
 mod geometry;
 mod taimistate;
+mod timer;
 mod timermachine;
 mod xnacolour;
-mod timer;
 
 use {
+    arcdps::AgentOwned,
     nexus::{
+        data_link::read_nexus_link,
         event::{
             arc::{CombatData, COMBAT_LOCAL},
-            event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED
+            event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
-        imgui::{internal::RawCast, Font, FontId, Ui, Window, WindowFlags, Condition},
-        data_link::read_nexus_link,
+        imgui::{internal::RawCast, Condition, Font, FontId, Ui, Window, WindowFlags},
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
@@ -22,13 +23,12 @@ use {
         UpdateProvider,
     },
     std::{
+        ptr,
         sync::{Mutex, MutexGuard, OnceLock},
         thread::{self, JoinHandle},
-        ptr,
     },
     taimistate::{TaimiState, TaimiThreadEvent},
     tokio::sync::mpsc::{channel, Receiver, Sender},
-    arcdps::{AgentOwned},
 };
 
 static TS_SENDER: OnceLock<Sender<taimistate::TaimiThreadEvent>> = OnceLock::new();
@@ -137,7 +137,7 @@ impl RenderState {
             .build(ui, || {
                 ui.text(text);
             });
-            font_handle.pop();
+        font_handle.pop();
     }
 
     fn lock() -> MutexGuard<'static, RenderState> {
@@ -207,7 +207,10 @@ fn load() {
             if let Some(evt) = combat_data.event() {
                 if let Some(agt) = combat_data.src() {
                     let agt = AgentOwned::from(unsafe { ptr::read(agt) });
-                    let event_send = sender.try_send(TaimiThreadEvent::CombatEvent {src: agt, evt: evt.clone()});
+                    let event_send = sender.try_send(TaimiThreadEvent::CombatEvent {
+                        src: agt,
+                        evt: evt.clone(),
+                    });
                     drop(event_send);
                 }
             }
