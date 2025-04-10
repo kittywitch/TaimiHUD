@@ -1,8 +1,9 @@
 use {
     crate::{
-        bhtimer,
         timermachine::TimerMachine,
-        bhtimer::{TimerFile,TimerPhase},
+        timer::{
+            timerfile::TimerFile,
+        },
         geometry::{Polytope, Position},
         RenderThreadEvent, *,
     },
@@ -111,7 +112,7 @@ impl TaimiState {
         };
         rt.block_on(evt_loop);
     }
-    async fn load_timer_file(&self, path: PathBuf) -> anyhow::Result<bhtimer::TimerFile> {
+    async fn load_timer_file(&self, path: PathBuf) -> anyhow::Result<TimerFile> {
         log::debug!("Attempting to load the timer file at '{path:?}'.");
         //let file = File::open(path)?;
         //let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;

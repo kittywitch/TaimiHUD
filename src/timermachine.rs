@@ -1,11 +1,10 @@
 use {
     crate::{
-        bhtimer::{
-            TimerFile,
-            TimerTriggerType,
-            TaimiAlert,
-            TimerPhase,
-            CombatState,
+        timer::{
+            timerfile::TimerFile,
+            timeralert::TimerAlert,
+            timerphase::TimerPhase,
+            timertrigger::{TimerTriggerType, CombatState},
         },
         RenderThreadEvent,
         geometry::{Position, Polytope},
@@ -145,7 +144,7 @@ impl TimerMachine {
         ))
     }
 
-    fn timer_alert(&mut self, alert: TaimiAlert) {
+    fn timer_alert(&mut self, alert: TimerAlert) {
         let (timestamp, duration) = (alert.timestamp(), alert.duration());
         let join = self.text_alert(alert.text,timestamp, duration);
         let jarc = Arc::new(join);

@@ -1,8 +1,8 @@
-mod bhtimer;
 mod geometry;
 mod taimistate;
 mod timermachine;
 mod xnacolour;
+mod timer;
 
 use {
     nexus::{
