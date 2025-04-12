@@ -35,80 +35,40 @@ pub struct DeserializeAlert {
 pub enum TimerAlertType {
     Alert,
     Warning,
-    Both,
 }
 
 impl DeserializeAlert {
-    pub fn kind(&self) -> TimerAlertType {
-        use TimerAlertType::*;
-        match (&self.warning, &self.alert) {
-            (Some(_warn), Some(_alrt)) => Both,
-            (Some(_warn), None) => Warning,
-            (None, Some(_alrt)) => Alert,
-            (None, None) => {
-                panic!("A timer alert that has neither an alert or a warning was defined!")
-            }
-        }
+    pub fn alert(&self, timestamp: f32) -> Option<TimerAlert> {
+        Some(TimerAlert {
+                kind: TimerAlertType::Alert,
+                text: self.alert.clone()?,
+                colour: self.alert_color,
+                duration: self.alert_duration?,
+                fill_colour: self.fill_color,
+                timestamp,
+                icon: self.icon.clone(),
+        })
+    }
+
+    pub fn warning(&self, timestamp: f32) -> Option<TimerAlert> {
+        Some(TimerAlert {
+                kind: TimerAlertType::Warning,
+                text: self.warning.clone()?,
+                colour: self.warning_color,
+                duration: self.warning_duration?,
+                fill_colour: self.fill_color,
+                timestamp,
+                icon: self.icon.clone(),
+        })
     }
 
     pub fn get_alerts(&self) -> Vec<TimerAlert> {
-        let kind = self.kind();
-        use TimerAlertType::*;
-        if kind != Both {
-            let (text, colour, duration) = match kind {
-                Warning => (
-                    self.warning.as_ref().unwrap(),
-                    self.warning_color,
-                    self.warning_duration.unwrap(),
-                ),
-                Alert => (
-                    self.alert.as_ref().unwrap(),
-                    self.alert_color,
-                    self.alert_duration.unwrap(),
-                ),
-                Both => (
-                    &Default::default(),
-                    Default::default(),
-                    Default::default(),
-                ),
-            };
             self.timestamps
                 .iter()
-                .map(|&timestamp| TimerAlert {
-                    kind,
-                    text: text.clone(),
-                    colour,
-                    duration,
-                    fill_colour: self.fill_color,
-                    timestamp,
-                    icon: self.icon.clone(),
-                })
-                .collect()
-        } else {
-            self.timestamps
-                .iter()
-                .flat_map(|&timestamp| {
-            let alert = TimerAlert {
-                    kind: Alert,
-                    text: self.alert.as_ref().unwrap().clone(),
-                    colour: self.alert_color,
-                    duration: self.alert_duration.unwrap(),
-                    fill_colour: self.fill_color,
-                    timestamp,
-                    icon: self.icon.clone(),
-                };
-            let warning = TimerAlert {
-                    kind: Warning,
-                    text: self.warning.as_ref().unwrap().clone(),
-                    colour: self.warning_color,
-                    duration: self.warning_duration.unwrap(),
-                    fill_colour: self.fill_color,
-                    timestamp,
-                    icon: self.icon.clone(),
-                };
-                vec![alert, warning]
-            }).collect()
-        }
+                .flat_map(|&timestamp| self.alert(timestamp)
+                        .into_iter()
+                        .chain(self.warning(timestamp))
+                ).collect()
     }
 }
 
