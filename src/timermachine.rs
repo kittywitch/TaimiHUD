@@ -161,6 +161,7 @@ impl TimerMachine {
         ))
     }
 
+    #[cfg(whee)]
     fn timer_alert(&mut self, alert: TimerAlert) {
         let (timestamp, duration) = (alert.timestamp(), alert.duration());
         let join = self.text_alert(alert.text, timestamp, duration);
@@ -168,31 +169,32 @@ impl TimerMachine {
         self.tasks.push(jarc);
     }
 
-    fn reset_check(&mut self, pos: Position) {
+    async fn reset_check(&mut self, pos: Position) {
         let trigger = &self.timer.reset;
         use TimerMachineState::*;
         match &self.state {
             OnPhase(_) | FinishedPhase(_) => {
                 if trigger.check(pos, self.combat_state) {
-                    self.do_reset();
+                    self.do_reset().await;
                 }
             }
             _ => (),
         }
     }
 
-    fn do_reset(&mut self) {
+    async fn do_reset(&mut self) {
         let reason = format!("Reset triggered for \"{}\"", self.timer.name);
         log::info!("Reset triggered!");
         self.combat_state = CombatState::Outside;
-        self.state_change(TimerMachineState::OnMap);
-        self.abort_tasks(reason.clone());
+        self.state_change(TimerMachineState::OnMap).await;
+        self.abort_tasks(reason.clone()).await;
         let zero_s = Duration::from_secs(0);
         let one_s = Duration::from_secs(1);
         self.text_alert(reason, zero_s, one_s);
     }
 
-    fn abort_tasks(&mut self, reason: String) {
+    #[cfg(whee)]
+    fn abort_tasks_old(&mut self, reason: String) {
         log::info!(
             "Aborting {} tasks for reason: \"{}\".",
             self.tasks.len(),
@@ -211,23 +213,32 @@ impl TimerMachine {
         drop(event_send);
     }
 
-    fn start_tasks(&mut self, phase: &TimerFilePhase) {
+    async fn abort_tasks(&self, reason: String) {
+        log::info!(
+            "Aborting {} tasks for reason: \"{}\".",
+            self.tasks.len(),
+            reason
+        );
+        self.sender.send(RenderThreadEvent::AlertReset).await.unwrap();
+    }
+
+    #[cfg(whee)]
+    fn start_tasks_old(&mut self, phase: &TimerFilePhase) {
         let timers = phase.get_alerts();
         for timer in timers {
             self.timer_alert(timer);
         }
     }
 
-    fn start_tasks_new(&mut self, phase: &TimerFilePhase) {
+    async fn start_tasks(&self, phase: &TimerFilePhase) {
         let timers = phase.get_alerts();
-        let event_send = self.sender.send(RenderThreadEvent::AlertFeed(timers));
-        drop(event_send);
+        self.sender.send(RenderThreadEvent::AlertFeed(timers)).await.unwrap();
     }
 
     /**
         state_change is about code that should run once, upon a stage or phase change.
     */
-    fn state_change(&mut self, state: TimerMachineState) {
+    async fn state_change(&mut self, state: TimerMachineState) {
         use TimerMachineState::*;
         let final_state = match state {
             FinishedPhase(phase) => {
@@ -243,9 +254,9 @@ impl TimerMachine {
             _ => state,
         };
         let reason = format!("Switching from state {:?} to {:?}", self.state, final_state);
-        self.abort_tasks(reason);
+        self.abort_tasks(reason).await;
         if let OnPhase(phase) = &final_state {
-            self.start_tasks(phase);
+            self.start_tasks(phase).await;
         }
         self.state = final_state;
     }
@@ -254,9 +265,9 @@ impl TimerMachine {
      * tick, in comparison to state_change, runs perpetually and is used for
      * checking to see if conditions for a next phase are met
      */
-    pub fn tick(&mut self, pos: Position) {
+    pub async fn tick(&mut self, pos: Position) {
         // It is always important to check if we have met the conditions for resetting the timer
-        self.reset_check(pos);
+        self.reset_check(pos).await;
 
         use TimerMachineState::*;
         match &self.state {
@@ -275,7 +286,7 @@ impl TimerMachine {
                     Location => {
                         if trigger.check(pos, self.combat_state) {
                             if let Some(phase) = TimerFilePhase::new(self.timer.clone()) {
-                                self.state_change(OnPhase(phase));
+                                self.state_change(OnPhase(phase)).await;
                             }
                         }
                     }
@@ -291,7 +302,7 @@ impl TimerMachine {
                     match &trigger.kind {
                         Location => {
                             if trigger.check(pos, self.combat_state) {
-                                self.state_change(FinishedPhase(phase.clone()));
+                                self.state_change(FinishedPhase(phase.clone())).await;
                             }
                         }
                         Key => (),

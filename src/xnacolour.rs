@@ -1,8 +1,8 @@
 use {
     palette::{
         convert::{FromColorUnclamped, IntoColorUnclamped},
-        rgb::Rgb,
-        Srgb, WithAlpha,
+        rgb::{Rgb, Rgba},
+        Srgb, Srgba, WithAlpha,
     },
     serde::{Deserialize, Serialize},
 };
@@ -15,6 +15,15 @@ pub struct XNAColour {
     blue: u8,
     #[palette(alpha)]
     alpha: f32,
+}
+
+impl XNAColour {
+
+    pub fn imgcolor(self) -> [f32; 4] {
+        let srgb: Srgb = self.into_color_unclamped();
+        //let alpha = 1.0 - self.alpha;
+        [srgb.red, srgb.blue, srgb.green, 1.0]
+    }
 }
 
 impl<S> FromColorUnclamped<Rgb<S, f32>> for XNAColour

@@ -216,7 +216,7 @@ impl TaimiState {
             self.player_position = Some(Vec3::from_array(link.avatar.position));
             if let Some(pos) = self.player_position() {
                 for machine in &mut self.current_timers {
-                    machine.tick(pos)
+                    machine.tick(pos).await
                 }
             }
         };

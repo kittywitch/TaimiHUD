@@ -1,11 +1,10 @@
 use {
-    crate::xnacolour::XNAColour,
-    serde::{Deserialize, Serialize},
-    strum_macros::Display,
-    tokio::time::{
+    crate::xnacolour::XNAColour, nexus::imgui::{ProgressBar, StyleColor, Ui}, palette::{
+        cast::ComponentsInto, convert::{FromColorUnclamped, IntoColorUnclamped}, rgb::Rgb
+    }, serde::{Deserialize, Serialize}, strum_macros::Display, tokio::time::{
         Duration,
         Instant,
-    },
+    }
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -31,7 +30,7 @@ pub struct DeserializeAlert {
     pub timestamps: Vec<f32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Display, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Display, Copy)]
 pub enum TimerAlertType {
     Alert,
     Warning,
@@ -95,7 +94,46 @@ impl TimerAlert {
     pub fn duration(&self) -> Duration {
         Duration::from_secs_f32(self.duration)
     }
-    pub fn end_time(&self, now: Instant) -> Instant {
-               now + self.duration() 
+    pub fn end(&self, start: Instant) -> Instant {
+               self.start(start) + self.duration()
+    }
+    pub fn start(&self, start: Instant) -> Instant {
+        start + self.timestamp()
+    }
+    pub fn percentage(&self, start: Instant) -> Option<f32> {
+        let elapsed = Instant::now().checked_duration_since(self.start(start))?.as_secs_f32();
+        if elapsed > self.duration {
+            None
+        } else {
+            Some(elapsed / self.duration)
+        }
+    }
+    pub fn remaining(&self, start: Instant) -> Duration {
+        self.end(start).saturating_duration_since(Instant::now())
+    }
+    pub fn progress_bar_text(&self, start: Instant) -> String {
+        format!("{} - in {:.1}s", self.text, self.remaining(start).as_secs_f32())
+    }
+    pub fn progress_bar(&self, ui: &Ui, start: Instant) {
+        if let Some(percent) = self.percentage(start) {
+            let mut colour_tokens = Vec::new();
+            if let Some(fill_colour) = self.fill_colour {
+                colour_tokens.push(ui.push_style_color(
+                    StyleColor::PlotHistogram, fill_colour.imgcolor()
+                ));
+            }
+            if let Some(colour) = self.colour {
+                colour_tokens.push(ui.push_style_color(
+                    StyleColor::Text, colour.imgcolor()
+                ));
+            }
+            ProgressBar::new(percent)
+                .size([-1.0, 12.0])
+                .overlay_text(self.progress_bar_text(start))
+                .build(ui);
+            for token in colour_tokens {
+                token.pop();
+            }
+        }
     }
 }

@@ -6,6 +6,7 @@ mod xnacolour;
 
 use {
     arcdps::AgentOwned,
+    tokio::time::Instant,
     nexus::{
         data_link::read_nexus_link,
         event::{
@@ -24,7 +25,7 @@ use {
     },
     std::{
         ptr,
-        sync::{Mutex, MutexGuard, OnceLock},
+        sync::{Mutex, MutexGuard, OnceLock, Arc},
         thread::{self, JoinHandle},
     },
     crate::{
@@ -50,6 +51,7 @@ nexus::export! {
 
 enum RenderThreadEvent {
     AlertFeed(Vec<TimerAlert>),
+    AlertReset,
     AlertStart(String),
     AlertEnd,
 }
@@ -60,6 +62,13 @@ struct RenderState {
     primary_show: bool,
     timers_window_open: bool,
     alert: Option<String>,
+    phase_state: Option<PhaseState>,
+}
+
+#[derive(Clone)]
+struct PhaseState {
+    start: Instant,
+    alerts: Vec<TimerAlert>,
 }
 
 impl RenderState {
@@ -69,7 +78,9 @@ impl RenderState {
             primary_window_open: true,
             primary_show: false,
             timers_window_open: true,
-            alert: None,
+            alert: Default::default(),
+            phase_state: Default::default(),
+
         }
     }
     fn main_window_keybind_handler(&mut self, _id: &str, is_release: bool) {
@@ -89,7 +100,17 @@ impl RenderState {
                     AlertEnd => {
                         self.alert = None;
                     },
-                    AlertFeed(alerts) => todo!(),
+                    AlertFeed(alerts) => {
+                        log::info!("I received an alert feed event!");
+                        self.phase_state = Some(PhaseState {
+                            start: Instant::now(),
+                            alerts,
+                        });
+                    },
+                    AlertReset => {
+                        log::info!("I received an alert reset event!");
+                        self.phase_state = None;
+                    },
                 }
             }
             Err(_error) => (),
@@ -117,6 +138,11 @@ impl RenderState {
         Window::new("Timers")
         .opened(&mut self.timers_window_open)
             .build(ui, || {
+                    if let Some(ps) = &self.phase_state {
+                        for alert in ps.alerts.iter() {
+                                alert.progress_bar(ui, ps.start)
+                        }
+                    }
             });
     }
     fn handle_alert(&mut self, ui: &Ui, io: &Io) {
