@@ -2,7 +2,6 @@ use {
     crate::{
         geometry::Position,
         timer::{
-            timeralert::TimerAlert,
             timerfile::TimerFile,
             timerphase::TimerPhase,
             timertrigger::{CombatState, TimerTriggerType},

@@ -25,7 +25,7 @@ use {
     },
     std::{
         ptr,
-        sync::{Mutex, MutexGuard, OnceLock, Arc},
+        sync::{Mutex, MutexGuard, OnceLock},
         thread::{self, JoinHandle},
     },
     crate::{
