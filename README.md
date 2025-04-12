@@ -17,17 +17,38 @@ Features:
                 - [x] Combat
                 - [x] Left Combat
         - [x] Timer actions
-            - [ ] Display progress bar
-        - [ ] Directions
+            - [x] Display progress bar
         - [ ] Markers
+            - [ ] Check implemented type
             - [ ] 3D rendering
+        - [ ] Directions
+            - [ ] Implement type
         - [ ] Sounds
+            - [ ] Implement type
+            - [ ] Investigate the use of a TTS library for text
     - [x] Get a timer running
         - [x] Timer state machine
     - [x] Load every timer file
     - [ ] UI work
-        - [ ] Allow enabling and disabling timers with categories
-- [ ] Markers
+        - [ ] Main Window
+            - [ ] Tab bar
+                - [ ] Timers tab
+        - [ ] Timers Window
+            - [ ] Add icon to progress bars
+            - [ ] Render text separately from the progress bar widget so that it no longer moves with the progress
+            - [ ] Make colours for progress bar text and background more sane (and still imported from the timer data)
+        - [ ] Timers tab - control timers
+            - [ ] Reset button for timers
+            - [ ] Allow enabling and disabling timers
+            - [ ] Timer icons
+            - [ ] Timer descriptions
+            - [ ] Separate enabling and disabling of timers into categories
+        - [ ] Make mutually exclusive timer enablement for CMs, or provide the user with a prompt on map for the choice
+    - [ ] Find way to include data within the DLL for icons
+        - [ ] investigate https://crates.io/crates/include_dir
+    - [ ] Fork Hero's Timers
+        - [ ] Add markers alongside cardinal directions on Sabetha
+- [ ] Commander's Markers
 - [ ] Pathing
 
 ## References
@@ -36,6 +57,11 @@ Features:
 
 * https://docs.rs/nexus-rs/latest/nexus_rs/#
 * https://docs.rs/arcdps-imgui/0.8.0/arcdps_imgui/
+
+### Imgui
+
+* https://pthom.github.io/imgui_manual_online/manual/imgui_manual.html
+* https://github.com/ocornut/imgui/blob/master/imgui_widgets.cpp
 
 ### Timers
 
