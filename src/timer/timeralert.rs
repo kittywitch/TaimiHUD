@@ -1,6 +1,5 @@
 use {
     crate::xnacolour::XNAColour,
-    nexus::imgui::{ProgressBar, StyleColor, Ui},
     serde::{Deserialize, Serialize},
     strum_macros::Display,
     tokio::time::{Duration, Instant},
@@ -120,24 +119,5 @@ impl TimerAlert {
             self.text,
             self.remaining(start).as_secs_f32()
         )
-    }
-    pub fn progress_bar(&self, ui: &Ui, start: Instant) {
-        if let Some(percent) = self.percentage(start) {
-            let mut colour_tokens = Vec::new();
-            if let Some(fill_colour) = self.fill_colour {
-                colour_tokens
-                    .push(ui.push_style_color(StyleColor::PlotHistogram, fill_colour.imgcolor()));
-            }
-            if let Some(colour) = self.colour {
-                colour_tokens.push(ui.push_style_color(StyleColor::Text, colour.imgcolor()));
-            }
-            ProgressBar::new(percent)
-                .size([-1.0, 12.0])
-                .overlay_text(self.progress_bar_text(start))
-                .build(ui);
-            for token in colour_tokens {
-                token.pop();
-            }
-        }
     }
 }

@@ -17,7 +17,7 @@ use {
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
-        imgui::{internal::RawCast, Condition, Font, FontId, Io, Ui, Window, WindowFlags},
+        imgui::{internal::RawCast, Condition, Font, FontId, StyleColor, ProgressBar, Io, Ui, Window, WindowFlags},
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
@@ -82,6 +82,27 @@ impl RenderState {
             phase_state: Default::default(),
         }
     }
+
+    pub fn progress_bar(alert: &TimerAlert, ui: &Ui, start: Instant) {
+        if let Some(percent) = alert.percentage(start) {
+            let mut colour_tokens = Vec::new();
+            if let Some(fill_colour) = alert.fill_colour {
+                colour_tokens
+                    .push(ui.push_style_color(StyleColor::PlotHistogram, fill_colour.imgcolor()));
+            }
+            if let Some(colour) = alert.colour {
+                colour_tokens.push(ui.push_style_color(StyleColor::Text, colour.imgcolor()));
+            }
+            ProgressBar::new(percent)
+                .size([-1.0, 12.0])
+                .overlay_text(alert.progress_bar_text(start))
+                .build(ui);
+            for token in colour_tokens {
+                token.pop();
+            }
+        }
+    }
+
     fn main_window_keybind_handler(&mut self, _id: &str, is_release: bool) {
         if !is_release {
             self.primary_window_open = !self.primary_window_open;
@@ -139,7 +160,7 @@ impl RenderState {
             .build(ui, || {
                 if let Some(ps) = &self.phase_state {
                     for alert in ps.alerts.iter() {
-                        alert.progress_bar(ui, ps.start)
+                        Self::progress_bar(alert, ui, ps.start)
                     }
                 }
             });
