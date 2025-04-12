@@ -13,7 +13,7 @@ use {
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
-        imgui::{internal::RawCast, Condition, Font, FontId, Ui, Window, WindowFlags},
+        imgui::{internal::RawCast, Condition, Font, FontId, Ui, Io, Window, WindowFlags},
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
@@ -27,7 +27,10 @@ use {
         sync::{Mutex, MutexGuard, OnceLock},
         thread::{self, JoinHandle},
     },
-    taimistate::{TaimiState, TaimiThreadEvent},
+    crate::{
+        timer::timeralert::TimerAlert,
+        taimistate::{TaimiState, TaimiThreadEvent},
+    },
     tokio::sync::mpsc::{channel, Receiver, Sender},
 };
 
@@ -46,6 +49,7 @@ nexus::export! {
 }
 
 enum RenderThreadEvent {
+    AlertFeed(Vec<TimerAlert>),
     AlertStart(String),
     AlertEnd,
 }
@@ -54,6 +58,7 @@ struct RenderState {
     receiver: Receiver<RenderThreadEvent>,
     primary_window_open: bool,
     primary_show: bool,
+    timers_window_open: bool,
     alert: Option<String>,
 }
 
@@ -63,16 +68,16 @@ impl RenderState {
             receiver,
             primary_window_open: true,
             primary_show: false,
+            timers_window_open: true,
             alert: None,
         }
     }
-    fn keybind_handler(&mut self, _id: &str, is_release: bool) {
+    fn main_window_keybind_handler(&mut self, _id: &str, is_release: bool) {
         if !is_release {
             self.primary_window_open = !self.primary_window_open;
         }
     }
     fn render(&mut self, ui: &Ui) {
-        let primary_show = &mut self.primary_show;
         let io = ui.io();
         match self.receiver.try_recv() {
             Ok(event) => {
@@ -80,20 +85,21 @@ impl RenderState {
                 match event {
                     AlertStart(message) => {
                         self.alert = Some(message);
-                    }
+                    },
                     AlertEnd => {
                         self.alert = None;
-                    }
+                    },
+                    AlertFeed(alerts) => todo!(),
                 }
             }
             Err(_error) => (),
         }
-        if let Some(message) = &self.alert {
-            let nexus_link = read_nexus_link().unwrap();
-            let imfont_pointer = nexus_link.font_big;
-            let imfont = unsafe { Font::from_raw(&*imfont_pointer) };
-            Self::render_alert(ui, io, message, imfont.id(), imfont.scale);
-        }
+        self.handle_alert(ui, io);
+        self.handle_taimi_main_window(ui);
+        self.handle_timers_window(ui);
+    }
+    fn handle_taimi_main_window(&mut self, ui: &Ui) {
+        let primary_show = &mut self.primary_show;
         if self.primary_window_open {
             Window::new("Taimi")
                 .opened(&mut self.primary_window_open)
@@ -105,6 +111,20 @@ impl RenderState {
                         *primary_show = ui.button("show");
                     }
                 });
+        }
+    }
+    fn handle_timers_window(&mut self, ui: &Ui) {
+        Window::new("Timers")
+        .opened(&mut self.timers_window_open)
+            .build(ui, || {
+            });
+    }
+    fn handle_alert(&mut self, ui: &Ui, io: &Io) {
+        if let Some(message) = &self.alert {
+            let nexus_link = read_nexus_link().unwrap();
+            let imfont_pointer = nexus_link.font_big;
+            let imfont = unsafe { Font::from_raw(&*imfont_pointer) };
+            Self::render_alert(ui, io, message, imfont.id(), imfont.scale);
         }
     }
     fn render_alert(ui: &Ui, io: &nexus::imgui::Io, text: &String, font: FontId, font_scale: f32) {
@@ -173,11 +193,11 @@ fn load() {
     register_render(RenderType::Render, taimi_window).revert_on_unload();
 
     // Handle window toggling with keybind and button
-    let keybind_handler = keybind_handler!(|id, is_release| {
+    let main_window_keybind_handler = keybind_handler!(|id, is_release| {
         let mut state = RenderState::lock();
-        state.keybind_handler(id, is_release)
+        state.main_window_keybind_handler(id, is_release)
     });
-    register_keybind_with_string("TAIMI_MENU_KEYBIND", keybind_handler, "ALT+SHIFT+M")
+    register_keybind_with_string("TAIMI_MENU_KEYBIND", main_window_keybind_handler, "ALT+SHIFT+M")
         .revert_on_unload();
 
     // Disused currently, icon loading for quick access

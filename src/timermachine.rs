@@ -218,6 +218,12 @@ impl TimerMachine {
         }
     }
 
+    fn start_tasks_new(&mut self, phase: &TimerFilePhase) {
+        let timers = phase.get_alerts();
+        let event_send = self.sender.send(RenderThreadEvent::AlertFeed(timers));
+        drop(event_send);
+    }
+
     /**
         state_change is about code that should run once, upon a stage or phase change.
     */
