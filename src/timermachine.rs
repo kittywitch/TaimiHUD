@@ -3,6 +3,7 @@ use {
         geometry::Position,
         timer::{
             timerfile::TimerFile,
+            timeralert::TimerAlert,
             timerphase::TimerPhase,
             timertrigger::{CombatState, TimerTriggerType},
         },
@@ -12,7 +13,7 @@ use {
     tokio::{
         sync::{mpsc::Sender, Mutex},
         task::JoinHandle,
-        time::{sleep, Duration},
+        time::{sleep, Duration, Instant},
     },
 };
 
@@ -91,6 +92,13 @@ pub struct TimerMachine {
     sender: Sender<RenderThreadEvent>,
     combat_state: CombatState,
     tasks: Vec<Arc<JoinHandle<()>>>,
+}
+
+
+#[derive(Clone)]
+pub struct PhaseState {
+    pub start: Instant,
+    pub alerts: Vec<TimerAlert>,
 }
 
 impl TimerMachine {
@@ -233,9 +241,13 @@ impl TimerMachine {
     }
 
     async fn start_tasks(&self, phase: &TimerFilePhase) {
-        let timers = phase.get_alerts();
+        let alerts = phase.get_alerts();
+        let phase_state = PhaseState {
+            start: Instant::now(),
+            alerts,
+        };
         self.sender
-            .send(RenderThreadEvent::AlertFeed(timers))
+            .send(RenderThreadEvent::AlertFeed(phase_state))
             .await
             .unwrap();
     }

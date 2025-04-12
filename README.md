@@ -6,6 +6,7 @@ Features:
     - [x] Empty UI window toggled with button
     - [x] Timers file loaded using Serde
     - [ ] Timer phases
+        - [ ] Add variant system, e.g. roles (1-3, 2-4, or challenge mode)
         - [x] Timer triggers
             - [x] Location
                 - [x] Sphere
@@ -29,6 +30,8 @@ Features:
     - [x] Get a timer running
         - [x] Timer state machine
     - [x] Load every timer file
+    - [x] Move phasestate into timermachine
+    - [ ] Persistent configuration/enablement state
     - [ ] UI work
         - [ ] Main Window
             - [ ] Tab bar

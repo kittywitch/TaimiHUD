@@ -8,6 +8,7 @@ use {
     crate::{
         taimistate::{TaimiState, TaimiThreadEvent},
         timer::timeralert::TimerAlert,
+        timermachine::PhaseState,
     },
     arcdps::AgentOwned,
     nexus::{
@@ -53,7 +54,7 @@ nexus::export! {
 }
 
 enum RenderThreadEvent {
-    AlertFeed(Vec<TimerAlert>),
+    AlertFeed(PhaseState),
     AlertReset,
     AlertStart(String),
     AlertEnd,
@@ -66,12 +67,6 @@ struct RenderState {
     timers_window_open: bool,
     alert: Option<String>,
     phase_state: Option<PhaseState>,
-}
-
-#[derive(Clone)]
-struct PhaseState {
-    start: Instant,
-    alerts: Vec<TimerAlert>,
 }
 
 impl RenderState {
@@ -123,13 +118,10 @@ impl RenderState {
                     AlertEnd => {
                         self.alert = None;
                     }
-                    AlertFeed(alerts) => {
+                    AlertFeed(phase_state) => {
                         log::info!("I received an alert feed event!");
-                        self.phase_state = Some(PhaseState {
-                            start: Instant::now(),
-                            alerts,
-                        });
-                    }
+                        self.phase_state = Some(phase_state);
+                    },
                     AlertReset => {
                         log::info!("I received an alert reset event!");
                         self.phase_state = None;
