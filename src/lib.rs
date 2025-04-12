@@ -17,7 +17,10 @@ use {
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
-        imgui::{internal::RawCast, Condition, Font, FontId, StyleColor, ProgressBar, Io, Ui, Window, WindowFlags},
+        imgui::{
+            internal::RawCast, Condition, Font, FontId, Io, ProgressBar, StyleColor, Ui, Window,
+            WindowFlags,
+        },
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
