@@ -5,8 +5,11 @@ mod timermachine;
 mod xnacolour;
 
 use {
+    crate::{
+        taimistate::{TaimiState, TaimiThreadEvent},
+        timer::timeralert::TimerAlert,
+    },
     arcdps::AgentOwned,
-    tokio::time::Instant,
     nexus::{
         data_link::read_nexus_link,
         event::{
@@ -14,7 +17,7 @@ use {
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
-        imgui::{internal::RawCast, Condition, Font, FontId, Ui, Io, Window, WindowFlags},
+        imgui::{internal::RawCast, Condition, Font, FontId, Io, Ui, Window, WindowFlags},
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
@@ -28,11 +31,8 @@ use {
         sync::{Mutex, MutexGuard, OnceLock},
         thread::{self, JoinHandle},
     },
-    crate::{
-        timer::timeralert::TimerAlert,
-        taimistate::{TaimiState, TaimiThreadEvent},
-    },
     tokio::sync::mpsc::{channel, Receiver, Sender},
+    tokio::time::Instant,
 };
 
 static TS_SENDER: OnceLock<Sender<taimistate::TaimiThreadEvent>> = OnceLock::new();
@@ -80,7 +80,6 @@ impl RenderState {
             timers_window_open: true,
             alert: Default::default(),
             phase_state: Default::default(),
-
         }
     }
     fn main_window_keybind_handler(&mut self, _id: &str, is_release: bool) {
@@ -96,21 +95,21 @@ impl RenderState {
                 match event {
                     AlertStart(message) => {
                         self.alert = Some(message);
-                    },
+                    }
                     AlertEnd => {
                         self.alert = None;
-                    },
+                    }
                     AlertFeed(alerts) => {
                         log::info!("I received an alert feed event!");
                         self.phase_state = Some(PhaseState {
                             start: Instant::now(),
                             alerts,
                         });
-                    },
+                    }
                     AlertReset => {
                         log::info!("I received an alert reset event!");
                         self.phase_state = None;
-                    },
+                    }
                 }
             }
             Err(_error) => (),
@@ -136,13 +135,13 @@ impl RenderState {
     }
     fn handle_timers_window(&mut self, ui: &Ui) {
         Window::new("Timers")
-        .opened(&mut self.timers_window_open)
+            .opened(&mut self.timers_window_open)
             .build(ui, || {
-                    if let Some(ps) = &self.phase_state {
-                        for alert in ps.alerts.iter() {
-                                alert.progress_bar(ui, ps.start)
-                        }
+                if let Some(ps) = &self.phase_state {
+                    for alert in ps.alerts.iter() {
+                        alert.progress_bar(ui, ps.start)
                     }
+                }
             });
     }
     fn handle_alert(&mut self, ui: &Ui, io: &Io) {
@@ -223,8 +222,12 @@ fn load() {
         let mut state = RenderState::lock();
         state.main_window_keybind_handler(id, is_release)
     });
-    register_keybind_with_string("TAIMI_MENU_KEYBIND", main_window_keybind_handler, "ALT+SHIFT+M")
-        .revert_on_unload();
+    register_keybind_with_string(
+        "TAIMI_MENU_KEYBIND",
+        main_window_keybind_handler,
+        "ALT+SHIFT+M",
+    )
+    .revert_on_unload();
 
     // Disused currently, icon loading for quick access
     /*

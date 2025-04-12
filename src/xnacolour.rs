@@ -18,7 +18,6 @@ pub struct XNAColour {
 }
 
 impl XNAColour {
-
     pub fn imgcolor(self) -> [f32; 4] {
         let srgb: Srgb = self.into_color_unclamped();
         //let alpha = 1.0 - self.alpha;

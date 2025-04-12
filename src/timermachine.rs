@@ -218,7 +218,10 @@ impl TimerMachine {
             self.tasks.len(),
             reason
         );
-        self.sender.send(RenderThreadEvent::AlertReset).await.unwrap();
+        self.sender
+            .send(RenderThreadEvent::AlertReset)
+            .await
+            .unwrap();
     }
 
     #[cfg(whee)]
@@ -231,7 +234,10 @@ impl TimerMachine {
 
     async fn start_tasks(&self, phase: &TimerFilePhase) {
         let timers = phase.get_alerts();
-        self.sender.send(RenderThreadEvent::AlertFeed(timers)).await.unwrap();
+        self.sender
+            .send(RenderThreadEvent::AlertFeed(timers))
+            .await
+            .unwrap();
     }
 
     /**
