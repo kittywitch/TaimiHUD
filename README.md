@@ -12,6 +12,10 @@ Long-term, intends to provide Pathing and Markers too.
 
 ## Features (or, my To-dos) ;3
 
+- [ ] Data
+    - [ ] Fork Hero's Timers
+        - [ ] Add markers alongside cardinal directions on Sabetha
+    - [ ] Provide a method for downloading and extracting data into the addon_dir. We do not want to redistribute the files themselves.
 - [ ] Timers
     - [x] Get DLL loaded with proper name
     - [x] Empty UI window toggled with button
@@ -60,8 +64,6 @@ Long-term, intends to provide Pathing and Markers too.
         - [ ] Make mutually exclusive timer enablement for CMs, or provide the user with a prompt on map for the choice
     - [ ] Find way to include data within the DLL for icons
         - [ ] investigate https://crates.io/crates/include_dir
-    - [ ] Fork Hero's Timers
-        - [ ] Add markers alongside cardinal directions on Sabetha
 - [ ] Commander's Markers
 - [ ] Pathing
 
