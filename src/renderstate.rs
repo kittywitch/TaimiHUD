@@ -33,7 +33,6 @@ pub enum RenderThreadEvent {
 pub struct RenderState {
     receiver: Receiver<RenderThreadEvent>,
     primary_window_open: bool,
-    primary_show: bool,
     timers_window_open: bool,
     alert: Option<TextAlert>,
     phase_states: Vec<PhaseState>,
@@ -49,7 +48,6 @@ impl RenderState {
             receiver,
             settings: SETTINGS.get().unwrap().clone(),
             primary_window_open: true,
-            primary_show: false,
             timers_window_open: true,
             alert: Default::default(),
             phase_states: Default::default(),
@@ -132,6 +130,13 @@ impl RenderState {
             .flags(child_window_flags)
             .size([0.0, 0.0])
             .build(ui, || {
+                let button_text = match self.timers_window_open {
+                    true => "Close Timers",
+                    false => "Open Timers",
+                };
+                if ui.button(button_text) {
+                    self.timers_window_open = !self.timers_window_open;
+                }
                 let header_flags = TreeNodeFlags::FRAMED;
                 for (category_name, category) in &mut self.categories {
                     // Header for category
@@ -229,7 +234,6 @@ impl RenderState {
         font_handle.pop();
     }
     fn handle_taimi_main_window(&mut self, ui: &Ui) {
-        let mut primary_show = self.primary_show;
         let mut primary_window_open = self.primary_window_open;
         if self.primary_window_open {
             Window::new("Taimi")
@@ -239,21 +243,16 @@ impl RenderState {
                         if let Some(_token) = ui.tab_item("Timers") {
                             //let table_token = ui.begin_table("timers_main", 2);
                             ui.columns(2, "timers_main", true);
-                            let window_size = ui.window_size();
-                            let sidebar_width = window_size[1] * 0.3;
-                            ui.set_current_column_width(sidebar_width);
+                            //let window_size = ui.window_size();
+                            //let sidebar_width = window_size[1] * 0.3;
+                            //ui.set_current_column_width(sidebar_width);
                             self.handle_timer_sidebar(ui);
                             ui.next_column();
-                            let main_width = window_size[1] - sidebar_width;
-                            ui.set_current_column_width(main_width);
+                            //let main_width = window_size[1] - sidebar_width;
+                            //ui.set_current_column_width(main_width);
                             self.handle_timer_main(ui);
                             //drop(table_token);
-                            if primary_show {
-                                primary_show = !ui.button("hide");
-                                ui.text("Hello world");
-                            } else {
-                                primary_show = ui.button("show");
-                            }
+                            ui.columns(1, "timers_main_end", false)
                         };
                         if let Some(_token) = ui.tab_item("Markers") {
                             ui.text("To-do!");
@@ -265,18 +264,19 @@ impl RenderState {
                 });
         }
         self.primary_window_open = primary_window_open;
-        self.primary_show = primary_show;
     }
     fn handle_timers_window(&mut self, ui: &Ui) {
-        Window::new("Timers")
-            .opened(&mut self.timers_window_open)
-            .build(ui, || {
-                for ps in &self.phase_states {
-                    for alert in ps.alerts.iter() {
-                        Self::progress_bar(alert, ui, ps.start)
+        if self.timers_window_open {
+            Window::new("Timers")
+                .opened(&mut self.timers_window_open)
+                .build(ui, || {
+                    for ps in &self.phase_states {
+                        for alert in ps.alerts.iter() {
+                            Self::progress_bar(alert, ui, ps.start)
+                        }
                     }
-                }
-            });
+                });
+        }
     }
     fn handle_alert(&mut self, ui: &Ui, io: &Io) {
         if let Some(alert) = &self.alert {
