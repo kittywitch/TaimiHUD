@@ -40,12 +40,12 @@ Features:
             - [ ] Add icon to progress bars
             - [ ] Render text separately from the progress bar widget so that it no longer moves with the progress
             - [ ] Make colours for progress bar text and background more sane (and still imported from the timer data)
-        - [ ] Timers tab - control timers
+        - [x] Timers tab - control timers
             - [ ] Reset button for timers
-            - [ ] Allow enabling and disabling timers
+            - [x] Allow enabling and disabling timers
             - [ ] Timer icons
-            - [ ] Timer descriptions
-            - [ ] Separate enabling and disabling of timers into categories
+            - [x] Timer descriptions
+            - [x] Separate timers into categories
         - [ ] Make mutually exclusive timer enablement for CMs, or provide the user with a prompt on map for the choice
     - [ ] Find way to include data within the DLL for icons
         - [ ] investigate https://crates.io/crates/include_dir
