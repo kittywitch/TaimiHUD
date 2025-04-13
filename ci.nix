@@ -2,7 +2,7 @@
   taimiHUD-rs = import ./.;
   packages = taimiHUD-rs.packages.${pkgs.system};
   artifactRoot = ".ci/artifacts";
-  artifacts = "${artifactRoot}/lib/TaimiHUD.dll";
+  artifacts = "${artifactRoot}/lib/taimi_hud.dll";
 in
 {
   config = {

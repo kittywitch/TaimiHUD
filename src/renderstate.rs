@@ -137,6 +137,7 @@ impl RenderState {
                 if ui.button(button_text) {
                     self.timers_window_open = !self.timers_window_open;
                 }
+                ui.same_line();
                 if ui.button("Reset Timers") {
                     self.phase_states.clear();
                 }

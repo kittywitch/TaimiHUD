@@ -99,13 +99,13 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: TaimiHUD
-        path: .ci/artifacts/lib/TaimiHUD.dll
+        path: .ci/artifacts/lib/taimi_hud.dll
     - id: release-upload
       if: startsWith(github.ref, 'refs/tags/')
       name: release
       uses: softprops/action-gh-release@v1
       with:
-        files: .ci/artifacts/lib/TaimiHUD.dll
+        files: .ci/artifacts/lib/taimi_hud.dll
 name: taimiHUD
 'on':
 - push
