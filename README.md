@@ -34,8 +34,8 @@ Features:
     - [ ] Persistent configuration/enablement state
     - [ ] UI work
         - [ ] Main Window
-            - [ ] Tab bar
-                - [ ] Timers tab
+            - [x] Tab bar
+                - [x] Timers tab
         - [ ] Timers Window
             - [ ] Add icon to progress bars
             - [ ] Render text separately from the progress bar widget so that it no longer moves with the progress

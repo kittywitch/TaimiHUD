@@ -23,4 +23,7 @@ impl TimerFile {
     pub fn name(&self) -> String {
         self.name.replace("\n", " ")
     }
+    pub fn author(&self) -> String {
+        self.author.replace("\n", "")
+    }
 }

@@ -1,7 +1,10 @@
 use {
     crate::{
+        SETTINGS,
         geometry::Position, timer::timerfile::TimerFile, timermachine::TimerMachine,
-        RenderThreadEvent, *,
+        RenderThreadEvent,
+        MumbleIdentityUpdate,
+        settings::Settings,
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -18,6 +21,7 @@ use {
         sync::{
             mpsc::{Receiver, Sender},
             Mutex,
+            RwLock,
         },
         task::JoinHandle,
         time::{interval, sleep, Duration},
@@ -38,7 +42,7 @@ pub struct TaimiState {
     pub timers: Vec<Arc<TimerFile>>,
     pub current_timers: Vec<TimerMachine>,
     pub map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>>,
-    pub category_to_timers: HashMap<String, Vec<Arc<TimerFile>>>,
+    settings: Settings,
 }
 
 impl TaimiState {
@@ -57,18 +61,16 @@ impl TaimiState {
         let mut state = TaimiState {
             addon_dir,
             rt_sender,
+            settings: SETTINGS.get().unwrap().clone(),
             agent: Default::default(),
             cached_identity: Default::default(),
             cached_link: Default::default(),
             map_id: Default::default(),
             player_position: Default::default(),
             alert_sem: Default::default(),
-
-            // originally timer_ids
             timers: Default::default(),
             current_timers: Default::default(),
             map_id_to_timers: Default::default(),
-            category_to_timers: Default::default(),
         };
 
         let evt_loop = async move {
@@ -156,17 +158,9 @@ impl TaimiState {
         log::info!("Preparing to setup timers");
         self.timers = self.load_timer_files().await;
         for timer in &self.timers {
-            // Handle map_id to timer_id
+            // Handle map to timers
             self.map_id_to_timers.entry(timer.map_id).or_default();
             if let Some(val) = self.map_id_to_timers.get_mut(&timer.map_id) {
-                val.push(timer.clone());
-            };
-            // Handle category to timer_id list
-            if !self.category_to_timers.contains_key(&timer.category) {
-                self.category_to_timers
-                    .insert(timer.category.clone(), Vec::new());
-            }
-            if let Some(val) = self.category_to_timers.get_mut(&timer.category) {
                 val.push(timer.clone());
             };
             // Handle id to timer file allocation
@@ -178,32 +172,8 @@ impl TaimiState {
                 timer.category
             );
         }
-        log::info!("Set up {} timers.", self.timers.len())
-    }
-
-    #[allow(dead_code)]
-    async fn send_alert(
-        sender: Sender<RenderThreadEvent>,
-        lock: Arc<Mutex<()>>,
-        message: String,
-        duration: Duration,
-    ) {
-        let alert_handle = lock.lock().await;
-        let _ = sender.send(RenderThreadEvent::AlertStart(message)).await;
-        sleep(duration).await;
-        let _ = sender.send(RenderThreadEvent::AlertEnd).await;
-        // this is my EMOTIONAL SUPPORT drop
-        drop(alert_handle);
-    }
-
-    #[allow(dead_code)]
-    fn alert(&self, message: String, duration: Duration) -> JoinHandle<()> {
-        tokio::spawn(Self::send_alert(
-            self.rt_sender.clone(),
-            self.alert_sem.clone(),
-            message,
-            duration,
-        ))
+        log::info!("Set up {} timers.", self.timers.len());
+        let _ = self.rt_sender.send(RenderThreadEvent::TimerData(self.timers.clone())).await;
     }
 
     async fn tick(&mut self) -> anyhow::Result<()> {
@@ -228,13 +198,22 @@ impl TaimiState {
         if Some(new_map_id) != self.map_id {
             self.current_timers.clear();
             if self.map_id_to_timers.contains_key(&new_map_id) {
-                let map_timers = self.map_id_to_timers[&new_map_id].clone();
+                let map_timers = &self.map_id_to_timers[&new_map_id];
                 for timer in map_timers {
-                    self.current_timers.push(TimerMachine::new(
-                        timer,
-                        self.alert_sem.clone(),
-                        self.rt_sender.clone(),
-                    ));
+                    let settings_lock = self.settings.blocking_read();
+                    let settings_for_timer = settings_lock.timers.get(&timer.id);
+                    let timer_enabled = match settings_for_timer {
+                        Some(setting) => !setting.disabled,
+                        None => true,
+                    };
+                    if timer_enabled {
+                            self.current_timers.push(TimerMachine::new(
+                            timer.clone(),
+                            self.alert_sem.clone(),
+                            self.rt_sender.clone(),
+                        ));
+                    }
+                    drop(settings_lock);
                 }
                 for machine in &mut self.current_timers {
                     machine.update_on_map(new_map_id)
@@ -279,11 +258,39 @@ impl TaimiState {
         }
     }
 
+    async fn enable_timer(&mut self, id: &str) {
+        if let Some(map_id) = self.map_id {
+            if let Some(timers_for_map ) = &self.map_id_to_timers.get(&map_id) {
+                let timers = timers_for_map.iter().filter(|t| t.id == id);
+                for timer in timers {
+                    self.current_timers.push(TimerMachine::new(
+                        timer.clone(),
+                        self.alert_sem.clone(),
+                        self.rt_sender.clone(),
+                    ));
+                }
+            }
+
+        }
+    }
+
+    async fn disable_timer(&mut self, id: &str) {
+        let timers_to_remove = self.current_timers.iter_mut().filter(|t| t.timer.id == id);
+        for timer in timers_to_remove {
+            timer.cleanup().await;
+        }
+        self.current_timers.retain(|t| t.timer.id != id);
+
+    }
+
     async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
         use TaimiThreadEvent::*;
         match event {
             MumbleIdentityUpdated(identity) => self.handle_mumble(identity).await,
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,
+            TimerEnable(id) => self.enable_timer(&id).await,
+            TimerDisable(id) => self.disable_timer(&id).await,
+
             Quit => return Ok(false),
             // I forget why we needed this, but I think it's a holdover from the buttplug one o:
             //_ => (),
@@ -299,5 +306,7 @@ pub enum TaimiThreadEvent {
         src: arcdps::AgentOwned,
         evt: arcEvent,
     },
+    TimerEnable(String),
+    TimerDisable(String),
     Quit,
 }

@@ -3,25 +3,22 @@ mod taimistate;
 mod timer;
 mod timermachine;
 mod xnacolour;
+mod settings;
+mod renderstate;
 
 use {
     crate::{
         taimistate::{TaimiState, TaimiThreadEvent},
-        timer::timeralert::TimerAlert,
-        timermachine::PhaseState,
+        renderstate::{RenderThreadEvent, RenderState},
+        settings::{SettingsRaw,Settings},
     },
     arcdps::AgentOwned,
     nexus::{
-        data_link::read_nexus_link,
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
-        imgui::{
-            internal::RawCast, Condition, Font, FontId, Io, ProgressBar, StyleColor, Ui, Window,
-            WindowFlags,
-        },
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
@@ -31,12 +28,9 @@ use {
         UpdateProvider,
     },
     std::{
-        ptr,
-        sync::{Mutex, MutexGuard, OnceLock},
-        thread::{self, JoinHandle},
+        ptr, sync::{Mutex, OnceLock}, thread::{self, JoinHandle}
     },
-    tokio::sync::mpsc::{channel, Receiver, Sender},
-    tokio::time::Instant,
+    tokio::sync::mpsc::{channel, Sender},
 };
 
 static TS_SENDER: OnceLock<Sender<taimistate::TaimiThreadEvent>> = OnceLock::new();
@@ -53,160 +47,8 @@ nexus::export! {
     log_filter: "debug"
 }
 
-enum RenderThreadEvent {
-    AlertFeed(PhaseState),
-    AlertReset,
-    AlertStart(String),
-    AlertEnd,
-}
-
-struct RenderState {
-    receiver: Receiver<RenderThreadEvent>,
-    primary_window_open: bool,
-    primary_show: bool,
-    timers_window_open: bool,
-    alert: Option<String>,
-    phase_state: Option<PhaseState>,
-}
-
-impl RenderState {
-    fn new(receiver: Receiver<RenderThreadEvent>) -> Self {
-        Self {
-            receiver,
-            primary_window_open: true,
-            primary_show: false,
-            timers_window_open: true,
-            alert: Default::default(),
-            phase_state: Default::default(),
-        }
-    }
-
-    pub fn progress_bar(alert: &TimerAlert, ui: &Ui, start: Instant) {
-        if let Some(percent) = alert.percentage(start) {
-            let mut colour_tokens = Vec::new();
-            if let Some(fill_colour) = alert.fill_colour {
-                colour_tokens
-                    .push(ui.push_style_color(StyleColor::PlotHistogram, fill_colour.imgcolor()));
-            }
-            if let Some(colour) = alert.colour {
-                colour_tokens.push(ui.push_style_color(StyleColor::Text, colour.imgcolor()));
-            }
-            ProgressBar::new(percent)
-                .size([-1.0, 12.0])
-                .overlay_text(alert.progress_bar_text(start))
-                .build(ui);
-            for token in colour_tokens {
-                token.pop();
-            }
-        }
-    }
-
-    fn main_window_keybind_handler(&mut self, _id: &str, is_release: bool) {
-        if !is_release {
-            self.primary_window_open = !self.primary_window_open;
-        }
-    }
-    fn render(&mut self, ui: &Ui) {
-        let io = ui.io();
-        match self.receiver.try_recv() {
-            Ok(event) => {
-                use RenderThreadEvent::*;
-                match event {
-                    AlertStart(message) => {
-                        self.alert = Some(message);
-                    }
-                    AlertEnd => {
-                        self.alert = None;
-                    }
-                    AlertFeed(phase_state) => {
-                        log::info!("I received an alert feed event!");
-                        self.phase_state = Some(phase_state);
-                    },
-                    AlertReset => {
-                        log::info!("I received an alert reset event!");
-                        self.phase_state = None;
-                    }
-                }
-            }
-            Err(_error) => (),
-        }
-        self.handle_alert(ui, io);
-        self.handle_taimi_main_window(ui);
-        self.handle_timers_window(ui);
-    }
-    fn handle_taimi_main_window(&mut self, ui: &Ui) {
-        let primary_show = &mut self.primary_show;
-        if self.primary_window_open {
-            Window::new("Taimi")
-                .opened(&mut self.primary_window_open)
-                .build(ui, || {
-                    if *primary_show {
-                        *primary_show = !ui.button("hide");
-                        ui.text("Hello world");
-                    } else {
-                        *primary_show = ui.button("show");
-                    }
-                });
-        }
-    }
-    fn handle_timers_window(&mut self, ui: &Ui) {
-        Window::new("Timers")
-            .opened(&mut self.timers_window_open)
-            .build(ui, || {
-                if let Some(ps) = &self.phase_state {
-                    for alert in ps.alerts.iter() {
-                        Self::progress_bar(alert, ui, ps.start)
-                    }
-                }
-            });
-    }
-    fn handle_alert(&mut self, ui: &Ui, io: &Io) {
-        if let Some(message) = &self.alert {
-            let nexus_link = read_nexus_link().unwrap();
-            let imfont_pointer = nexus_link.font_big;
-            let imfont = unsafe { Font::from_raw(&*imfont_pointer) };
-            Self::render_alert(ui, io, message, imfont.id(), imfont.scale);
-        }
-    }
-    fn render_alert(ui: &Ui, io: &nexus::imgui::Io, text: &String, font: FontId, font_scale: f32) {
-        use WindowFlags;
-        let font_handle = ui.push_font(font);
-        let fb_scale = io.display_framebuffer_scale;
-        let [text_width, text_height] = ui.calc_text_size(text);
-        let text_width = text_width * font_scale;
-        let offset_x = text_width / 2.0;
-        let [game_width, game_height] = io.display_size;
-        let centre_x = game_width / 2.0;
-        let centre_y = game_height / 2.0;
-        let above_y = game_height * 0.2;
-        let text_x = (centre_x - offset_x) * fb_scale[0];
-        let text_y = (centre_y - above_y) * fb_scale[1];
-        Window::new("TAIMIHUD_ALERT_AREA")
-            .flags(
-                WindowFlags::ALWAYS_AUTO_RESIZE
-                    | WindowFlags::NO_TITLE_BAR
-                    | WindowFlags::NO_RESIZE
-                    | WindowFlags::NO_BACKGROUND
-                    | WindowFlags::NO_MOVE
-                    | WindowFlags::NO_SCROLLBAR
-                    | WindowFlags::NO_INPUTS
-                    | WindowFlags::NO_FOCUS_ON_APPEARING
-                    | WindowFlags::NO_BRING_TO_FRONT_ON_FOCUS,
-            )
-            .position([text_x, text_y], Condition::Always)
-            .size([text_width * 1.25, text_height * 2.0], Condition::Always)
-            .build(ui, || {
-                ui.text(text);
-            });
-        font_handle.pop();
-    }
-
-    fn lock() -> MutexGuard<'static, RenderState> {
-        RENDER_STATE.get().unwrap().lock().unwrap()
-    }
-}
-
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
+static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
 fn load() {
     // Say hi to the world :o
@@ -216,6 +58,9 @@ fn load() {
 
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+    let settings =  SettingsRaw::load_access(&addon_dir);
+    let _ = SETTINGS.set(settings);
+
     let (ts_event_sender, ts_event_receiver) = channel::<TaimiThreadEvent>(32);
     let (rt_event_sender, rt_event_receiver) = channel::<RenderThreadEvent>(32);
     let tm_handler =

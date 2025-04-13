@@ -87,7 +87,7 @@ impl Deref for TimerFilePhase {
 #[derive(Debug, Clone)]
 pub struct TimerMachine {
     state: TimerMachineState,
-    timer: Arc<TimerFile>,
+    pub timer: Arc<TimerFile>,
     alert_sem: Arc<Mutex<()>>,
     sender: Sender<RenderThreadEvent>,
     combat_state: CombatState,
@@ -97,8 +97,15 @@ pub struct TimerMachine {
 
 #[derive(Clone)]
 pub struct PhaseState {
+    pub timer: Arc<TimerFile>,
     pub start: Instant,
     pub alerts: Vec<TimerAlert>,
+}
+
+#[derive(Clone)]
+pub struct TextAlert {
+    pub timer: Arc<TimerFile>,
+    pub message: String,
 }
 
 impl TimerMachine {
@@ -120,6 +127,7 @@ impl TimerMachine {
     async fn send_alert_event(
         sender: Sender<RenderThreadEvent>,
         lock: Arc<Mutex<()>>,
+        timer: Arc<TimerFile>,
         message: String,
         wait_duration: Duration,
         display_duration: Duration,
@@ -139,10 +147,13 @@ impl TimerMachine {
             display_duration
         );
         let _ = sender
-            .send(RenderThreadEvent::AlertStart(message.clone()))
+            .send(RenderThreadEvent::AlertStart(TextAlert {
+                timer: timer.clone(),
+                message: message.clone()
+            }))
             .await;
         sleep(display_duration).await;
-        let _ = sender.send(RenderThreadEvent::AlertEnd).await;
+        let _ = sender.send(RenderThreadEvent::AlertEnd(timer.clone())).await;
         log::info!(
             "Stopping displaying {}: we slept for {:?} a message with {:?} duration",
             message,
@@ -162,6 +173,7 @@ impl TimerMachine {
         tokio::spawn(Self::send_alert_event(
             self.sender.clone(),
             self.alert_sem.clone(),
+            self.timer.clone(),
             message,
             wait_duration,
             display_duration,
@@ -200,6 +212,13 @@ impl TimerMachine {
         self.text_alert(reason, zero_s, one_s);
     }
 
+    pub async fn cleanup(&mut self) {
+        let reason = format!("\"{}\" is being told to cleanup, about to be deleted!", self.timer.name);
+        self.abort_tasks(reason).await;
+        let event_send = self.sender.send(RenderThreadEvent::AlertEnd(self.timer.clone())).await;
+        drop(event_send);
+    }
+
     #[cfg(whee)]
     fn abort_tasks_old(&mut self, reason: String) {
         log::info!(
@@ -227,7 +246,7 @@ impl TimerMachine {
             reason
         );
         self.sender
-            .send(RenderThreadEvent::AlertReset)
+            .send(RenderThreadEvent::AlertReset(self.timer.clone()))
             .await
             .unwrap();
     }
@@ -243,6 +262,7 @@ impl TimerMachine {
     async fn start_tasks(&self, phase: &TimerFilePhase) {
         let alerts = phase.get_alerts();
         let phase_state = PhaseState {
+            timer: self.timer.clone(),
             start: Instant::now(),
             alerts,
         };
