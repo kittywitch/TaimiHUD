@@ -137,6 +137,9 @@ impl RenderState {
                 if ui.button(button_text) {
                     self.timers_window_open = !self.timers_window_open;
                 }
+                if ui.buttion("Reset Timers") {
+                    self.phase_states.clear();
+                }
                 let header_flags = TreeNodeFlags::FRAMED;
                 for (category_name, category) in &mut self.categories {
                     // Header for category

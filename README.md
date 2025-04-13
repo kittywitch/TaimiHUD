@@ -38,7 +38,7 @@ Long-term, intends to provide Pathing and Markers too.
     - [x] Move phasestate into timermachine
     - [ ] Persistent configuration/enablement state
     - [ ] UI work
-        - [ ] Main Window
+        - [x] Main Window
             - [x] Tab bar
                 - [x] Timers tab
         - [ ] Timers Window
@@ -46,7 +46,7 @@ Long-term, intends to provide Pathing and Markers too.
             - [ ] Render text separately from the progress bar widget so that it no longer moves with the progress
             - [ ] Make colours for progress bar text and background more sane (and still imported from the timer data)
         - [x] Timers tab - control timers
-            - [ ] Reset button for timers
+            - [x] Reset button for timers
             - [x] Allow enabling and disabling timers
             - [ ] Timer icons
             - [x] Timer descriptions
