@@ -1,6 +1,11 @@
 # TaimiHUD
 
-Features:
+A cross-platform Timers addon, leveraging [Raidcore Nexus](https://raidcore.gg/Nexus).
+
+Long-term, intends to provide Pathing and Markers too.
+
+## Features (or, my To-dos) ;3
+
 - [ ] Timers
     - [x] Get DLL loaded with proper name
     - [x] Empty UI window toggled with button
