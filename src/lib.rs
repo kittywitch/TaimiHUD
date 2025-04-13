@@ -1,16 +1,16 @@
 mod geometry;
+mod renderstate;
+mod settings;
 mod taimistate;
 mod timer;
 mod timermachine;
 mod xnacolour;
-mod settings;
-mod renderstate;
 
 use {
     crate::{
+        renderstate::{RenderState, RenderThreadEvent},
+        settings::{Settings, SettingsRaw},
         taimistate::{TaimiState, TaimiThreadEvent},
-        renderstate::{RenderThreadEvent, RenderState},
-        settings::{SettingsRaw,Settings},
     },
     arcdps::AgentOwned,
     nexus::{
@@ -28,7 +28,9 @@ use {
         UpdateProvider,
     },
     std::{
-        ptr, sync::{Mutex, OnceLock}, thread::{self, JoinHandle}
+        ptr,
+        sync::{Mutex, OnceLock},
+        thread::{self, JoinHandle},
     },
     tokio::sync::mpsc::{channel, Sender},
 };
@@ -58,7 +60,7 @@ fn load() {
 
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
-    let settings =  SettingsRaw::load_access(&addon_dir);
+    let settings = SettingsRaw::load_access(&addon_dir);
     let _ = SETTINGS.set(settings);
 
     let (ts_event_sender, ts_event_receiver) = channel::<TaimiThreadEvent>(32);

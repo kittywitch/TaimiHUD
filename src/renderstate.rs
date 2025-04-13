@@ -1,24 +1,25 @@
 use {
     crate::{
-        settings::{Settings, TimerSettings}, taimistate::TaimiThreadEvent, timer::{
-            timeralert::TimerAlert,
-            timerfile::TimerFile,
-        }, timermachine::{PhaseState, TextAlert}, RENDER_STATE, SETTINGS, TS_SENDER
+        settings::{Settings, TimerSettings},
+        taimistate::TaimiThreadEvent,
+        timer::{timeralert::TimerAlert, timerfile::TimerFile},
+        timermachine::{PhaseState, TextAlert},
+        RENDER_STATE, SETTINGS, TS_SENDER,
     },
     nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, ChildWindow, Condition, Font, FontId, Io, ProgressBar, Selectable, StyleColor, TreeNodeFlags, Ui, Window, WindowFlags
+            internal::RawCast, ChildWindow, Condition, Font, FontId, Io, ProgressBar, Selectable,
+            StyleColor, TreeNodeFlags, Ui, Window, WindowFlags,
         },
         // TODO
         //texture::{load_texture_from_file, texture_receive, Texture},
     },
     std::{
-        collections::HashMap, sync::{Arc, MutexGuard,},
+        collections::HashMap,
+        sync::{Arc, MutexGuard},
     },
-    tokio::{
-        sync::mpsc::Receiver,
-    time::Instant},
+    tokio::{sync::mpsc::Receiver, time::Instant},
 };
 
 pub enum RenderThreadEvent {
@@ -79,7 +80,7 @@ impl RenderState {
     }
 
     pub fn main_window_keybind_handler(&mut self, _id: &str, is_release: bool) {
-if !is_release {
+        if !is_release {
             self.primary_window_open = !self.primary_window_open;
         }
     }
@@ -111,10 +112,11 @@ if !is_release {
                     AlertFeed(phase_state) => {
                         log::info!("I received an alert feed event!");
                         self.phase_states.push(phase_state);
-                    },
+                    }
                     AlertReset(timer_file) => {
                         log::info!("I received an alert reset event!");
-                        self.phase_states.retain(|p| !Arc::ptr_eq(&p.timer, &timer_file));
+                        self.phase_states
+                            .retain(|p| !Arc::ptr_eq(&p.timer, &timer_file));
                     }
                 }
             }
@@ -139,10 +141,12 @@ if !is_release {
                         if let Some(selected_timer) = &self.timer_selection {
                             selected = Arc::ptr_eq(selected_timer, timer);
                         }
-                        if Selectable::new(timer.name.clone()).selected(selected).build(ui) {
+                        if Selectable::new(timer.name.clone())
+                            .selected(selected)
+                            .build(ui)
+                        {
                             self.timer_selection = Some(timer.clone());
                         }
-
                     }
                 }
             });
@@ -167,9 +171,7 @@ if !is_release {
                     let settings_lock = self.settings.blocking_read();
                     let settings_for_timer = settings_lock.timers.get(&selected_timer.id);
                     let state = match settings_for_timer {
-                        Some(setting) => {
-                            setting.disabled
-                        },
+                        Some(setting) => setting.disabled,
                         None => false,
                     };
                     drop(settings_lock);
@@ -183,13 +185,17 @@ if !is_release {
                         let sender = TS_SENDER.get().unwrap();
                         match !state {
                             true => {
-                                let event_send = sender.try_send(TaimiThreadEvent::TimerEnable(selected_timer.id.clone()));
+                                let event_send = sender.try_send(TaimiThreadEvent::TimerEnable(
+                                    selected_timer.id.clone(),
+                                ));
                                 drop(event_send);
-                            },
+                            }
                             false => {
-                                let event_send = sender.try_send(TaimiThreadEvent::TimerEnable(selected_timer.id.clone()));
+                                let event_send = sender.try_send(TaimiThreadEvent::TimerEnable(
+                                    selected_timer.id.clone(),
+                                ));
                                 drop(event_send);
-                            },
+                            }
                         }
                         drop(settings_lock);
                     }
@@ -256,7 +262,6 @@ if !is_release {
                             ui.text("To-do!");
                         }
                     }
-
                 });
         }
         self.primary_window_open = primary_window_open;
@@ -282,7 +287,13 @@ if !is_release {
             Self::render_alert(ui, io, message, imfont.id(), imfont.scale);
         }
     }
-    pub fn render_alert(ui: &Ui, io: &nexus::imgui::Io, text: &String, font: FontId, font_scale: f32) {
+    pub fn render_alert(
+        ui: &Ui,
+        io: &nexus::imgui::Io,
+        text: &String,
+        font: FontId,
+        font_scale: f32,
+    ) {
         use WindowFlags;
         let font_handle = ui.push_font(font);
         let fb_scale = io.display_framebuffer_scale;
@@ -319,5 +330,3 @@ if !is_release {
         RENDER_STATE.get().unwrap().lock().unwrap()
     }
 }
-
-

@@ -2,8 +2,8 @@ use {
     crate::{
         geometry::Position,
         timer::{
-            timerfile::TimerFile,
             timeralert::TimerAlert,
+            timerfile::TimerFile,
             timerphase::TimerPhase,
             timertrigger::{CombatState, TimerTriggerType},
         },
@@ -94,7 +94,6 @@ pub struct TimerMachine {
     tasks: Vec<Arc<JoinHandle<()>>>,
 }
 
-
 #[derive(Clone)]
 pub struct PhaseState {
     pub timer: Arc<TimerFile>,
@@ -149,11 +148,13 @@ impl TimerMachine {
         let _ = sender
             .send(RenderThreadEvent::AlertStart(TextAlert {
                 timer: timer.clone(),
-                message: message.clone()
+                message: message.clone(),
             }))
             .await;
         sleep(display_duration).await;
-        let _ = sender.send(RenderThreadEvent::AlertEnd(timer.clone())).await;
+        let _ = sender
+            .send(RenderThreadEvent::AlertEnd(timer.clone()))
+            .await;
         log::info!(
             "Stopping displaying {}: we slept for {:?} a message with {:?} duration",
             message,
@@ -213,9 +214,15 @@ impl TimerMachine {
     }
 
     pub async fn cleanup(&mut self) {
-        let reason = format!("\"{}\" is being told to cleanup, about to be deleted!", self.timer.name);
+        let reason = format!(
+            "\"{}\" is being told to cleanup, about to be deleted!",
+            self.timer.name
+        );
         self.abort_tasks(reason).await;
-        let event_send = self.sender.send(RenderThreadEvent::AlertEnd(self.timer.clone())).await;
+        let event_send = self
+            .sender
+            .send(RenderThreadEvent::AlertEnd(self.timer.clone()))
+            .await;
         drop(event_send);
     }
 

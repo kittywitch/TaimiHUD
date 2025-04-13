@@ -1,9 +1,10 @@
 use {
-    serde::{Deserialize, Serialize}, std::{
+    serde::{Deserialize, Serialize},
+    std::{
         collections::HashMap,
-        path::{Path, PathBuf},
-        fs::{File, exists, read_to_string},
+        fs::{exists, read_to_string, File},
         io::Write,
+        path::{Path, PathBuf},
         sync::Arc,
     },
     tokio::sync::RwLock,
@@ -11,14 +12,14 @@ use {
 
 pub type Settings = Arc<RwLock<SettingsRaw>>;
 
-#[derive(Deserialize,Serialize,Default,Debug,Clone,PartialEq)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
 pub struct TimerSettings {
     #[serde(default)]
     pub disabled: bool,
 }
 
 impl TimerSettings {
-    fn disable(&mut self)  {
+    fn disable(&mut self) {
         self.disabled = true;
     }
     fn enable(&mut self) {
@@ -29,7 +30,7 @@ impl TimerSettings {
     }
 }
 
-#[derive(Deserialize,Serialize,Default,Debug,Clone)]
+#[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct SettingsRaw {
     #[serde(skip)]
     addon_dir: PathBuf,
@@ -51,14 +52,12 @@ impl SettingsRaw {
         if let Some(entry_mut) = self.timers.get_mut(&timer) {
             entry_mut.disable();
         } else {
-            self.timers.insert(timer, TimerSettings {
-                disabled: true,
-            });
+            self.timers.insert(timer, TimerSettings { disabled: true });
         }
         let _ = self.save(&self.addon_dir);
     }
     pub fn enable_timer(&mut self, timer: String) {
-        if let Some(entry_mut) = self.timers.get_mut(&timer) { 
+        if let Some(entry_mut) = self.timers.get_mut(&timer) {
             entry_mut.enable();
         } else {
             self.timers.insert(timer, TimerSettings::default());
@@ -69,8 +68,8 @@ impl SettingsRaw {
     pub fn load(addon_dir: &Path) -> anyhow::Result<Self> {
         let settings_path = addon_dir.join("settings.json");
         if exists(&settings_path)? {
-                    let file_data = read_to_string(settings_path)?;
-                    return Ok(serde_json::from_str::<Self>(&file_data)?);
+            let file_data = read_to_string(settings_path)?;
+            return Ok(serde_json::from_str::<Self>(&file_data)?);
         }
         Ok(Self {
             addon_dir: addon_dir.to_path_buf(),

@@ -1,10 +1,7 @@
 use {
     crate::{
-        SETTINGS,
-        geometry::Position, timer::timerfile::TimerFile, timermachine::TimerMachine,
-        RenderThreadEvent,
-        MumbleIdentityUpdate,
-        settings::Settings,
+        geometry::Position, settings::Settings, timer::timerfile::TimerFile,
+        timermachine::TimerMachine, MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -20,8 +17,7 @@ use {
         runtime, select,
         sync::{
             mpsc::{Receiver, Sender},
-            Mutex,
-            RwLock,
+            Mutex, RwLock,
         },
         task::JoinHandle,
         time::{interval, sleep, Duration},
@@ -173,7 +169,10 @@ impl TaimiState {
             );
         }
         log::info!("Set up {} timers.", self.timers.len());
-        let _ = self.rt_sender.send(RenderThreadEvent::TimerData(self.timers.clone())).await;
+        let _ = self
+            .rt_sender
+            .send(RenderThreadEvent::TimerData(self.timers.clone()))
+            .await;
     }
 
     async fn tick(&mut self) -> anyhow::Result<()> {
@@ -207,7 +206,7 @@ impl TaimiState {
                         None => true,
                     };
                     if timer_enabled {
-                            self.current_timers.push(TimerMachine::new(
+                        self.current_timers.push(TimerMachine::new(
                             timer.clone(),
                             self.alert_sem.clone(),
                             self.rt_sender.clone(),
@@ -260,7 +259,7 @@ impl TaimiState {
 
     async fn enable_timer(&mut self, id: &str) {
         if let Some(map_id) = self.map_id {
-            if let Some(timers_for_map ) = &self.map_id_to_timers.get(&map_id) {
+            if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
                 let timers = timers_for_map.iter().filter(|t| t.id == id);
                 for timer in timers {
                     self.current_timers.push(TimerMachine::new(
@@ -270,7 +269,6 @@ impl TaimiState {
                     ));
                 }
             }
-
         }
     }
 
@@ -280,7 +278,6 @@ impl TaimiState {
             timer.cleanup().await;
         }
         self.current_timers.retain(|t| t.timer.id != id);
-
     }
 
     async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
