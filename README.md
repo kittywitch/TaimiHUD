@@ -4,6 +4,7 @@ A cross-platform Timers addon, leveraging [Raidcore Nexus](https://raidcore.gg/N
 
 ![Main interface](https://github.com/user-attachments/assets/82044140-5a81-4bb1-8d2a-be468de2450e)
 ![Timers during combat](https://github.com/user-attachments/assets/bb930b54-717c-4fa7-b65e-2ec77a7c2393)
+![Video](https://files.catbox.moe/xdno9s.mp4)
 
 Long-term, intends to provide Pathing and Markers too.
 
