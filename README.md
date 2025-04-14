@@ -15,9 +15,9 @@ Long-term, intends to provide Pathing and Markers too.
 - [ ] Data
     - [ ] Fork Hero's Timers
         - [ ] Add markers alongside cardinal directions on Sabetha
-    - [ ] Provide a method for downloading and extracting data into the addon_dir. We do not want to redistribute the files themselves.
-        - [ ] https://docs.rs/tar/latest/tar/ - combine with download from GitHub
-            - [ ] Either use a crate to get GitHub information and check last downloaded release, or pre-obtain md5...?
+    - [x] Provide a method for downloading and extracting data into the addon_dir. We do not want to redistribute the files themselves.
+        - [x] https://docs.rs/tar/latest/tar/ - combine with download from GitHub
+            - [x] Either use a crate to get GitHub information and check last downloaded release, or pre-obtain md5...?
 - [ ] Timers
     - [x] Get DLL loaded with proper name
     - [x] Empty UI window toggled with button
