@@ -211,7 +211,6 @@ impl DataSourceTabState {
                 let event_send = sender.try_send(TaimiThreadEvent::CheckDataSourceUpdates);
                 drop(event_send);
             }
-            let settings = settings_lock.blocking_read();
             for source in &settings.downloaded_releases {
                 let source_update = format!(
                     "{}/{}: {}",
@@ -236,7 +235,6 @@ impl DataSourceTabState {
                     }
                 }
             }
-            drop(settings_lock);
         } else {
             ui.text("Settings have not yet loaded!");
         }
