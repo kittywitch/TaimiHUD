@@ -163,8 +163,7 @@ impl TimerTabState {
                     }
                     RenderState::fonted_text(ui, &format!("Author: {}", selected_timer.author()));
                     RenderState::fonted_text(ui, &selected_timer.description);
-                    if let Some(settings_lock) = SETTINGS.get() {
-                        let settings = settings_lock.blocking_read();
+                    if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
                         let settings_for_timer = settings.timers.get(&selected_timer.id);
                         let button_text = match settings_for_timer {
                             Some(v) if v.disabled => Some("Enable"),
@@ -206,7 +205,7 @@ impl DataSourceTabState {
     }
 
     fn draw(&self, ui: &Ui) {
-        if let Some(settings_lock) = SETTINGS.get() {
+            if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if ui.button("Check for updates") {
                 let sender = TS_SENDER.get().unwrap();
                 let event_send = sender.try_send(TaimiThreadEvent::CheckDataSourceUpdates);
