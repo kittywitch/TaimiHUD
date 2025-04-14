@@ -8,6 +8,7 @@ Long-term, intends to provide Pathing and Markers too.
 ## Screenshots
 
 ![Main interface](https://github.com/user-attachments/assets/82044140-5a81-4bb1-8d2a-be468de2450e)
+![Data source updating](https://github.com/user-attachments/assets/12135f4f-5ceb-44d0-a136-15ebaa07511a
 ![Timers during combat](https://github.com/user-attachments/assets/bb930b54-717c-4fa7-b65e-2ec77a7c2393)
 
 ## Features (or, my To-dos) ;3
