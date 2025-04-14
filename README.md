@@ -54,6 +54,7 @@ Long-term, intends to provide Pathing and Markers too.
     - [x] Move phasestate into timermachine
     - [ ] Persistent configuration/enablement state
     - [ ] UI work
+        - [ ] Store state for whether windows were toggled
         - [x] Main Window
             - [x] Tab bar
                 - [x] Timers tab
