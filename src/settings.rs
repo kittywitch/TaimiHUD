@@ -6,16 +6,12 @@ use {
     reqwest::{Client, IntoUrl, Response},
     serde::{Deserialize, Serialize},
     std::{
-        collections::HashMap,
-        fmt, fs,
-        io::{self, prelude::*, Cursor, ErrorKind, Read, SeekFrom, Write},
-        path::{Path, PathBuf},
-        sync::Arc,
+        collections::HashMap, ffi::{OsStr, OsString}, fmt, fs, io::{self, prelude::*, Cursor, ErrorKind, Read, SeekFrom, Write}, path::{Path, PathBuf}, sync::Arc
     },
     tempfile::{Builder, TempDir},
     tokio::{
-        fs::{create_dir, read_dir, read_to_string, try_exists, File, OpenOptions},
-        io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+        fs::{create_dir, create_dir_all, read_dir, read_to_string, try_exists, File, OpenOptions},
+        io::{copy, AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
         sync::RwLock,
     },
     tokio_stream::*,
@@ -64,9 +60,9 @@ impl fmt::Display for NeedsUpdate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use NeedsUpdate::*;
         match &self {
-            Unknown => write!(f, "Unknown"),
-            Known(needs, id) if *needs => write!(f, "Update {} available", id),
-            Known(_needs, _id) => write!(f, "Update unavailable"),
+            Unknown => write!(f, "Unknown!"),
+            Known(true, id) => write!(f, "Newer version, {} available!", id),
+            Known(false, _id) => write!(f, "Up to date!"),
         }
     }
 }
@@ -118,18 +114,34 @@ impl DownloadData {
         Ok(client.get(url).send().await?)
     }
 
-    async fn get_and_extract_tar<U: IntoUrl>(&self, url: U) -> anyhow::Result<()> {
+    async fn get_and_extract_tar<U: IntoUrl>(&self, dir: &Path, url: U) -> anyhow::Result<()> {
         let response = Self::get(url).await?;
         let bytes_stream = response
             .bytes_stream()
-            .map_err(|e| io::Error::new(ErrorKind::Other, e));
+            .map_err(io::Error::other);
         let stream_reader = StreamReader::new(bytes_stream);
         let gzip_decoder = GzipDecoder::new(stream_reader);
         let mut tar_file = Archive::new(gzip_decoder);
-        let mut entries = tar_file.entries()?;
-        while let Some(file) = entries.next().await {
-            let f = file?;
-            log::debug!("{}", f.path()?.display());
+        let entries = tar_file.entries()?;
+        let mut containing_directory: Option<PathBuf> = None;
+        let mut iterator = entries;
+        iterator.next().await; // skip pax_global_header
+        while let Some(file) = iterator.next().await {
+            let mut f = file?;
+            let path = f.path()?;
+            log::debug!("Path in tarball: {}", path.display());
+            if let Some(prefix) = &containing_directory {
+                let destination_suffix = path.strip_prefix(prefix)?;
+                log::debug!("Destination suffix: {}", destination_suffix.display());
+                let destination_path = dir.join(destination_suffix);
+                if let Some(destination_parent)= destination_path.parent() {
+                    create_dir_all(destination_parent).await?;
+                    f.unpack(destination_path).await?;
+                    //f.unpack_in(destination).await?;
+                }
+            } else {
+                containing_directory = Some(path.into_owned());
+            }
         }
         Ok(())
     }
@@ -144,9 +156,14 @@ impl DownloadData {
 
     pub async fn download_latest(&mut self, addon_dir: &Path) -> anyhow::Result<()> {
         let latest = self.get_latest_release().await?;
+        let addon_folder_name = format!("{}_{}", self.owner, self.repository);
+        let install_dir = addon_dir.join(addon_folder_name);
         if let Some(tarball_url) = latest.tarball_url {
-            self.get_and_extract_tar(tarball_url).await?;
+            self.get_and_extract_tar(&install_dir, tarball_url).await?;
         }
+        self.last_release_id = Some(latest.tag_name);
+        self.needs_update = self.needs_update().await;
+        self.installed_path = Some(install_dir);
         Ok(())
     }
 }
@@ -176,7 +193,7 @@ impl SettingsRaw {
         if irrelevant {
             self.timers.remove(&timer);
         }
-        let _ = self.save(&self.addon_dir);
+        let _ = self.save(&self.addon_dir).await;
     }
     pub async fn disable_timer(&mut self, timer: String) {
         if let Some(entry_mut) = self.timers.get_mut(&timer) {
@@ -184,7 +201,7 @@ impl SettingsRaw {
         } else {
             self.timers.insert(timer, TimerSettings { disabled: true });
         }
-        let _ = self.save(&self.addon_dir);
+        let _ = self.save(&self.addon_dir).await;
     }
     pub async fn enable_timer(&mut self, timer: String) {
         if let Some(entry_mut) = self.timers.get_mut(&timer) {
@@ -192,7 +209,7 @@ impl SettingsRaw {
         } else {
             self.timers.insert(timer, TimerSettings::default());
         }
-        let _ = self.save(&self.addon_dir);
+        let _ = self.save(&self.addon_dir).await;
     }
 
     pub async fn download_latest(&mut self, owner: String, repository: String) {
@@ -206,7 +223,7 @@ impl SettingsRaw {
                 Err(err) => log::error!("{}", err),
             }
         }
-        let _ = self.save(&self.addon_dir);
+        let _ = self.save(&self.addon_dir).await;
     }
 
     pub async fn new(addon_dir: &Path) -> Self {
@@ -220,7 +237,9 @@ impl SettingsRaw {
         let settings_path = addon_dir.join("settings.json");
         if try_exists(&settings_path).await? {
             let file_data = read_to_string(settings_path).await?;
-            return Ok(serde_json::from_str::<Self>(&file_data)?);
+            let mut settings = serde_json::from_str::<Self>(&file_data)?;
+            settings.addon_dir = addon_dir.to_path_buf();
+            return Ok(settings);
         }
         Ok(Self::new(addon_dir).await)
     }

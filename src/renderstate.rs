@@ -166,19 +166,15 @@ impl TimerTabState {
                     if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
                         let settings_for_timer = settings.timers.get(&selected_timer.id);
                         let button_text = match settings_for_timer {
-                            Some(v) if v.disabled => Some("Enable"),
-                            Some(_v) => Some("Disable"),
-                            None => None,
+                            Some(TimerSettings { disabled: true, .. }) => "Enable",
+                            _ => "Disable",
                         };
-
-                        if let Some(button_text) = button_text {
-                            if ui.button(button_text) {
-                                let sender = TS_SENDER.get().unwrap();
-                                let event_send = sender.try_send(TaimiThreadEvent::TimerToggle(
-                                    selected_timer.id.clone(),
-                                ));
-                                drop(event_send);
-                            }
+                        if ui.button(button_text) {
+                            let sender = TS_SENDER.get().unwrap();
+                            let event_send = sender.try_send(TaimiThreadEvent::TimerToggle(
+                                selected_timer.id.clone(),
+                            ));
+                            drop(event_send);
                         }
                     }
                 } else {
@@ -205,7 +201,7 @@ impl DataSourceTabState {
     }
 
     fn draw(&self, ui: &Ui) {
-            if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if ui.button("Check for updates") {
                 let sender = TS_SENDER.get().unwrap();
                 let event_send = sender.try_send(TaimiThreadEvent::CheckDataSourceUpdates);

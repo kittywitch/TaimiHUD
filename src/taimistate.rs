@@ -133,7 +133,7 @@ impl TaimiState {
         let paths_to_try = settings_lock.get_paths();
         let mut paths = Vec::new();
         for path in paths_to_try {
-            let glob_str = path.join("*.bhtimer");
+            let glob_str = path.join("**/*.bhtimer");
             log::info!("A path to load timer files from is '{glob_str:?}'.");
             let timer_paths: Paths = self.get_paths(&glob_str).await.unwrap();
             paths.extend(timer_paths);
@@ -328,7 +328,7 @@ impl TaimiState {
         let mut settings_lock = self.settings.write().await;
         settings_lock.download_latest(owner, repository).await;
         drop(settings_lock);
-        self.load_timer_files().await;
+        self.setup_timers().await;
     }
 
     async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
