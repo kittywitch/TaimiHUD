@@ -68,7 +68,6 @@ Long-term, intends to provide Pathing and Markers too.
     - [ ] Find way to include data within the DLL for icons
         - [ ] investigate https://crates.io/crates/include_dir
 - [ ] Commander's Markers
-- [ ] Pathing
 
 ## References
 
