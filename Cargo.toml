@@ -13,7 +13,7 @@ tokio = { version = "1.43.0", features = [ "full" ] }
 arcdps = { git = "https://github.com/zerthox/arcdps-rs", tag = "0.15.1" }
 glam = { version = "0.30.0", features = [ "serde" ] }
 palette = { version = "0.7.6", features = [ "serde" ] }
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 glob = "0.3.2"
 serde_json = "1.0.140"
 serde_jsonrc = { version = "0.1.0", features = [ "preserve_order"] }
@@ -21,6 +21,17 @@ serde_with = "3.12.0"
 json-strip-comments = "1.0.4"
 strum = "0.27.1"
 strum_macros = "0.27.1"
+octocrab = "0.44.0"
+reqwest = { version = "0.12.15", features = [ "stream" ] }
+tempfile = "3.19.1"
+bytes = "1.10.1"
+async-compression = { version = "0.4.22", features = [ "tokio", "gzip" ] }
+async-tar = "0.5.0"
+tokio-tar = "0.3.1"
+tokio-stream = "0.1.17"
+tokio-util = "0.7.14"
+futures-core = "0.3.31"
+futures = "0.3.31"
 
 [lib]
 crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)

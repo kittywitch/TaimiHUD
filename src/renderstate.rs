@@ -1,6 +1,6 @@
 use {
     crate::{
-        settings::{Settings, TimerSettings},
+        settings::{DownloadData, NeedsUpdate, Settings, TimerSettings},
         taimistate::TaimiThreadEvent,
         timer::{timeralert::TimerAlert, timerfile::TimerFile},
         timermachine::{PhaseState, TextAlert},
@@ -28,32 +28,31 @@ pub enum RenderThreadEvent {
     AlertReset(Arc<TimerFile>),
     AlertStart(TextAlert),
     AlertEnd(Arc<TimerFile>),
+    DataSourceUpdates,
 }
 
-pub struct RenderState {
-    receiver: Receiver<RenderThreadEvent>,
-    primary_window_open: bool,
-    timers_window_open: bool,
-    alert: Option<TextAlert>,
+pub struct TimerWindowState {
+    open: bool,
     phase_states: Vec<PhaseState>,
-    timers: Vec<Arc<TimerFile>>,
-    categories: HashMap<String, Vec<Arc<TimerFile>>>,
-    timer_selection: Option<Arc<TimerFile>>,
-    settings: Settings,
 }
 
-impl RenderState {
-    pub fn new(receiver: Receiver<RenderThreadEvent>) -> Self {
+impl TimerWindowState {
+    pub fn new() -> Self {
         Self {
-            receiver,
-            settings: SETTINGS.get().unwrap().clone(),
-            primary_window_open: true,
-            timers_window_open: true,
-            alert: Default::default(),
+            open: true,
             phase_states: Default::default(),
-            timers: Default::default(),
-            categories: Default::default(),
-            timer_selection: Default::default(),
+        }
+    }
+
+    fn draw(&mut self, ui: &Ui) {
+        if self.open {
+            Window::new("Timers").opened(&mut self.open).build(ui, || {
+                for ps in &self.phase_states {
+                    for alert in ps.alerts.iter() {
+                        Self::progress_bar(alert, ui, ps.start)
+                    }
+                }
+            });
         }
     }
 
@@ -77,69 +76,56 @@ impl RenderState {
         }
     }
 
-    pub fn main_window_keybind_handler(&mut self, _id: &str, is_release: bool) {
-        if !is_release {
-            self.primary_window_open = !self.primary_window_open;
+    pub fn new_phase(&mut self, phase_state: PhaseState) {
+        self.phase_states.push(phase_state);
+    }
+    pub fn remove_phase(&mut self, timer: Arc<TimerFile>) {
+        self.phase_states.retain(|p| !Arc::ptr_eq(&p.timer, &timer));
+    }
+    pub fn reset_phases(&mut self) {
+        self.phase_states.clear();
+    }
+}
+
+pub struct TimerTabState {
+    timers: Vec<Arc<TimerFile>>,
+    categories: HashMap<String, Vec<Arc<TimerFile>>>,
+    timer_selection: Option<Arc<TimerFile>>,
+}
+
+impl TimerTabState {
+    fn new() -> Self {
+        Self {
+            timers: Default::default(),
+            categories: Default::default(),
+            timer_selection: Default::default(),
         }
     }
-    pub fn render(&mut self, ui: &Ui) {
-        let io = ui.io();
-        match self.receiver.try_recv() {
-            Ok(event) => {
-                use RenderThreadEvent::*;
-                match event {
-                    TimerData(timers) => {
-                        self.timers = timers;
-                        for timer in &self.timers {
-                            self.categories.entry(timer.category.clone()).or_default();
-                            if let Some(val) = self.categories.get_mut(&timer.category) {
-                                val.push(timer.clone());
-                            };
-                        }
-                    }
-                    AlertStart(alert) => {
-                        self.alert = Some(alert);
-                    }
-                    AlertEnd(timer_file) => {
-                        if let Some(alert) = &self.alert {
-                            if Arc::ptr_eq(&alert.timer, &timer_file) {
-                                self.alert = None;
-                            }
-                        }
-                    }
-                    AlertFeed(phase_state) => {
-                        log::info!("I received an alert feed event!");
-                        self.phase_states.push(phase_state);
-                    }
-                    AlertReset(timer_file) => {
-                        log::info!("I received an alert reset event!");
-                        self.phase_states
-                            .retain(|p| !Arc::ptr_eq(&p.timer, &timer_file));
-                    }
-                }
-            }
-            Err(_error) => (),
-        }
-        self.handle_alert(ui, io);
-        self.handle_taimi_main_window(ui);
-        self.handle_timers_window(ui);
+
+    fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
+        ui.columns(2, "timers_tab_start", true);
+        self.draw_sidebar(ui, timer_window_state);
+        ui.next_column();
+        self.draw_main(ui);
+        ui.columns(1, "timers_tab_end", false)
     }
-    fn handle_timer_sidebar(&mut self, ui: &Ui) {
+
+    fn draw_sidebar(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
         let child_window_flags = WindowFlags::HORIZONTAL_SCROLLBAR;
         ChildWindow::new("timer_sidebar")
             .flags(child_window_flags)
             .size([0.0, 0.0])
             .build(ui, || {
-                let button_text = match self.timers_window_open {
+                let button_text = match timer_window_state.open {
                     true => "Close Timers",
                     false => "Open Timers",
                 };
                 if ui.button(button_text) {
-                    self.timers_window_open = !self.timers_window_open;
+                    timer_window_state.open = !timer_window_state.open;
                 }
                 ui.same_line();
                 if ui.button("Reset Timers") {
-                    self.phase_states.clear();
+                    timer_window_state.reset_phases();
                 }
                 let header_flags = TreeNodeFlags::FRAMED;
                 for (category_name, category) in &mut self.categories {
@@ -160,7 +146,7 @@ impl RenderState {
                 }
             });
     }
-    fn handle_timer_main(&mut self, ui: &Ui) {
+    fn draw_main(&mut self, ui: &Ui) {
         let child_window_flags = WindowFlags::HORIZONTAL_SCROLLBAR;
         ChildWindow::new("timer_main")
             .flags(child_window_flags)
@@ -170,48 +156,189 @@ impl RenderState {
                     let split_name = selected_timer.name.split("\n");
                     for (i, text) in split_name.into_iter().enumerate() {
                         if i == 0 {
-                            Self::big_header(ui, text);
+                            RenderState::big_header(ui, text);
                         } else {
-                            Self::ui_header(ui, text);
+                            RenderState::ui_header(ui, text);
                         }
                     }
-                    Self::fonted_text(ui, &format!("Author: {}", selected_timer.author()));
-                    Self::fonted_text(ui, &selected_timer.description);
-                    let settings_lock = self.settings.blocking_read();
-                    let settings_for_timer = settings_lock.timers.get(&selected_timer.id);
-                    let state = match settings_for_timer {
-                        Some(setting) => setting.disabled,
-                        None => false,
-                    };
-                    drop(settings_lock);
-                    let button_text = match state {
-                        true => "Enable",
-                        false => "Disable",
-                    };
-                    if ui.button(button_text) {
-                        let mut settings_lock = self.settings.blocking_write();
-                        settings_lock.toggle_timer(selected_timer.id.clone());
-                        let sender = TS_SENDER.get().unwrap();
-                        match !state {
-                            true => {
-                                let event_send = sender.try_send(TaimiThreadEvent::TimerEnable(
-                                    selected_timer.id.clone(),
-                                ));
-                                drop(event_send);
-                            }
-                            false => {
-                                let event_send = sender.try_send(TaimiThreadEvent::TimerEnable(
+                    RenderState::fonted_text(ui, &format!("Author: {}", selected_timer.author()));
+                    RenderState::fonted_text(ui, &selected_timer.description);
+                    if let Some(settings_lock) = SETTINGS.get() {
+                        let settings = settings_lock.blocking_read();
+                        let settings_for_timer = settings.timers.get(&selected_timer.id);
+                        let button_text = match settings_for_timer {
+                            Some(v) if v.disabled => Some("Enable"),
+                            Some(_v) => Some("Disable"),
+                            None => None,
+                        };
+
+                        if let Some(button_text) = button_text {
+                            if ui.button(button_text) {
+                                let sender = TS_SENDER.get().unwrap();
+                                let event_send = sender.try_send(TaimiThreadEvent::TimerToggle(
                                     selected_timer.id.clone(),
                                 ));
                                 drop(event_send);
                             }
                         }
-                        drop(settings_lock);
                     }
                 } else {
                     ui.text("Please select a timer to configure!");
                 }
             });
+    }
+    pub fn timers_update(&mut self, timers: Vec<Arc<TimerFile>>) {
+        self.timers = timers;
+        for timer in &self.timers {
+            self.categories.entry(timer.category.clone()).or_default();
+            if let Some(val) = self.categories.get_mut(&timer.category) {
+                val.push(timer.clone());
+            };
+        }
+    }
+}
+
+pub struct DataSourceTabState {}
+
+impl DataSourceTabState {
+    fn new() -> Self {
+        Self {}
+    }
+
+    fn draw(&self, ui: &Ui) {
+        if let Some(settings_lock) = SETTINGS.get() {
+            if ui.button("Check for updates") {
+                let sender = TS_SENDER.get().unwrap();
+                let event_send = sender.try_send(TaimiThreadEvent::CheckDataSourceUpdates);
+                drop(event_send);
+            }
+            let settings = settings_lock.blocking_read();
+            for source in &settings.downloaded_releases {
+                let source_update = format!(
+                    "{}/{}: {}",
+                    source.owner, source.repository, source.needs_update
+                );
+                ui.text(source_update);
+                use NeedsUpdate::*;
+                let button_text = match &source.needs_update {
+                    Unknown => Some("Attempt to update anyway?"),
+                    Known(needs, _id) if *needs => Some("Update"),
+                    Known(_needs, _id) => None,
+                };
+                if let Some(button_text) = button_text {
+                    ui.same_line();
+                    if ui.button(button_text) {
+                        let sender = TS_SENDER.get().unwrap();
+                        let event_send = sender.try_send(TaimiThreadEvent::DoDataSourceUpdate {
+                            owner: source.owner.clone(),
+                            repository: source.repository.clone(),
+                        });
+                        drop(event_send);
+                    }
+                }
+            }
+            drop(settings_lock);
+        } else {
+            ui.text("Settings have not yet loaded!");
+        }
+    }
+}
+
+pub struct PrimaryWindowState {
+    timer_tab: TimerTabState,
+    data_sources_tab: DataSourceTabState,
+    open: bool,
+}
+
+impl PrimaryWindowState {
+    pub fn new() -> Self {
+        Self {
+            timer_tab: TimerTabState::new(),
+            data_sources_tab: DataSourceTabState::new(),
+            open: true,
+        }
+    }
+
+    pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
+        let mut open = self.open;
+        if self.open {
+            Window::new("Taimi").opened(&mut open).build(ui, || {
+                if let Some(_token) = ui.tab_bar("modules") {
+                    if let Some(_token) = ui.tab_item("Timers") {
+                        self.timer_tab.draw(ui, timer_window_state);
+                    };
+                    if let Some(_token) = ui.tab_item("Markers") {
+                        ui.text("To-do!");
+                    }
+                    if let Some(_token) = ui.tab_item("Pathing") {
+                        ui.text("To-do!");
+                    }
+                    if let Some(_token) = ui.tab_item("Data Sources") {
+                        self.data_sources_tab.draw(ui);
+                    }
+                }
+            });
+        }
+        self.open = open;
+    }
+
+    pub fn keybind_handler(&mut self, _id: &str, is_release: bool) {
+        if !is_release {
+            self.open = !self.open;
+        }
+    }
+}
+
+pub struct RenderState {
+    pub primary_window: PrimaryWindowState,
+    timer_window: TimerWindowState,
+    receiver: Receiver<RenderThreadEvent>,
+    alert: Option<TextAlert>,
+}
+
+impl RenderState {
+    pub fn new(receiver: Receiver<RenderThreadEvent>) -> Self {
+        Self {
+            receiver,
+            alert: Default::default(),
+            primary_window: PrimaryWindowState::new(),
+            timer_window: TimerWindowState::new(),
+        }
+    }
+
+    pub fn draw(&mut self, ui: &Ui) {
+        let io = ui.io();
+        match self.receiver.try_recv() {
+            Ok(event) => {
+                use RenderThreadEvent::*;
+                match event {
+                    DataSourceUpdates => {}
+                    TimerData(timers) => {
+                        self.primary_window.timer_tab.timers_update(timers);
+                    }
+                    AlertStart(alert) => {
+                        self.alert = Some(alert);
+                    }
+                    AlertEnd(timer_file) => {
+                        if let Some(alert) = &self.alert {
+                            if Arc::ptr_eq(&alert.timer, &timer_file) {
+                                self.alert = None;
+                            }
+                        }
+                    }
+                    AlertFeed(phase_state) => {
+                        self.timer_window.new_phase(phase_state);
+                    }
+                    AlertReset(timer) => {
+                        self.timer_window.remove_phase(timer);
+                    }
+                }
+            }
+            Err(_error) => (),
+        }
+        self.handle_alert(ui, io);
+        self.timer_window.draw(ui);
+        self.primary_window.draw(ui, &mut self.timer_window);
     }
     fn big_header(ui: &Ui, text: &str) {
         let nexus_link = read_nexus_link().unwrap();
@@ -236,51 +363,6 @@ impl RenderState {
         let font_handle = ui.push_font(font.id());
         ui.text(text);
         font_handle.pop();
-    }
-    fn handle_taimi_main_window(&mut self, ui: &Ui) {
-        let mut primary_window_open = self.primary_window_open;
-        if self.primary_window_open {
-            Window::new("Taimi")
-                .opened(&mut primary_window_open)
-                .build(ui, || {
-                    if let Some(_token) = ui.tab_bar("modules") {
-                        if let Some(_token) = ui.tab_item("Timers") {
-                            //let table_token = ui.begin_table("timers_main", 2);
-                            ui.columns(2, "timers_main", true);
-                            //let window_size = ui.window_size();
-                            //let sidebar_width = window_size[1] * 0.3;
-                            //ui.set_current_column_width(sidebar_width);
-                            self.handle_timer_sidebar(ui);
-                            ui.next_column();
-                            //let main_width = window_size[1] - sidebar_width;
-                            //ui.set_current_column_width(main_width);
-                            self.handle_timer_main(ui);
-                            //drop(table_token);
-                            ui.columns(1, "timers_main_end", false)
-                        };
-                        if let Some(_token) = ui.tab_item("Markers") {
-                            ui.text("To-do!");
-                        }
-                        if let Some(_token) = ui.tab_item("Pathing") {
-                            ui.text("To-do!");
-                        }
-                    }
-                });
-        }
-        self.primary_window_open = primary_window_open;
-    }
-    fn handle_timers_window(&mut self, ui: &Ui) {
-        if self.timers_window_open {
-            Window::new("Timers")
-                .opened(&mut self.timers_window_open)
-                .build(ui, || {
-                    for ps in &self.phase_states {
-                        for alert in ps.alerts.iter() {
-                            Self::progress_bar(alert, ui, ps.start)
-                        }
-                    }
-                });
-        }
     }
     fn handle_alert(&mut self, ui: &Ui, io: &Io) {
         if let Some(alert) = &self.alert {

@@ -60,8 +60,6 @@ fn load() {
 
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
-    let settings = SettingsRaw::load_access(&addon_dir);
-    let _ = SETTINGS.set(settings);
 
     let (ts_event_sender, ts_event_receiver) = channel::<TaimiThreadEvent>(32);
     let (rt_event_sender, rt_event_receiver) = channel::<RenderThreadEvent>(32);
@@ -75,7 +73,7 @@ fn load() {
     // Rendering setup
     let taimi_window = render!(|ui| {
         let mut state = RenderState::lock();
-        state.render(ui);
+        state.draw(ui);
     });
 
     register_render(RenderType::Render, taimi_window).revert_on_unload();
@@ -83,7 +81,7 @@ fn load() {
     // Handle window toggling with keybind and button
     let main_window_keybind_handler = keybind_handler!(|id, is_release| {
         let mut state = RenderState::lock();
-        state.main_window_keybind_handler(id, is_release)
+        state.primary_window.keybind_handler(id, is_release)
     });
     register_keybind_with_string(
         "TAIMI_MENU_KEYBIND",

@@ -1,2 +1,4 @@
+style_edition = "2021"
 imports_granularity = "One"
-group_imports = "One"
+group_imports = "StdExternalCrate"
+reorder_imports = true

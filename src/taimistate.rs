@@ -1,7 +1,10 @@
 use {
     crate::{
-        geometry::Position, settings::Settings, timer::timerfile::TimerFile,
-        timermachine::TimerMachine, MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
+        geometry::Position,
+        settings::{DownloadData, Settings, SettingsRaw},
+        timer::timerfile::TimerFile,
+        timermachine::TimerMachine,
+        MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -19,7 +22,7 @@ use {
             mpsc::{Receiver, Sender},
             Mutex, RwLock,
         },
-        task::JoinHandle,
+        task::{JoinHandle, JoinSet},
         time::{interval, sleep, Duration},
     },
 };
@@ -54,22 +57,23 @@ impl TaimiState {
         rt_sender: Sender<crate::RenderThreadEvent>,
         addon_dir: PathBuf,
     ) {
-        let mut state = TaimiState {
-            addon_dir,
-            rt_sender,
-            settings: SETTINGS.get().unwrap().clone(),
-            agent: Default::default(),
-            cached_identity: Default::default(),
-            cached_link: Default::default(),
-            map_id: Default::default(),
-            player_position: Default::default(),
-            alert_sem: Default::default(),
-            timers: Default::default(),
-            current_timers: Default::default(),
-            map_id_to_timers: Default::default(),
-        };
-
         let evt_loop = async move {
+            let settings = SettingsRaw::load_access(&addon_dir.clone()).await;
+            let mut state = TaimiState {
+                addon_dir,
+                rt_sender,
+                settings,
+                agent: Default::default(),
+                cached_identity: Default::default(),
+                cached_link: Default::default(),
+                map_id: Default::default(),
+                player_position: Default::default(),
+                alert_sem: Default::default(),
+                timers: Default::default(),
+                current_timers: Default::default(),
+                map_id_to_timers: Default::default(),
+            };
+            let _ = SETTINGS.set(state.settings.clone());
             state.setup_timers().await;
             let mut taimi_interval = interval(Duration::from_millis(250));
             let mut mumblelink_interval = interval(Duration::from_millis(20));
@@ -125,11 +129,18 @@ impl TaimiState {
 
     async fn load_timer_files(&self) -> Vec<Arc<TimerFile>> {
         let mut timers = Vec::new();
-        let glob_str = self.addon_dir.join("*.bhtimer");
-        log::info!("Path to load timer files from is '{glob_str:?}'.");
-        let timer_paths: Paths = self.get_paths(&glob_str).await.unwrap();
+        let settings_lock = self.settings.read().await;
+        let paths_to_try = settings_lock.get_paths();
+        let mut paths = Vec::new();
+        for path in paths_to_try {
+            let glob_str = path.join("*.bhtimer");
+            log::info!("A path to load timer files from is '{glob_str:?}'.");
+            let timer_paths: Paths = self.get_paths(&glob_str).await.unwrap();
+            paths.extend(timer_paths);
+        }
+        drop(settings_lock);
         let mut total_files = 0;
-        for path in timer_paths {
+        for path in paths {
             total_files += 1;
             let path = path.expect("Path illegible!");
             match self.load_timer_file(path.clone()).await {
@@ -199,7 +210,7 @@ impl TaimiState {
             if self.map_id_to_timers.contains_key(&new_map_id) {
                 let map_timers = &self.map_id_to_timers[&new_map_id];
                 for timer in map_timers {
-                    let settings_lock = self.settings.blocking_read();
+                    let settings_lock = self.settings.read().await;
                     let settings_for_timer = settings_lock.timers.get(&timer.id);
                     let timer_enabled = match settings_for_timer {
                         Some(setting) => !setting.disabled,
@@ -257,7 +268,28 @@ impl TaimiState {
         }
     }
 
+    async fn toggle_timer(&mut self, id: &str) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.toggle_timer(id.to_string()).await;
+        drop(settings_lock);
+        if let Some(map_id) = self.map_id {
+            if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
+                let timers = timers_for_map.iter().filter(|t| t.id == id);
+                for timer in timers {
+                    self.current_timers.push(TimerMachine::new(
+                        timer.clone(),
+                        self.alert_sem.clone(),
+                        self.rt_sender.clone(),
+                    ));
+                }
+            }
+        }
+    }
+
     async fn enable_timer(&mut self, id: &str) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.enable_timer(id.to_string()).await;
+        drop(settings_lock);
         if let Some(map_id) = self.map_id {
             if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
                 let timers = timers_for_map.iter().filter(|t| t.id == id);
@@ -273,11 +305,30 @@ impl TaimiState {
     }
 
     async fn disable_timer(&mut self, id: &str) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.disable_timer(id.to_string()).await;
+        drop(settings_lock);
         let timers_to_remove = self.current_timers.iter_mut().filter(|t| t.timer.id == id);
         for timer in timers_to_remove {
             timer.cleanup().await;
         }
         self.current_timers.retain(|t| t.timer.id != id);
+    }
+
+    async fn check_updates(&mut self) {
+        let mut settings_lock = self.settings.write().await;
+        for source in settings_lock.downloaded_releases.iter_mut() {
+            source.check_for_updates().await;
+            log::debug!("{}: {:?}", source.needs_update, source.needs_update);
+        }
+        drop(settings_lock);
+    }
+
+    async fn do_update(&mut self, owner: String, repository: String) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.download_latest(owner, repository).await;
+        drop(settings_lock);
+        self.load_timer_files().await;
     }
 
     async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
@@ -287,6 +338,9 @@ impl TaimiState {
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,
             TimerEnable(id) => self.enable_timer(&id).await,
             TimerDisable(id) => self.disable_timer(&id).await,
+            TimerToggle(id) => self.toggle_timer(&id).await,
+            CheckDataSourceUpdates => self.check_updates().await,
+            DoDataSourceUpdate { owner, repository } => self.do_update(owner, repository).await,
 
             Quit => return Ok(false),
             // I forget why we needed this, but I think it's a holdover from the buttplug one o:
@@ -303,7 +357,13 @@ pub enum TaimiThreadEvent {
         src: arcdps::AgentOwned,
         evt: arcEvent,
     },
+    DoDataSourceUpdate {
+        owner: String,
+        repository: String,
+    },
+    CheckDataSourceUpdates,
     TimerEnable(String),
     TimerDisable(String),
+    TimerToggle(String),
     Quit,
 }

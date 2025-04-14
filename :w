@@ -1,26 +1,22 @@
 use {
-    async_compression::tokio::bufread::GzipDecoder,
-    bytes::Bytes,
-    futures::stream::TryStreamExt,
+    flate2::read::GzDecoder,
     octocrab::models::{repos::Release, ReleaseId},
     reqwest::{Client, IntoUrl, Response},
     serde::{Deserialize, Serialize},
     std::{
         collections::HashMap,
         fmt, fs,
-        io::{self, prelude::*, Cursor, ErrorKind, Read, SeekFrom, Write},
+        io::{SeekFrom, Write},
         path::{Path, PathBuf},
         sync::Arc,
     },
+    tar::Archive,
     tempfile::{Builder, TempDir},
     tokio::{
-        fs::{create_dir, read_dir, read_to_string, try_exists, File, OpenOptions},
-        io::{AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
+        fs::{create_dir, read_dir, read_to_string, try_exists, File},
+        io::AsyncWriteExt,
         sync::RwLock,
     },
-    tokio_stream::*,
-    tokio_tar::Archive,
-    tokio_util::io::StreamReader,
 };
 
 pub type Settings = Arc<RwLock<SettingsRaw>>;
@@ -118,22 +114,6 @@ impl DownloadData {
         Ok(client.get(url).send().await?)
     }
 
-    async fn get_and_extract_tar<U: IntoUrl>(&self, url: U) -> anyhow::Result<()> {
-        let response = Self::get(url).await?;
-        let bytes_stream = response
-            .bytes_stream()
-            .map_err(|e| io::Error::new(ErrorKind::Other, e));
-        let stream_reader = StreamReader::new(bytes_stream);
-        let gzip_decoder = GzipDecoder::new(stream_reader);
-        let mut tar_file = Archive::new(gzip_decoder);
-        let mut entries = tar_file.entries()?;
-        while let Some(file) = entries.next().await {
-            let f = file?;
-            log::debug!("{}", f.path()?.display());
-        }
-        Ok(())
-    }
-
     pub async fn get_latest_release(&self) -> anyhow::Result<Release> {
         Ok(octocrab::instance()
             .repos(&self.owner, &self.repository)
@@ -143,9 +123,46 @@ impl DownloadData {
     }
 
     pub async fn download_latest(&mut self, addon_dir: &Path) -> anyhow::Result<()> {
-        let latest = self.get_latest_release().await?;
-        if let Some(tarball_url) = latest.tarball_url {
-            self.get_and_extract_tar(tarball_url).await?;
+        let release = self.get_latest_release().await?;
+        if let Some(download_url) = release.tarball_url {
+            let latest_release_id = release.id;
+            let response = Self::get(download_url);
+            let finaldir_name = format!("taimi_{}_{}", self.owner, self.repository);
+            let tempdir_name = format!("{}_{}", finaldir_name, latest_release_id);
+            let tempfile_name = "archive.tar.gz";
+            let mut tmp_dir = Builder::new()
+                .prefix(&tempdir_name)
+                .rand_bytes(5)
+                .keep(true)
+                .tempdir()?;
+            log::info!(
+                "Temporary directory for {:?} is {:?}",
+                finaldir_name,
+                tmp_dir
+            );
+            let dest_path = tmp_dir.path().join(tempfile_name);
+            let mut dest = File::create(&dest_path)?;
+            let content = response.bytes().await?;
+            dest.write_all(&content)?;
+            dest.rewind()?;
+            let tar = GzDecoder::new(dest);
+            let mut archive = Archive::new(tar);
+            archive.unpack(&dest_path)?;
+            let folder_to_unpack = read_dir(tmp_dir)?;
+            for path in folder_to_unpack {
+                let path = path?.path();
+                if let Some(file_name) = path.file_name() {
+                    let file_name = file_name.to_string_lossy().to_lowercase();
+                    let owner = self.owner.to_lowercase();
+                    let repository = self.repository.to_lowercase();
+                    let checks = file_name.contains(&owner) && file_name.contains(&repository);
+                    if path.is_dir() && checks {
+                        fs::copy(path.join("timers"), addon_dir)?;
+                    }
+                }
+            }
+            self.installed_path = Some(addon_dir.join("timers"));
+            self.last_release_id = Some(latest_release_id.to_string());
         }
         Ok(())
     }
@@ -169,7 +186,7 @@ impl SettingsRaw {
             .collect()
     }
 
-    pub async fn toggle_timer(&mut self, timer: String) {
+    pub fn toggle_timer(&mut self, timer: String) {
         let entry = self.timers.entry(timer.clone()).or_default();
         entry.toggle();
         let irrelevant = entry == &Default::default();
@@ -178,7 +195,7 @@ impl SettingsRaw {
         }
         let _ = self.save(&self.addon_dir);
     }
-    pub async fn disable_timer(&mut self, timer: String) {
+    pub fn disable_timer(&mut self, timer: String) {
         if let Some(entry_mut) = self.timers.get_mut(&timer) {
             entry_mut.disable();
         } else {
@@ -186,7 +203,7 @@ impl SettingsRaw {
         }
         let _ = self.save(&self.addon_dir);
     }
-    pub async fn enable_timer(&mut self, timer: String) {
+    pub fn enable_timer(&mut self, timer: String) {
         if let Some(entry_mut) = self.timers.get_mut(&timer) {
             entry_mut.enable();
         } else {
@@ -236,7 +253,7 @@ impl SettingsRaw {
     }
 
     pub async fn load_access(addon_dir: &Path) -> Settings {
-        Arc::new(RwLock::new(Self::load_default(addon_dir).await))
+        Arc::new(RwLock::new(Self::load_default(addon_dir)).await)
     }
 
     pub async fn save(&self, addon_dir: &Path) -> anyhow::Result<()> {
