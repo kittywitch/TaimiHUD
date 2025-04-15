@@ -27,6 +27,7 @@ Long-term, intends to provide Pathing and Markers too.
     - [ ] Add HP trigger
     - [ ] Add CC trigger
 - [ ] Break up renderstate.rs into separate files
+- [ ] Make timers/mod.rs re-export things instead of ::timerfile::... uses elsewhere in the code
 - [ ] Timers
     - [x] Get DLL loaded with proper name
     - [x] Empty UI window toggled with button
