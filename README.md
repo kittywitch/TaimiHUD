@@ -19,6 +19,7 @@ Long-term, intends to provide Pathing and Markers too.
     - [x] Provide a method for downloading and extracting data into the addon_dir. We do not want to redistribute the files themselves.
         - [x] https://docs.rs/tar/latest/tar/ - combine with download from GitHub
             - [x] Either use a crate to get GitHub information and check last downloaded release, or pre-obtain md5...?
+    - [ ] Provide interface for adding new data sources
 - [ ] Triggers other than time and keybind
     - [ ] Add HP trigger
     - [ ] Add CC trigger
