@@ -1,7 +1,7 @@
 use {
     crate::{
         geometry::Position,
-        settings::{DownloadData, Settings, SettingsRaw},
+        settings::{RemoteSource, Settings, SettingsRaw},
         timer::timerfile::TimerFile,
         timermachine::TimerMachine,
         MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
@@ -316,18 +316,20 @@ impl TaimiState {
     }
 
     async fn check_updates(&mut self) {
-        let mut settings_lock = self.settings.write().await;
-        for source in settings_lock.downloaded_releases.iter_mut() {
-            source.check_for_updates().await;
-            log::debug!("{}: {:?}", source.needs_update, source.needs_update);
+        let _ = self.rt_sender.send(RenderThreadEvent::CheckingForUpdates(true)).await;
+        match SettingsRaw::check_for_updates().await {
+            Ok(_) => (),
+            Err(err) => log::error!("TaimiState.check_updates(): {}", err),
         }
-        drop(settings_lock);
+        let _ = self.rt_sender.send(RenderThreadEvent::CheckingForUpdates(false)).await;
     }
 
-    async fn do_update(&mut self, owner: String, repository: String) {
-        let mut settings_lock = self.settings.write().await;
-        settings_lock.download_latest(owner, repository).await;
-        drop(settings_lock);
+    async fn do_update(&mut self, source: &RemoteSource) {
+        match SettingsRaw::download_latest(source).await {
+            Ok(_) => (),
+            Err(err) => log::error!("TaimiState.do_update() error for \"{}\": {}", source, err),
+
+        };
         self.setup_timers().await;
     }
 
@@ -340,7 +342,7 @@ impl TaimiState {
             TimerDisable(id) => self.disable_timer(&id).await,
             TimerToggle(id) => self.toggle_timer(&id).await,
             CheckDataSourceUpdates => self.check_updates().await,
-            DoDataSourceUpdate { owner, repository } => self.do_update(owner, repository).await,
+            DoDataSourceUpdate { source } => self.do_update(&source).await,
 
             Quit => return Ok(false),
             // I forget why we needed this, but I think it's a holdover from the buttplug one o:
@@ -358,8 +360,7 @@ pub enum TaimiThreadEvent {
         evt: arcEvent,
     },
     DoDataSourceUpdate {
-        owner: String,
-        repository: String,
+        source: Arc<RemoteSource>,
     },
     CheckDataSourceUpdates,
     TimerEnable(String),

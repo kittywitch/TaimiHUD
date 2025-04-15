@@ -1,6 +1,6 @@
 use {
     crate::{
-        settings::{DownloadData, NeedsUpdate, Settings, TimerSettings},
+        settings::{NeedsUpdate, RemoteState, Settings, TimerSettings},
         taimistate::TaimiThreadEvent,
         timer::{timeralert::TimerAlert, timerfile::TimerFile},
         timermachine::{PhaseState, TextAlert},
@@ -9,16 +9,15 @@ use {
     nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, ChildWindow, Condition, Font, FontId, Io, ProgressBar, Selectable,
-            StyleColor, TreeNodeFlags, Ui, Window, WindowFlags,
+            internal::RawCast, ChildWindow, Condition, Font, FontId, Io, ProgressBar, Selectable, StyleColor, TableColumnSetup, TreeNodeFlags, Ui, Window, WindowFlags
         },
         // TODO
         //texture::{load_texture_from_file, texture_receive, Texture},
     },
     std::{
-        collections::HashMap,
         sync::{Arc, MutexGuard},
     },
+    indexmap::IndexMap,
     tokio::{sync::mpsc::Receiver, time::Instant},
 };
 
@@ -29,6 +28,7 @@ pub enum RenderThreadEvent {
     AlertStart(TextAlert),
     AlertEnd(Arc<TimerFile>),
     DataSourceUpdates,
+    CheckingForUpdates(bool),
 }
 
 pub struct TimerWindowState {
@@ -89,7 +89,7 @@ impl TimerWindowState {
 
 pub struct TimerTabState {
     timers: Vec<Arc<TimerFile>>,
-    categories: HashMap<String, Vec<Arc<TimerFile>>>,
+    categories: IndexMap<String, Vec<Arc<TimerFile>>>,
     timer_selection: Option<Arc<TimerFile>>,
 }
 
@@ -190,51 +190,72 @@ impl TimerTabState {
                 val.push(timer.clone());
             };
         }
+        self.categories.sort_keys();
     }
 }
 
-pub struct DataSourceTabState {}
+pub struct DataSourceTabState {
+    checking_for_updates: bool,
+}
 
 impl DataSourceTabState {
     fn new() -> Self {
-        Self {}
+        Self {
+            checking_for_updates: false,
+        }
     }
 
     fn draw(&self, ui: &Ui) {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
-            if ui.button("Check for updates") {
-                let sender = TS_SENDER.get().unwrap();
-                let event_send = sender.try_send(TaimiThreadEvent::CheckDataSourceUpdates);
-                drop(event_send);
-            }
-            for source in &settings.downloaded_releases {
-                let source_update = format!(
-                    "{}/{}: {}",
-                    source.owner, source.repository, source.needs_update
-                );
-                ui.text(source_update);
-                use NeedsUpdate::*;
-                let button_text = match &source.needs_update {
-                    Unknown => Some("Attempt to update anyway?"),
-                    Known(needs, _id) if *needs => Some("Update"),
-                    Known(_needs, _id) => None,
-                };
-                if let Some(button_text) = button_text {
-                    ui.same_line();
-                    if ui.button(button_text) {
-                        let sender = TS_SENDER.get().unwrap();
-                        let event_send = sender.try_send(TaimiThreadEvent::DoDataSourceUpdate {
-                            owner: source.owner.clone(),
-                            repository: source.repository.clone(),
-                        });
-                        drop(event_send);
+            if self.checking_for_updates {
+                ui.text("Checking for updates! Please hold.")
+            } else {
+                if ui.button("Check for updates") {
+                    let sender = TS_SENDER.get().unwrap();
+                    let event_send = sender.try_send(TaimiThreadEvent::CheckDataSourceUpdates);
+                    drop(event_send);
+                }
+                ui.same_line();
+                if let Some(last_checked) = &settings.last_checked {
+                    ui.text(format!("Last checked for updates: {}", last_checked.format("%F %T %Z")));
+                } else {
+                    ui.text("Last checked for updates: Never");
+                }
+                let table_token = ui.begin_table_header("remotes", [
+                    TableColumnSetup::new("Remote"),
+                    TableColumnSetup::new("Status"),
+                ]);
+                ui.table_next_column();
+                for download_data in &settings.remotes {
+                    let source = download_data.source.clone();
+                    ui.text(format!("{}", source));
+                    ui.table_next_column();
+                    ui.text(format!("{}", download_data.needs_update));
+                    ui.table_next_column();
+                    use NeedsUpdate::*;
+                    let button_text = match &download_data.needs_update {
+                        Unknown => Some("Attempt to update anyway?"),
+                        Known(true, _id) => Some("Update"),
+                        Known(false, _id) => None,
+                    };
+                    if let Some(button_text) = button_text {
+                        ui.same_line();
+                        if ui.button(button_text) {
+                            let sender = TS_SENDER.get().unwrap();
+                            let source = source.clone();
+                            let event_send = sender.try_send(TaimiThreadEvent::DoDataSourceUpdate {
+                                source
+                            });
+                            drop(event_send);
+                        }
                     }
                 }
+                drop(table_token);
             }
         } else {
-            ui.text("Settings have not yet loaded!");
+                ui.text("Settings have not yet loaded!");
+            }
         }
-    }
 }
 
 pub struct PrimaryWindowState {
@@ -302,7 +323,10 @@ impl RenderState {
             Ok(event) => {
                 use RenderThreadEvent::*;
                 match event {
-                    DataSourceUpdates => {}
+                    DataSourceUpdates => {},
+                    CheckingForUpdates(checking_for_updates) => {
+                        self.primary_window.data_sources_tab.checking_for_updates = checking_for_updates;
+                    }
                     TimerData(timers) => {
                         self.primary_window.timer_tab.timers_update(timers);
                     }

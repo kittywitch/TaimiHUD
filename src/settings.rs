@@ -1,22 +1,11 @@
 use {
-    async_compression::tokio::bufread::GzipDecoder,
-    bytes::Bytes,
-    futures::stream::TryStreamExt,
-    octocrab::models::{repos::Release, ReleaseId},
-    reqwest::{Client, IntoUrl, Response},
-    serde::{Deserialize, Serialize},
-    std::{
-        collections::HashMap, ffi::{OsStr, OsString}, fmt, fs, io::{self, prelude::*, Cursor, ErrorKind, Read, SeekFrom, Write}, path::{Path, PathBuf}, sync::Arc
-    },
-    tempfile::{Builder, TempDir},
-    tokio::{
+    crate::SETTINGS, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, bytes::Bytes, chrono::{DateTime, Local, Utc}, futures::stream::{StreamExt, TryStreamExt}, octocrab::models::{repos::Release, ReleaseId}, reqwest::{Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, std::{
+        collections::HashMap, ffi::{OsStr, OsString}, fmt, fs, future::Future, io::{self, prelude::*, Cursor, ErrorKind, Read, SeekFrom, Write}, path::{Path, PathBuf}, sync::Arc
+    }, tempfile::{Builder, TempDir}, tokio::{
         fs::{create_dir, create_dir_all, read_dir, read_to_string, try_exists, File, OpenOptions},
         io::{copy, AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
         sync::RwLock,
-    },
-    tokio_stream::*,
-    tokio_tar::Archive,
-    tokio_util::io::StreamReader,
+    }, tokio_stream::*, tokio_tar::Archive, tokio_util::io::StreamReader
 };
 
 pub type Settings = Arc<RwLock<SettingsRaw>>;
@@ -39,11 +28,10 @@ impl TimerSettings {
     }
 }
 
-#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
-pub struct DownloadData {
-    pub owner: String,
-    pub repository: String,
-    last_release_id: Option<String>,
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct RemoteState {
+    pub source: Arc<RemoteSource>,
+    installed_tag: Option<String>,
     installed_path: Option<PathBuf>,
     #[serde(skip)]
     pub needs_update: NeedsUpdate,
@@ -67,43 +55,21 @@ impl fmt::Display for NeedsUpdate {
     }
 }
 
-impl DownloadData {
-    fn new(owner: &str, repository: &str) -> Self {
-        Self {
-            owner: owner.to_string(),
-            repository: repository.to_string(),
-            last_release_id: Default::default(),
-            installed_path: Default::default(),
-            needs_update: Default::default(),
-        }
-    }
+#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+pub struct GitHubSource {
+    pub owner: String,
+    pub repository: String,
+}
 
-    fn suggested_sources() -> impl Iterator<Item = Self> {
-        let hardcoded_sources = [("QuitarHero", "Hero-Timers")];
-        hardcoded_sources
-            .into_iter()
-            .map(|(owner, repository)| Self::new(owner, repository))
+impl fmt::Display for GitHubSource {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}/{}", self.owner, self.repository)
     }
+}
 
-    pub async fn check_for_updates(&mut self) {
-        self.needs_update = self.needs_update().await;
-    }
-
-    pub async fn needs_update(&self) -> NeedsUpdate {
-        use NeedsUpdate::*;
-        if let Ok(remote_release_id) = self.get_latest_id().await {
-            if let Some(release_id) = &self.last_release_id {
-                Known(*release_id != remote_release_id, remote_release_id)
-            } else {
-                Known(true, remote_release_id)
-            }
-        } else {
-            Unknown
-        }
-    }
-
-    async fn get_latest_id(&self) -> anyhow::Result<String> {
-        Ok(self.get_latest_release().await?.tag_name)
+impl GitHubSource {
+    fn folder_name(&self) -> String {
+        format!("{}_{}", self.owner, self.repository)
     }
 
     async fn get<U: IntoUrl>(url: U) -> anyhow::Result<Response> {
@@ -114,7 +80,7 @@ impl DownloadData {
         Ok(client.get(url).send().await?)
     }
 
-    async fn get_and_extract_tar<U: IntoUrl>(&self, dir: &Path, url: U) -> anyhow::Result<()> {
+    async fn get_and_extract_tar<U: IntoUrl>(dir: &Path, url: U) -> anyhow::Result<()> {
         let response = Self::get(url).await?;
         let bytes_stream = response
             .bytes_stream()
@@ -146,7 +112,15 @@ impl DownloadData {
         Ok(())
     }
 
-    pub async fn get_latest_release(&self) -> anyhow::Result<Release> {
+    pub async fn download_latest(&self, install_dir: &Path) -> anyhow::Result<String> {
+        let latest = self.latest_release().await?;
+        if let Some(tarball_url) = latest.tarball_url {
+            Self::get_and_extract_tar(install_dir, tarball_url).await?;
+        }
+        Ok(latest.tag_name)
+    }
+
+    pub async fn latest_release(&self) -> anyhow::Result<Release> {
         Ok(octocrab::instance()
             .repos(&self.owner, &self.repository)
             .releases()
@@ -154,14 +128,51 @@ impl DownloadData {
             .await?)
     }
 
-    pub async fn download_latest(&mut self, addon_dir: &Path) -> anyhow::Result<()> {
-        let latest = self.get_latest_release().await?;
-        let addon_folder_name = format!("{}_{}", self.owner, self.repository);
-        let install_dir = addon_dir.join(addon_folder_name);
-        if let Some(tarball_url) = latest.tarball_url {
-            self.get_and_extract_tar(&install_dir, tarball_url).await?;
+    async fn latest_id(&self) -> anyhow::Result<String> {
+        Ok(self.latest_release().await?.tag_name)
+    }
+}
+/*#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
+enum RemoteSource {
+    GitHub(GitHubSource),
+}*/
+
+pub type RemoteSource = GitHubSource;
+
+impl RemoteState {
+    fn new(owner: &str, repository: &str) -> Self {
+        Self {
+            source: Arc::new(RemoteSource {
+                owner: owner.to_string(),
+                repository: repository.to_string(),
+            }),
+            installed_tag: Default::default(),
+            installed_path: Default::default(),
+            needs_update: Default::default(),
         }
-        self.last_release_id = Some(latest.tag_name);
+    }
+
+    fn suggested_sources() -> impl Iterator<Item = Self> {
+        let hardcoded_sources = [("QuitarHero", "Hero-Timers")];
+        hardcoded_sources
+            .into_iter()
+            .map(|(owner, repository)| Self::new(owner, repository))
+    }
+
+    pub async fn needs_update(&self) -> NeedsUpdate {
+        use NeedsUpdate::*;
+        if let Ok(remote_release_id) = self.source.latest_id().await {
+            if let Some(release_id) = &self.installed_tag {
+                Known(*release_id != remote_release_id, remote_release_id)
+            } else {
+                Known(true, remote_release_id)
+            }
+        } else {
+            Unknown
+        }
+    }
+    pub async fn commit_downloaded(&mut self, tag_name: String, install_dir: PathBuf) -> anyhow::Result<()> { 
+        self.installed_tag = Some(tag_name);
         self.needs_update = self.needs_update().await;
         self.installed_path = Some(install_dir);
         Ok(())
@@ -170,17 +181,19 @@ impl DownloadData {
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct SettingsRaw {
+    #[serde(default)]
+    pub last_checked: Option<DateTime<Utc>>,
     #[serde(skip)]
     addon_dir: PathBuf,
     #[serde(default)]
     pub timers: HashMap<String, TimerSettings>,
     #[serde(default)]
-    pub downloaded_releases: Vec<DownloadData>,
+    pub remotes: Vec<RemoteState>,
 }
 
 impl SettingsRaw {
     pub fn get_paths(&self) -> Vec<&PathBuf> {
-        self.downloaded_releases
+        self.remotes
             .iter()
             .filter_map(|dd| dd.installed_path.as_ref())
             .collect()
@@ -212,25 +225,76 @@ impl SettingsRaw {
         let _ = self.save(&self.addon_dir).await;
     }
 
-    pub async fn download_latest(&mut self, owner: String, repository: String) {
-        for release in self
-            .downloaded_releases
+    pub async fn get_status_for(&self, source: &RemoteSource) -> Option<&RemoteState> {
+        self
+            .remotes
+            .iter()
+            .find(|dd| *dd.source == *source)
+    }
+    
+    pub async fn get_status_for_mut(&mut self, source: &RemoteSource) -> Option<&mut RemoteState> {
+        self
+            .remotes
             .iter_mut()
-            .filter(|dd| dd.owner == owner && dd.repository == repository)
+            .find(|dd| *dd.source == *source)
+    }
+
+    pub async fn download_latest(source: &RemoteSource) -> anyhow::Result<()> {
+        let settings_arc = SETTINGS.get()
+            .expect("Settings should've been initialized by now!");
+        let install_dir = {
+            let settings_read_lock = settings_arc.read().await;
+            settings_read_lock.addon_dir.join(source.folder_name())
+
+        };
+        let tag_name = source.download_latest(&install_dir).await?;
         {
-            match release.download_latest(&self.addon_dir).await {
-                Ok(_) => (),
-                Err(err) => log::error!("{}", err),
+            let mut settings_write_lock = settings_arc.write().await;
+            if let Some(dd_mut ) = settings_write_lock.get_status_for_mut(source).await {
+                let res = dd_mut.commit_downloaded(tag_name, install_dir).await;
+                let _ = settings_write_lock.save(&settings_write_lock.addon_dir).await;
+                res
+            } else {
+                Err(anyhow!("GitHub repository \"{}\" not found.", source))
             }
+        }?;
+        Ok(())
+    }
+
+    pub async fn check_for_updates() -> anyhow::Result<()> {
+        let sources: Vec<(Arc<RemoteSource>, NeedsUpdate)> = {
+            let settings_read_lock = SETTINGS.get()
+                .expect("Settings should've been initialized by now!").read().await;
+            tokio_stream::iter(settings_read_lock.remotes.iter())
+                .then (|r| async move {
+                    (r.source.clone(), r.needs_update().await)
+                })
+                .collect().await
+        };
+        log::debug!("meep {:?}", sources);
+        {
+            let mut settings_write_lock = SETTINGS.get()
+                .expect("Settings should've been initialized by now!").write().await;
+            for (source, nu) in sources {
+                log::debug!("{} update state: {:?}", source, nu);
+                if let Some(dd) = settings_write_lock.get_status_for_mut(&source).await {
+                    log::debug!("Found dd {} update state: {:?}", dd.source, nu);
+                    dd.needs_update = nu;
+                }
+            }
+            settings_write_lock.last_checked = Some(Utc::now());
+            settings_write_lock.save(&settings_write_lock.addon_dir).await?;
         }
-        let _ = self.save(&self.addon_dir).await;
+        Ok(())
+
     }
 
     pub async fn new(addon_dir: &Path) -> Self {
         Self {
+            last_checked: None,
             addon_dir: addon_dir.to_path_buf(),
             timers: Default::default(),
-            downloaded_releases: DownloadData::suggested_sources().collect(),
+            remotes: RemoteState::suggested_sources().collect(),
         }
     }
     pub async fn load(addon_dir: &Path) -> anyhow::Result<Self> {
@@ -260,6 +324,7 @@ impl SettingsRaw {
 
     pub async fn save(&self, addon_dir: &Path) -> anyhow::Result<()> {
         let settings_path = addon_dir.join("settings.json");
+        log::debug!("SettingsRaw: Saving to \"{:?}\".", settings_path);
         let settings_str = serde_json::to_string(self)?;
         let mut file = File::create(settings_path).await?;
         file.write_all(settings_str.as_bytes()).await?;
