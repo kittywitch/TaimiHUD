@@ -11,76 +11,20 @@ Long-term, intends to provide Pathing and Markers too.
 ![Data source updating](https://github.com/user-attachments/assets/12135f4f-5ceb-44d0-a136-15ebaa07511a)
 ![Timers during combat](https://github.com/user-attachments/assets/bb930b54-717c-4fa7-b65e-2ec77a7c2393)
 
-## Features (or, my To-dos) ;3
+## Features
 
-- [ ] Move to-dos to issues/projects...?
-- [ ] Make removal of containing dir for extract tar function optional via bool
-- [ ] Make data source download clean up prior download folder
-- [ ] Data
-    - [ ] Fork Hero's Timers
-        - [ ] Add markers alongside cardinal directions on Sabetha
-        - [ ] Once HP and CC triggers are implemented
-            - [ ] Slothasaur stability CC event
-            - [ ] `rq reaches`, a whole bunch of manual HP triggers where we could actually make this a thing! replace those.
-    - [x] Provide a method for downloading and extracting data into the addon_dir. We do not want to redistribute the files themselves.
-        - [x] https://docs.rs/tar/latest/tar/ - combine with download from GitHub
-            - [x] Either use a crate to get GitHub information and check last downloaded release, or pre-obtain md5...?
-    - [ ] Provide interface for adding new data sources
-- [ ] Triggers other than time and keybind
-    - [ ] Add HP trigger
-    - [ ] Add CC trigger
-- [ ] Break up renderstate.rs into separate files
-- [ ] Make timers/mod.rs re-export things instead of ::timerfile::... uses elsewhere in the code
-- [ ] Timers
-    - [x] Get DLL loaded with proper name
-    - [x] Empty UI window toggled with button
-    - [x] Timers file loaded using Serde
-    - [ ] Timer phases
-        - [ ] Add variant system, e.g. roles (1-3, 2-4, or challenge mode)
-        - [x] Timer triggers
-            - [x] Location
-                - [x] Sphere
-                - [x] Cuboid
-            - [ ] Keybind
-            - [x] Conditions
-                - [x] Entry
-                - [x] Departure
-                - [x] Combat
-                - [x] Left Combat
-        - [x] Timer actions
-            - [x] Display progress bar
-        - [ ] Markers
-            - [ ] Check implemented type
-            - [ ] 3D rendering requires waiting for the RTAPI implementation
-        - [ ] Directions
-            - [ ] Implement type
-        - [ ] Sounds
-            - [ ] Implement type
-            - [ ] Investigate the use of a TTS library for text
-    - [x] Get a timer running
-        - [x] Timer state machine
-    - [x] Load every timer file
-    - [x] Move phasestate into timermachine
-    - [x] Persistent configuration/enablement state
-    - [ ] UI work
-        - [ ] Store state for whether windows were toggled
-        - [x] Main Window
-            - [x] Tab bar
-                - [x] Timers tab
-        - [ ] Timers Window
-            - [ ] Add icon to progress bars
-            - [ ] Render text separately from the progress bar widget so that it no longer moves with the progress
-            - [ ] Make colours for progress bar text and background more sane (and still imported from the timer data)
-        - [x] Timers tab - control timers
-            - [x] Reset button for timers
-            - [x] Allow enabling and disabling timers
-            - [ ] Timer icons
-            - [x] Timer descriptions
-            - [x] Separate timers into categories
-        - [ ] Make mutually exclusive timer enablement for CMs, or provide the user with a prompt on map for the choice
-    - [ ] Find way to include data within the DLL for icons
-        - [ ] investigate https://crates.io/crates/include_dir
-- [ ] Commander's Markers
+* Can load .bhtimer type timers
+    * Supports location and keybind triggers, where keybind triggers are partially working (see #9)
+      * Handles combat state directly
+    * Phases are functional
+* Supports persistent enabling and disabling of timers
+* Can download Hero-Timers automatically for you, has a check for update functionality
+
+### Does not have yet:
+
+* Markers
+* Directions
+* Sounds
 
 ## References
 
