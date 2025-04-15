@@ -272,13 +272,13 @@ impl TaimiState {
         let mut settings_lock = self.settings.write().await;
         let disabled = settings_lock.toggle_timer(id.to_string()).await;
         drop(settings_lock);
-        if let Some(map_id) = self.map_id {
-            match disabled {
-                false => {
+        match disabled {
+            false => {
+                if let Some(map_id) = self.map_id {
                     if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
                         let timers = timers_for_map.iter().filter(|t| t.id == id);
                         for timer in timers {
-                            log::debug!("Creating timer machine for {}", timer.id);
+                            log::debug!("Creating timer machine for {} as it has been enabled.", timer.id);
                             self.current_timers.push(TimerMachine::new(
                                 timer.clone(),
                                 self.alert_sem.clone(),
@@ -287,13 +287,13 @@ impl TaimiState {
                         }
                     }
                 }
-                true => {
-                    let timers_to_remove =
-                        self.current_timers.iter_mut().filter(|t| t.timer.id == id);
-                    for timer in timers_to_remove {
-                        log::debug!("Starting cleanup for timer {}", timer.timer.id);
-                        timer.cleanup().await;
-                    }
+            },
+            true => {
+                let timers_to_remove =
+                    self.current_timers.iter_mut().filter(|t| t.timer.id == id);
+                for timer in timers_to_remove {
+                    log::debug!("Starting cleanup for timer {} as it has been disabled.", timer.timer.id);
+                    timer.cleanup().await;
                 }
             }
         }
