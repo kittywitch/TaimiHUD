@@ -61,10 +61,15 @@ impl TimerTrigger {
             _ => None,
         }
     }
-    pub fn check(&self, pos: Position, cb: CombatState) -> bool {
+    pub fn check(&self, pos: Position, cb: CombatState, key_pressed: bool) -> bool {
         let shape = match self.polytope() {
             Some(s) => s,
             None => return false,
+        };
+        use TimerTriggerType::*;
+        let key_check = match self.kind {
+            Location => true,
+            Key => key_pressed,
         };
         let position_check = shape.point_is_within(pos);
         let combat_entered_check = !self.require_combat || cb == CombatState::Entered;
@@ -72,7 +77,7 @@ impl TimerTrigger {
         let combat_check = combat_entered_check && combat_exited_check;
         let entry_check = !self.require_entry || position_check;
         let departure_check = !self.require_departure || !position_check;
-        entry_check && departure_check && combat_check
+        entry_check && departure_check && combat_check && key_check
     }
 }
 

@@ -78,7 +78,7 @@ impl TimerFilePhase {
 
     fn next(self) -> Option<Self> {
         let phase_len = self.timer.phases.len();
-        let phase = (self.phase..phase_len).next()?;
+        let phase = (self.phase + 1..phase_len).next()?;
         Some(Self {
             timer: self.timer,
             phase,
@@ -106,6 +106,7 @@ pub struct TimerMachine {
     sender: Sender<RenderThreadEvent>,
     combat_state: CombatState,
     tasks: Vec<Arc<JoinHandle<()>>>,
+    key_pressed: bool,
 }
 
 #[derive(Clone)]
@@ -134,6 +135,7 @@ impl TimerMachine {
             sender,
             combat_state: CombatState::Outside,
             tasks: Default::default(),
+            key_pressed: false,
         }
     }
 
@@ -208,7 +210,7 @@ impl TimerMachine {
         use TimerMachineState::*;
         match &self.state {
             OnPhase(_) | FinishedPhase(_) => {
-                if trigger.check(pos, self.combat_state) {
+                if trigger.check(pos, self.combat_state, self.key_pressed) {
                     self.do_reset().await;
                 }
             }
@@ -299,13 +301,7 @@ impl TimerMachine {
     async fn state_change(&mut self, state: TimerMachineState) {
         use TimerMachineState::*;
         let final_state = match state {
-            FinishedPhase(ref phase) => {
-                if phase.clone().next().is_none() {
-                    Finished
-                } else {
-                    state
-                }
-            }
+            FinishedPhase(ref phase) if phase.clone().next().is_none() => Finished,
             _ => state,
         };
         let reason = format!("Switching from state {} to {}", self.state, final_state);
@@ -336,50 +332,36 @@ impl TimerMachine {
             OnMap => {
                 // All timers have a start trigger and a zeroth (first) phase
                 let trigger = &self.timer.phases.first().unwrap().start;
-                use TimerTriggerType::*;
-                match &trigger.kind {
-                    Location => {
-                        if trigger.check(pos, self.combat_state) {
-                            if let Some(phase) = TimerFilePhase::new(self.timer.clone()) {
-                                self.state_change(OnPhase(phase)).await;
-                            }
-                        }
+                if trigger.check(pos, self.combat_state, self.key_pressed) { 
+                    if let Some(phase) = TimerFilePhase::new(self.timer.clone()) {
+                        self.state_change(OnPhase(phase)).await;
                     }
-                    // Go home clown
-                    Key => (),
                 }
             }
             // within a phase (nth)
             OnPhase(phase) => {
                 // handle the finish check
                 if let Some(trigger) = &phase.finish {
-                    use TimerTriggerType::*;
-                    match &trigger.kind {
-                        Location => {
-                            if trigger.check(pos, self.combat_state) {
-                                self.state_change(FinishedPhase(phase.clone())).await;
-                            }
-                        }
-                        Key => (),
+                    if trigger.check(pos, self.combat_state, self.key_pressed) {
+                        self.state_change(FinishedPhase(phase.clone())).await;
                     }
                 }
             }
             FinishedPhase(phase) => {
+                // check the next phase's start trigger
                 if let Some(next_phase) = &phase.clone().next() {
                     let trigger = &next_phase.start;
-                    use TimerTriggerType::*;
-                    match &trigger.kind {
-                        Location => {
-                            if trigger.check(pos, self.combat_state) {
-                                self.state_change(OnPhase(next_phase.clone())).await;
-                            }
-                        }
-                        Key => (),
+                    if trigger.check(pos, self.combat_state, self.key_pressed) {
+                        self.state_change(OnPhase(next_phase.clone())).await;
                     }
                 }
             },
             Finished => (),
         }
+    }
+
+    pub fn key_pressed(&mut self, _id: String) {
+        self.key_pressed = true;
     }
 
     pub fn combat_entered(&mut self) {

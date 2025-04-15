@@ -333,6 +333,14 @@ impl TaimiState {
         self.setup_timers().await;
     }
 
+    async fn timer_key_trigger(&mut self, id: String, is_release: bool) {
+        if !is_release {
+            for timer in &mut self.current_timers {
+                timer.key_pressed(id.clone());
+            }
+        }
+    }
+
     async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
         use TaimiThreadEvent::*;
         match event {
@@ -342,6 +350,7 @@ impl TaimiState {
             TimerDisable(id) => self.disable_timer(&id).await,
             TimerToggle(id) => self.toggle_timer(&id).await,
             CheckDataSourceUpdates => self.check_updates().await,
+            TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
 
             Quit => return Ok(false),
@@ -362,6 +371,7 @@ pub enum TaimiThreadEvent {
     DoDataSourceUpdate {
         source: Arc<RemoteSource>,
     },
+    TimerKeyTrigger(String, bool),
     CheckDataSourceUpdates,
     TimerEnable(String),
     TimerDisable(String),
