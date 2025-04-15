@@ -270,17 +270,30 @@ impl TaimiState {
 
     async fn toggle_timer(&mut self, id: &str) {
         let mut settings_lock = self.settings.write().await;
-        settings_lock.toggle_timer(id.to_string()).await;
+        let disabled = settings_lock.toggle_timer(id.to_string()).await;
         drop(settings_lock);
         if let Some(map_id) = self.map_id {
-            if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
-                let timers = timers_for_map.iter().filter(|t| t.id == id);
-                for timer in timers {
-                    self.current_timers.push(TimerMachine::new(
-                        timer.clone(),
-                        self.alert_sem.clone(),
-                        self.rt_sender.clone(),
-                    ));
+            match disabled {
+                false => {
+                    if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
+                        let timers = timers_for_map.iter().filter(|t| t.id == id);
+                        for timer in timers {
+                            log::debug!("Creating timer machine for {}", timer.id);
+                            self.current_timers.push(TimerMachine::new(
+                                timer.clone(),
+                                self.alert_sem.clone(),
+                                self.rt_sender.clone(),
+                            ));
+                        }
+                    }
+                }
+                true => {
+                    let timers_to_remove =
+                        self.current_timers.iter_mut().filter(|t| t.timer.id == id);
+                    for timer in timers_to_remove {
+                        log::debug!("Starting cleanup for timer {}", timer.timer.id);
+                        timer.cleanup().await;
+                    }
                 }
             }
         }
@@ -294,6 +307,7 @@ impl TaimiState {
             if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
                 let timers = timers_for_map.iter().filter(|t| t.id == id);
                 for timer in timers {
+                    log::debug!("Creating timer machine for {}", timer.id);
                     self.current_timers.push(TimerMachine::new(
                         timer.clone(),
                         self.alert_sem.clone(),
@@ -310,31 +324,38 @@ impl TaimiState {
         drop(settings_lock);
         let timers_to_remove = self.current_timers.iter_mut().filter(|t| t.timer.id == id);
         for timer in timers_to_remove {
+            log::debug!("Starting cleanup for timer {}", timer.timer.id);
             timer.cleanup().await;
         }
         self.current_timers.retain(|t| t.timer.id != id);
     }
 
     async fn check_updates(&mut self) {
-        let _ = self.rt_sender.send(RenderThreadEvent::CheckingForUpdates(true)).await;
+        let _ = self
+            .rt_sender
+            .send(RenderThreadEvent::CheckingForUpdates(true))
+            .await;
         match SettingsRaw::check_for_updates().await {
             Ok(_) => (),
             Err(err) => log::error!("TaimiState.check_updates(): {}", err),
         }
-        let _ = self.rt_sender.send(RenderThreadEvent::CheckingForUpdates(false)).await;
+        let _ = self
+            .rt_sender
+            .send(RenderThreadEvent::CheckingForUpdates(false))
+            .await;
     }
 
     async fn do_update(&mut self, source: &RemoteSource) {
         match SettingsRaw::download_latest(source).await {
             Ok(_) => (),
             Err(err) => log::error!("TaimiState.do_update() error for \"{}\": {}", source, err),
-
         };
         self.setup_timers().await;
     }
 
     async fn timer_key_trigger(&mut self, id: String, is_release: bool) {
         if !is_release {
+            log::info!("{}", self.current_timers.len());
             for timer in &mut self.current_timers {
                 timer.key_pressed(id.clone());
             }

@@ -19,9 +19,10 @@ Long-term, intends to provide Pathing and Markers too.
     - [x] Provide a method for downloading and extracting data into the addon_dir. We do not want to redistribute the files themselves.
         - [x] https://docs.rs/tar/latest/tar/ - combine with download from GitHub
             - [x] Either use a crate to get GitHub information and check last downloaded release, or pre-obtain md5...?
-- [ ] Events other than Timers
+- [ ] Triggers other than time and keybind
     - [ ] Add HP trigger
     - [ ] Add CC trigger
+- [ ] Break up renderstate.rs into separate files
 - [ ] Timers
     - [x] Get DLL loaded with proper name
     - [x] Empty UI window toggled with button
@@ -42,7 +43,7 @@ Long-term, intends to provide Pathing and Markers too.
             - [x] Display progress bar
         - [ ] Markers
             - [ ] Check implemented type
-            - [ ] 3D rendering
+            - [ ] 3D rendering requires waiting for the RTAPI implementation
         - [ ] Directions
             - [ ] Implement type
         - [ ] Sounds
@@ -52,7 +53,7 @@ Long-term, intends to provide Pathing and Markers too.
         - [x] Timer state machine
     - [x] Load every timer file
     - [x] Move phasestate into timermachine
-    - [ ] Persistent configuration/enablement state
+    - [x] Persistent configuration/enablement state
     - [ ] UI work
         - [ ] Store state for whether windows were toggled
         - [x] Main Window

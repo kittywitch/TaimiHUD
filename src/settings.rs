@@ -1,11 +1,31 @@
 use {
-    crate::SETTINGS, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, bytes::Bytes, chrono::{DateTime, Local, Utc}, futures::stream::{StreamExt, TryStreamExt}, octocrab::models::{repos::Release, ReleaseId}, reqwest::{Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, std::{
-        collections::HashMap, ffi::{OsStr, OsString}, fmt, fs, future::Future, io::{self, prelude::*, Cursor, ErrorKind, Read, SeekFrom, Write}, path::{Path, PathBuf}, sync::Arc
-    }, tempfile::{Builder, TempDir}, tokio::{
+    crate::SETTINGS,
+    anyhow::anyhow,
+    async_compression::tokio::bufread::GzipDecoder,
+    bytes::Bytes,
+    chrono::{DateTime, Local, Utc},
+    futures::stream::{StreamExt, TryStreamExt},
+    octocrab::models::{repos::Release, ReleaseId},
+    reqwest::{Client, IntoUrl, Response},
+    serde::{Deserialize, Serialize},
+    std::{
+        collections::HashMap,
+        ffi::{OsStr, OsString},
+        fmt, fs,
+        future::Future,
+        io::{self, prelude::*, Cursor, ErrorKind, Read, SeekFrom, Write},
+        path::{Path, PathBuf},
+        sync::Arc,
+    },
+    tempfile::{Builder, TempDir},
+    tokio::{
         fs::{create_dir, create_dir_all, read_dir, read_to_string, try_exists, File, OpenOptions},
         io::{copy, AsyncBufReadExt, AsyncReadExt, AsyncSeekExt, AsyncWriteExt},
         sync::RwLock,
-    }, tokio_stream::*, tokio_tar::Archive, tokio_util::io::StreamReader
+    },
+    tokio_stream::*,
+    tokio_tar::Archive,
+    tokio_util::io::StreamReader,
 };
 
 pub type Settings = Arc<RwLock<SettingsRaw>>;
@@ -23,8 +43,9 @@ impl TimerSettings {
     fn enable(&mut self) {
         self.disabled = false;
     }
-    pub fn toggle(&mut self) {
+    pub fn toggle(&mut self) -> bool {
         self.disabled = !self.disabled;
+        self.disabled
     }
 }
 
@@ -82,9 +103,7 @@ impl GitHubSource {
 
     async fn get_and_extract_tar<U: IntoUrl>(dir: &Path, url: U) -> anyhow::Result<()> {
         let response = Self::get(url).await?;
-        let bytes_stream = response
-            .bytes_stream()
-            .map_err(io::Error::other);
+        let bytes_stream = response.bytes_stream().map_err(io::Error::other);
         let stream_reader = StreamReader::new(bytes_stream);
         let gzip_decoder = GzipDecoder::new(stream_reader);
         let mut tar_file = Archive::new(gzip_decoder);
@@ -100,7 +119,7 @@ impl GitHubSource {
                 let destination_suffix = path.strip_prefix(prefix)?;
                 log::debug!("Destination suffix: {}", destination_suffix.display());
                 let destination_path = dir.join(destination_suffix);
-                if let Some(destination_parent)= destination_path.parent() {
+                if let Some(destination_parent) = destination_path.parent() {
                     create_dir_all(destination_parent).await?;
                     f.unpack(destination_path).await?;
                     //f.unpack_in(destination).await?;
@@ -171,7 +190,11 @@ impl RemoteState {
             Unknown
         }
     }
-    pub async fn commit_downloaded(&mut self, tag_name: String, install_dir: PathBuf) -> anyhow::Result<()> { 
+    pub async fn commit_downloaded(
+        &mut self,
+        tag_name: String,
+        install_dir: PathBuf,
+    ) -> anyhow::Result<()> {
         self.installed_tag = Some(tag_name);
         self.needs_update = self.needs_update().await;
         self.installed_path = Some(install_dir);
@@ -199,14 +222,15 @@ impl SettingsRaw {
             .collect()
     }
 
-    pub async fn toggle_timer(&mut self, timer: String) {
+    pub async fn toggle_timer(&mut self, timer: String) -> bool {
         let entry = self.timers.entry(timer.clone()).or_default();
-        entry.toggle();
+        let new_state = entry.toggle();
         let irrelevant = entry == &Default::default();
         if irrelevant {
             self.timers.remove(&timer);
         }
         let _ = self.save(&self.addon_dir).await;
+        new_state
     }
     pub async fn disable_timer(&mut self, timer: String) {
         if let Some(entry_mut) = self.timers.get_mut(&timer) {
@@ -226,33 +250,29 @@ impl SettingsRaw {
     }
 
     pub async fn get_status_for(&self, source: &RemoteSource) -> Option<&RemoteState> {
-        self
-            .remotes
-            .iter()
-            .find(|dd| *dd.source == *source)
+        self.remotes.iter().find(|dd| *dd.source == *source)
     }
-    
+
     pub async fn get_status_for_mut(&mut self, source: &RemoteSource) -> Option<&mut RemoteState> {
-        self
-            .remotes
-            .iter_mut()
-            .find(|dd| *dd.source == *source)
+        self.remotes.iter_mut().find(|dd| *dd.source == *source)
     }
 
     pub async fn download_latest(source: &RemoteSource) -> anyhow::Result<()> {
-        let settings_arc = SETTINGS.get()
+        let settings_arc = SETTINGS
+            .get()
             .expect("Settings should've been initialized by now!");
         let install_dir = {
             let settings_read_lock = settings_arc.read().await;
             settings_read_lock.addon_dir.join(source.folder_name())
-
         };
         let tag_name = source.download_latest(&install_dir).await?;
         {
             let mut settings_write_lock = settings_arc.write().await;
-            if let Some(dd_mut ) = settings_write_lock.get_status_for_mut(source).await {
+            if let Some(dd_mut) = settings_write_lock.get_status_for_mut(source).await {
                 let res = dd_mut.commit_downloaded(tag_name, install_dir).await;
-                let _ = settings_write_lock.save(&settings_write_lock.addon_dir).await;
+                let _ = settings_write_lock
+                    .save(&settings_write_lock.addon_dir)
+                    .await;
                 res
             } else {
                 Err(anyhow!("GitHub repository \"{}\" not found.", source))
@@ -263,18 +283,23 @@ impl SettingsRaw {
 
     pub async fn check_for_updates() -> anyhow::Result<()> {
         let sources: Vec<(Arc<RemoteSource>, NeedsUpdate)> = {
-            let settings_read_lock = SETTINGS.get()
-                .expect("Settings should've been initialized by now!").read().await;
+            let settings_read_lock = SETTINGS
+                .get()
+                .expect("Settings should've been initialized by now!")
+                .read()
+                .await;
             tokio_stream::iter(settings_read_lock.remotes.iter())
-                .then (|r| async move {
-                    (r.source.clone(), r.needs_update().await)
-                })
-                .collect().await
+                .then(|r| async move { (r.source.clone(), r.needs_update().await) })
+                .collect()
+                .await
         };
         log::debug!("meep {:?}", sources);
         {
-            let mut settings_write_lock = SETTINGS.get()
-                .expect("Settings should've been initialized by now!").write().await;
+            let mut settings_write_lock = SETTINGS
+                .get()
+                .expect("Settings should've been initialized by now!")
+                .write()
+                .await;
             for (source, nu) in sources {
                 log::debug!("{} update state: {:?}", source, nu);
                 if let Some(dd) = settings_write_lock.get_status_for_mut(&source).await {
@@ -283,10 +308,11 @@ impl SettingsRaw {
                 }
             }
             settings_write_lock.last_checked = Some(Utc::now());
-            settings_write_lock.save(&settings_write_lock.addon_dir).await?;
+            settings_write_lock
+                .save(&settings_write_lock.addon_dir)
+                .await?;
         }
         Ok(())
-
     }
 
     pub async fn new(addon_dir: &Path) -> Self {

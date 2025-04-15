@@ -84,20 +84,27 @@ fn load() {
         state.primary_window.keybind_handler(id, is_release)
     });
     register_keybind_with_string(
-        "TAIMI_MENU_KEYBIND",
+        "Taimi Window Toggle",
         main_window_keybind_handler,
         "ALT+SHIFT+M",
     )
     .revert_on_unload();
+
     let event_trigger_keybind_handler = keybind_handler!(|id, is_release| {
         let sender = TS_SENDER.get().unwrap();
-        sender.try_send(TaimiThreadEvent::TimerKeyTrigger(id.to_string(), is_release));
+        let _ = sender.try_send(TaimiThreadEvent::TimerKeyTrigger(
+            id.to_string(),
+            is_release,
+        ));
     });
-    register_keybind_with_string(
-        "TIMER_KEYBIND",
-        event_trigger_keybind_handler,
-
-        "0").revert_on_unload();
+    for i in 0..5 {
+        register_keybind_with_string(
+            format!("Timer Key Trigger {}", i),
+            event_trigger_keybind_handler,
+            "",
+        )
+        .revert_on_unload();
+    }
 
     // Disused currently, icon loading for quick access
     /*

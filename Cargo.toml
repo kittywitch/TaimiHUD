@@ -1,7 +1,7 @@
 [package]
 name = "taimi_hud"
 authors = [ "kittywitch" ]
-description = "Timers, markers and pathing, eventually."
+description = "Timers for RaidcoreGG Nexus"
 version = "0.1.0"
 edition = "2021"
 

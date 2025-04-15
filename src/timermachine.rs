@@ -332,7 +332,7 @@ impl TimerMachine {
             OnMap => {
                 // All timers have a start trigger and a zeroth (first) phase
                 let trigger = &self.timer.phases.first().unwrap().start;
-                if trigger.check(pos, self.combat_state, self.key_pressed) { 
+                if trigger.check(pos, self.combat_state, self.key_pressed) {
                     if let Some(phase) = TimerFilePhase::new(self.timer.clone()) {
                         self.state_change(OnPhase(phase)).await;
                     }
@@ -355,12 +355,13 @@ impl TimerMachine {
                         self.state_change(OnPhase(next_phase.clone())).await;
                     }
                 }
-            },
+            }
             Finished => (),
         }
     }
 
-    pub fn key_pressed(&mut self, _id: String) {
+    pub fn key_pressed(&mut self, id: String) {
+        log::info!("{} was pressed!", id);
         self.key_pressed = true;
     }
 

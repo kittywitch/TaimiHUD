@@ -6,18 +6,17 @@ use {
         timermachine::{PhaseState, TextAlert},
         RENDER_STATE, SETTINGS, TS_SENDER,
     },
+    indexmap::IndexMap,
     nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, ChildWindow, Condition, Font, FontId, Io, ProgressBar, Selectable, StyleColor, TableColumnSetup, TreeNodeFlags, Ui, Window, WindowFlags
+            internal::RawCast, ChildWindow, Condition, Font, FontId, Io, ProgressBar, Selectable,
+            StyleColor, TableColumnSetup, TreeNodeFlags, Ui, Window, WindowFlags,
         },
         // TODO
         //texture::{load_texture_from_file, texture_receive, Texture},
     },
-    std::{
-        sync::{Arc, MutexGuard},
-    },
-    indexmap::IndexMap,
+    std::sync::{Arc, MutexGuard},
     tokio::{sync::mpsc::Receiver, time::Instant},
 };
 
@@ -163,7 +162,9 @@ impl TimerTabState {
                     }
                     RenderState::fonted_text(ui, &format!("Author: {}", selected_timer.author()));
                     RenderState::fonted_text(ui, &selected_timer.description);
-                    if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+                    if let Some(settings) =
+                        SETTINGS.get().and_then(|settings| settings.try_read().ok())
+                    {
                         let settings_for_timer = settings.timers.get(&selected_timer.id);
                         let button_text = match settings_for_timer {
                             Some(TimerSettings { disabled: true, .. }) => "Enable",
@@ -171,9 +172,8 @@ impl TimerTabState {
                         };
                         if ui.button(button_text) {
                             let sender = TS_SENDER.get().unwrap();
-                            let event_send = sender.try_send(TaimiThreadEvent::TimerToggle(
-                                selected_timer.id.clone(),
-                            ));
+                            let event_send = sender
+                                .try_send(TaimiThreadEvent::TimerToggle(selected_timer.id.clone()));
                             drop(event_send);
                         }
                     }
@@ -217,14 +217,20 @@ impl DataSourceTabState {
                 }
                 ui.same_line();
                 if let Some(last_checked) = &settings.last_checked {
-                    ui.text(format!("Last checked for updates: {}", last_checked.format("%F %T %Z")));
+                    ui.text(format!(
+                        "Last checked for updates: {}",
+                        last_checked.format("%F %T %Z")
+                    ));
                 } else {
                     ui.text("Last checked for updates: Never");
                 }
-                let table_token = ui.begin_table_header("remotes", [
-                    TableColumnSetup::new("Remote"),
-                    TableColumnSetup::new("Status"),
-                ]);
+                let table_token = ui.begin_table_header(
+                    "remotes",
+                    [
+                        TableColumnSetup::new("Remote"),
+                        TableColumnSetup::new("Status"),
+                    ],
+                );
                 ui.table_next_column();
                 for download_data in &settings.remotes {
                     let source = download_data.source.clone();
@@ -243,9 +249,8 @@ impl DataSourceTabState {
                         if ui.button(button_text) {
                             let sender = TS_SENDER.get().unwrap();
                             let source = source.clone();
-                            let event_send = sender.try_send(TaimiThreadEvent::DoDataSourceUpdate {
-                                source
-                            });
+                            let event_send =
+                                sender.try_send(TaimiThreadEvent::DoDataSourceUpdate { source });
                             drop(event_send);
                         }
                     }
@@ -253,9 +258,9 @@ impl DataSourceTabState {
                 drop(table_token);
             }
         } else {
-                ui.text("Settings have not yet loaded!");
-            }
+            ui.text("Settings have not yet loaded!");
         }
+    }
 }
 
 pub struct PrimaryWindowState {
@@ -286,6 +291,26 @@ impl PrimaryWindowState {
                     }
                     if let Some(_token) = ui.tab_item("Data Sources") {
                         self.data_sources_tab.draw(ui);
+                    }
+                    if let Some(_token) = ui.tab_item("Info") {
+                        let name = env!("CARGO_PKG_NAME");
+                        let authors = env!("CARGO_PKG_AUTHORS");
+                        let version = env!("CARGO_PKG_VERSION");
+                        let profile = match () {
+                            #[cfg(debug_assertions)]
+                            _ => "debug",
+                            #[cfg(not(debug_assertions))]
+                            _ => "release",
+                        };
+                        let project_heading = format!("{}, v{} by {}", name, version, authors);
+                        RenderState::big_header(ui, &project_heading);
+                        let profile_info = format!("Built in the {} profile.", profile);
+                        ui.text(profile_info);
+                        ui.new_line();
+                        let description = env!("CARGO_PKG_DESCRIPTION");
+                        ui.text(description);
+                        ui.new_line();
+                        ui.text("If you need keybind based timer triggers, please bind the appropriate keys in the Nexus settings.");
                     }
                 }
             });
@@ -323,9 +348,10 @@ impl RenderState {
             Ok(event) => {
                 use RenderThreadEvent::*;
                 match event {
-                    DataSourceUpdates => {},
+                    DataSourceUpdates => {}
                     CheckingForUpdates(checking_for_updates) => {
-                        self.primary_window.data_sources_tab.checking_for_updates = checking_for_updates;
+                        self.primary_window.data_sources_tab.checking_for_updates =
+                            checking_for_updates;
                     }
                     TimerData(timers) => {
                         self.primary_window.timer_tab.timers_update(timers);
