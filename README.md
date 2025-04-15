@@ -13,6 +13,7 @@ Long-term, intends to provide Pathing and Markers too.
 
 ## Features (or, my To-dos) ;3
 
+- [ ] Move to-dos to issues/projects...?
 - [ ] Data
     - [ ] Fork Hero's Timers
         - [ ] Add markers alongside cardinal directions on Sabetha
