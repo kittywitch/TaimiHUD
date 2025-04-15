@@ -9,7 +9,7 @@ use {
         },
         RenderThreadEvent,
     },
-    std::{ops::Deref, sync::Arc},
+    std::{fmt::Display, ops::Deref, sync::Arc},
     tokio::{
         sync::{mpsc::Sender, Mutex},
         task::JoinHandle,
@@ -40,6 +40,20 @@ enum TimerMachineState {
     OnPhase(TimerFilePhase),
     FinishedPhase(TimerFilePhase),
     Finished,
+}
+
+impl Display for TimerMachineState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use TimerMachineState::*;
+        match self {
+            AwakeUnaware => write!(f, "AwakeUnaware"),
+            OffMap => write!(f, "OffMap"),
+            OnMap => write!(f, "OnMap"),
+            OnPhase(tfp) => write!(f, "OnPhase {}", tfp.name),
+            FinishedPhase(tfp) => write!(f, "FinishedPhase {}", tfp.name),
+            Finished => write!(f, "Finished"),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -285,19 +299,16 @@ impl TimerMachine {
     async fn state_change(&mut self, state: TimerMachineState) {
         use TimerMachineState::*;
         let final_state = match state {
-            FinishedPhase(phase) => {
-                // if there are any more phases, we should go back to OnPhase
-                if let Some(next_phase) = phase.next() {
-                    OnPhase(next_phase)
-                }
-                // otherwise, we're done
-                else {
+            FinishedPhase(ref phase) => {
+                if phase.clone().next().is_none() {
                     Finished
+                } else {
+                    state
                 }
             }
             _ => state,
         };
-        let reason = format!("Switching from state {:?} to {:?}", self.state, final_state);
+        let reason = format!("Switching from state {} to {}", self.state, final_state);
         self.abort_tasks(reason).await;
         if let OnPhase(phase) = &final_state {
             self.start_tasks(phase).await;
@@ -353,7 +364,20 @@ impl TimerMachine {
                     }
                 }
             }
-            FinishedPhase(_phase) => (),
+            FinishedPhase(phase) => {
+                if let Some(next_phase) = &phase.clone().next() {
+                    let trigger = &next_phase.start;
+                    use TimerTriggerType::*;
+                    match &trigger.kind {
+                        Location => {
+                            if trigger.check(pos, self.combat_state) {
+                                self.state_change(OnPhase(next_phase.clone())).await;
+                            }
+                        }
+                        Key => (),
+                    }
+                }
+            },
             Finished => (),
         }
     }
