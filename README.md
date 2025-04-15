@@ -14,6 +14,8 @@ Long-term, intends to provide Pathing and Markers too.
 ## Features (or, my To-dos) ;3
 
 - [ ] Move to-dos to issues/projects...?
+- [ ] Make removal of containing dir for extract tar function optional via bool
+- [ ] Make data source download clean up prior download folder
 - [ ] Data
     - [ ] Fork Hero's Timers
         - [ ] Add markers alongside cardinal directions on Sabetha

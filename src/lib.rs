@@ -122,7 +122,7 @@ fn load() {
         "TAIMI Control",
         "TAIMI_ICON",
         "TAIMI_ICON_HOVER",
-        "TAIMI_MENU_KEYBIND",
+        "Taimi Window Toggle",
         "Open Taimi control menu",
     )
     .revert_on_unload();
