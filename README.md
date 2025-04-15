@@ -5,6 +5,8 @@ Long-term, intends to provide markers and directions too.
 
 Project management is handled here: https://github.com/users/kittywitch/projects/1
 
+The project board also handles management for kittywitch/Hero-Timers, despite this, we intend to maintain compatibility with the upstream of that project.
+
 [Video](https://files.catbox.moe/xdno9s.mp4)
 
 ## Screenshots
