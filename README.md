@@ -1,7 +1,9 @@
 # TaimiHUD
 
 A cross-platform Timers addon, leveraging [Raidcore Nexus](https://raidcore.gg/Nexus).
-Long-term, intends to provide Pathing and Markers too.
+Long-term, intends to provide markers and directions too.
+
+Project management is handled here: https://github.com/users/kittywitch/projects/1
 
 [Video](https://files.catbox.moe/xdno9s.mp4)
 
@@ -44,4 +46,5 @@ Long-term, intends to provide Pathing and Markers too.
 * https://github.com/Dev-Zhao/Timers_BlishHUD
 
 ### Markers
+
 * Marker Data: https://github.com/manlaan/BlishHud-CommanderMarkers/tree/bhud-static/Manlaan.CommanderMarkers
