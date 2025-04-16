@@ -32,7 +32,6 @@ pub struct TaimiState {
     pub agent: Option<AgentOwned>,
 
     pub rt_sender: Sender<RenderThreadEvent>,
-    pub addon_dir: PathBuf,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub cached_link: Option<MumbleLink>,
     pub map_id: Option<u32>,
@@ -60,7 +59,6 @@ impl TaimiState {
         let evt_loop = async move {
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = TaimiState {
-                addon_dir,
                 rt_sender,
                 settings,
                 agent: Default::default(),
