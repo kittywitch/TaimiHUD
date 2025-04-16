@@ -9,7 +9,7 @@ mod xnacolour;
 use {
     crate::{
         renderstate::{RenderState, RenderThreadEvent},
-        settings::{Settings, SettingsRaw},
+        settings::{SettingsLock, Settings},
         taimistate::{TaimiState, TaimiThreadEvent},
     },
     arcdps::AgentOwned,
@@ -50,7 +50,7 @@ nexus::export! {
 }
 
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
-static SETTINGS: OnceLock<Settings> = OnceLock::new();
+static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
 
 fn load() {
     // Say hi to the world :o

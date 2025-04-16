@@ -1,7 +1,7 @@
 use {
     crate::{
         geometry::Position,
-        settings::{RemoteSource, Settings, SettingsRaw},
+        settings::{RemoteSource, SettingsLock, Settings},
         timer::TimerFile,
         timermachine::TimerMachine,
         MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
@@ -41,7 +41,7 @@ pub struct TaimiState {
     pub timers: Vec<Arc<TimerFile>>,
     pub current_timers: Vec<TimerMachine>,
     pub map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>>,
-    settings: Settings,
+    settings: SettingsLock,
 }
 
 impl TaimiState {
@@ -58,7 +58,7 @@ impl TaimiState {
         addon_dir: PathBuf,
     ) {
         let evt_loop = async move {
-            let settings = SettingsRaw::load_access(&addon_dir.clone()).await;
+            let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = TaimiState {
                 addon_dir,
                 rt_sender,
@@ -335,7 +335,7 @@ impl TaimiState {
             .rt_sender
             .send(RenderThreadEvent::CheckingForUpdates(true))
             .await;
-        match SettingsRaw::check_for_updates().await {
+        match Settings::check_for_updates().await {
             Ok(_) => (),
             Err(err) => log::error!("TaimiState.check_updates(): {}", err),
         }
@@ -346,7 +346,7 @@ impl TaimiState {
     }
 
     async fn do_update(&mut self, source: &RemoteSource) {
-        match SettingsRaw::download_latest(source).await {
+        match Settings::download_latest(source).await {
             Ok(_) => (),
             Err(err) => log::error!("TaimiState.do_update() error for \"{}\": {}", source, err),
         };

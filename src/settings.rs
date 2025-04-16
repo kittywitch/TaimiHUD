@@ -28,7 +28,7 @@ use {
     tokio_util::io::StreamReader,
 };
 
-pub type Settings = Arc<RwLock<SettingsRaw>>;
+pub type SettingsLock = Arc<RwLock<Settings>>;
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
 pub struct TimerSettings {
@@ -203,7 +203,7 @@ impl RemoteState {
 }
 
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
-pub struct SettingsRaw {
+pub struct Settings {
     #[serde(default)]
     pub last_checked: Option<DateTime<Utc>>,
     #[serde(skip)]
@@ -214,7 +214,7 @@ pub struct SettingsRaw {
     pub remotes: Vec<RemoteState>,
 }
 
-impl SettingsRaw {
+impl Settings {
     pub fn get_paths(&self) -> Vec<&PathBuf> {
         self.remotes
             .iter()
@@ -260,7 +260,7 @@ impl SettingsRaw {
     pub async fn download_latest(source: &RemoteSource) -> anyhow::Result<()> {
         let settings_arc = SETTINGS
             .get()
-            .expect("Settings should've been initialized by now!");
+            .expect("SettingsLock should've been initialized by now!");
         let install_dir = {
             let settings_read_lock = settings_arc.read().await;
             settings_read_lock.addon_dir.join(source.folder_name())
@@ -285,7 +285,7 @@ impl SettingsRaw {
         let sources: Vec<(Arc<RemoteSource>, NeedsUpdate)> = {
             let settings_read_lock = SETTINGS
                 .get()
-                .expect("Settings should've been initialized by now!")
+                .expect("SettingsLock should've been initialized by now!")
                 .read()
                 .await;
             tokio_stream::iter(settings_read_lock.remotes.iter())
@@ -297,7 +297,7 @@ impl SettingsRaw {
         {
             let mut settings_write_lock = SETTINGS
                 .get()
-                .expect("Settings should've been initialized by now!")
+                .expect("SettingsLock should've been initialized by now!")
                 .write()
                 .await;
             for (source, nu) in sources {
@@ -335,22 +335,22 @@ impl SettingsRaw {
     }
 
     pub async fn load_default(addon_dir: &Path) -> Self {
-        match SettingsRaw::load(addon_dir).await {
+        match Settings::load(addon_dir).await {
             Ok(settings) => settings,
             Err(err) => {
-                log::error!("Settings load error: {}", err);
+                log::error!("SettingsLock load error: {}", err);
                 Self::new(addon_dir).await
             }
         }
     }
 
-    pub async fn load_access(addon_dir: &Path) -> Settings {
+    pub async fn load_access(addon_dir: &Path) -> SettingsLock {
         Arc::new(RwLock::new(Self::load_default(addon_dir).await))
     }
 
     pub async fn save(&self, addon_dir: &Path) -> anyhow::Result<()> {
         let settings_path = addon_dir.join("settings.json");
-        log::debug!("SettingsRaw: Saving to \"{:?}\".", settings_path);
+        log::debug!("Settings: Saving to \"{:?}\".", settings_path);
         let settings_str = serde_json::to_string(self)?;
         let mut file = File::create(settings_path).await?;
         file.write_all(settings_str.as_bytes()).await?;

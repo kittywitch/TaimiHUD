@@ -1,6 +1,6 @@
 use {
     crate::{
-        settings::{NeedsUpdate, RemoteState, Settings, TimerSettings},
+        settings::{NeedsUpdate, TimerSettings},
         taimistate::TaimiThreadEvent,
         timer::{
             TimerAlert,
@@ -261,7 +261,7 @@ impl DataSourceTabState {
                 drop(table_token);
             }
         } else {
-            ui.text("Settings have not yet loaded!");
+            ui.text("SettingsLock have not yet loaded!");
         }
     }
 }
