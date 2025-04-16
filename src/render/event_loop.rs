@@ -25,7 +25,6 @@ pub enum RenderThreadEvent {
     AlertReset(Arc<TimerFile>),
     AlertStart(TextAlert),
     AlertEnd(Arc<TimerFile>),
-    DataSourceUpdates,
     CheckingForUpdates(bool),
 }
 
@@ -52,7 +51,6 @@ impl RenderState {
             Ok(event) => {
                 use RenderThreadEvent::*;
                 match event {
-                    DataSourceUpdates => {}
                     CheckingForUpdates(checking_for_updates) => {
                         self.primary_window.data_sources_tab.checking_for_updates =
                             checking_for_updates;
