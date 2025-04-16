@@ -4,8 +4,7 @@ use {
             PrimaryWindowState,
             TimerWindowState,
         },
-        timer::TimerFile,
-        timermachine::{PhaseState, TextAlert},
+        timer::{TimerFile, PhaseState, TextAlert},
         RENDER_STATE,
     },
     nexus::{
@@ -19,7 +18,7 @@ use {
     tokio::sync::mpsc::Receiver,
 };
 
-pub enum RenderEventEvent {
+pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
     AlertFeed(PhaseState),
     AlertReset(Arc<TimerFile>),
@@ -31,12 +30,12 @@ pub enum RenderEventEvent {
 pub struct RenderState {
     pub primary_window: PrimaryWindowState,
     timer_window: TimerWindowState,
-    receiver: Receiver<RenderEventEvent>,
+    receiver: Receiver<RenderEvent>,
     alert: Option<TextAlert>,
 }
 
 impl RenderState {
-    pub fn new(receiver: Receiver<RenderEventEvent>) -> Self {
+    pub fn new(receiver: Receiver<RenderEvent>) -> Self {
         Self {
             receiver,
             alert: Default::default(),
@@ -49,7 +48,7 @@ impl RenderState {
         let io = ui.io();
         match self.receiver.try_recv() {
             Ok(event) => {
-                use RenderEventEvent::*;
+                use RenderEvent::*;
                 match event {
                     CheckingForUpdates(checking_for_updates) => {
                         self.primary_window.data_sources_tab.checking_for_updates =

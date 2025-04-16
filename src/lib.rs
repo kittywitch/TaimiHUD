@@ -1,12 +1,11 @@
 mod settings;
 mod controller;
 mod timer;
-mod timermachine;
 mod render;
 
 use {
     crate::{
-        render::{RenderState, RenderEventEvent},
+        render::{RenderState, RenderEvent},
         settings::SettingsLock,
         controller::{Controller, ControllerEvent},
     },
@@ -60,7 +59,7 @@ fn load() {
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
 
     let (ts_event_sender, ts_event_receiver) = channel::<ControllerEvent>(32);
-    let (rt_event_sender, rt_event_receiver) = channel::<RenderEventEvent>(32);
+    let (rt_event_sender, rt_event_receiver) = channel::<RenderEvent>(32);
     let tm_handler =
         thread::spawn(|| Controller::load(ts_event_receiver, rt_event_sender, addon_dir));
     // muh queues

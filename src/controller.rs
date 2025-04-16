@@ -1,9 +1,8 @@
 use {
     crate::{
         settings::{RemoteSource, SettingsLock, Settings},
-        timer::{Position, TimerFile},
-        timermachine::TimerMachine,
-        MumbleIdentityUpdate, RenderEventEvent, SETTINGS,
+        timer::{Position, TimerFile, TimerMachine},
+        MumbleIdentityUpdate, RenderEvent, SETTINGS,
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -29,7 +28,7 @@ use {
 pub struct Controller {
     pub agent: Option<AgentOwned>,
 
-    pub rt_sender: Sender<RenderEventEvent>,
+    pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub cached_link: Option<MumbleLink>,
     pub map_id: Option<u32>,
@@ -48,7 +47,7 @@ impl Controller {
 
     pub fn load(
         mut tm_receiver: Receiver<ControllerEvent>,
-        rt_sender: Sender<crate::RenderEventEvent>,
+        rt_sender: Sender<crate::RenderEvent>,
         addon_dir: PathBuf,
     ) {
         let evt_loop = async move {
@@ -175,7 +174,7 @@ impl Controller {
         log::info!("Set up {} timers.", self.timers.len());
         let _ = self
             .rt_sender
-            .send(RenderEventEvent::TimerData(self.timers.clone()))
+            .send(RenderEvent::TimerData(self.timers.clone()))
             .await;
     }
 
@@ -326,7 +325,7 @@ impl Controller {
     async fn check_updates(&mut self) {
         let _ = self
             .rt_sender
-            .send(RenderEventEvent::CheckingForUpdates(true))
+            .send(RenderEvent::CheckingForUpdates(true))
             .await;
         match Settings::check_for_updates().await {
             Ok(_) => (),
@@ -334,7 +333,7 @@ impl Controller {
         }
         let _ = self
             .rt_sender
-            .send(RenderEventEvent::CheckingForUpdates(false))
+            .send(RenderEvent::CheckingForUpdates(false))
             .await;
     }
 

@@ -6,6 +6,7 @@ pub mod marker;
 pub mod phase;
 pub mod trigger;
 pub mod blishcolour;
+pub mod state_machine;
 
 #[allow(unused_imports)]
 pub use {
@@ -27,6 +28,11 @@ pub use {
     },
     marker::TimerMarker,
     phase::TimerPhase,
+    state_machine::{
+        TimerMachine,
+        PhaseState,
+        TextAlert,
+    },
     trigger::{
         TimerTrigger,
         TimerTriggerType,

@@ -2,9 +2,9 @@ use {
     crate::{
         timer::{
             TimerAlert,
-            TimerFile
+            TimerFile,
+            PhaseState,
         },
-        timermachine::PhaseState,
     },
     nexus::{
         imgui::{
