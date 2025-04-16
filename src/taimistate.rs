@@ -20,10 +20,9 @@ use {
         runtime, select,
         sync::{
             mpsc::{Receiver, Sender},
-            Mutex, RwLock,
+            Mutex,
         },
-        task::{JoinHandle, JoinSet},
-        time::{interval, sleep, Duration},
+        time::{interval, Duration},
     },
 };
 
