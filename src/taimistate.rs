@@ -43,10 +43,7 @@ pub struct TaimiState {
 
 impl TaimiState {
     pub fn player_position(&self) -> Option<Position> {
-        match self.player_position {
-            Some(pos) => Some(Position::Vec3(pos)),
-            None => None,
-        }
+        self.player_position.map(Position::Vec3)
     }
 
     pub fn load(
