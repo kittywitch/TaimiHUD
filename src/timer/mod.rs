@@ -5,6 +5,7 @@ pub mod marker;
 pub mod phase;
 pub mod trigger;
 
+#[allow(unused_imports)]
 pub use {
     action::{
         TimerAction,
