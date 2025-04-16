@@ -1,5 +1,5 @@
 pub mod data_source_tab;
-pub mod event_loop;
+pub mod state;
 pub mod primary_window;
 pub mod timer_tab;
 pub mod timer_window;
@@ -12,7 +12,7 @@ pub use {
     data_source_tab::DataSourceTabState,
     info_tab::InfoTabState,
     primary_window::PrimaryWindowState,
-    event_loop::{
+    state::{
         RenderEvent,
         RenderState
     },
