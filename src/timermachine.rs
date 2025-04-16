@@ -7,7 +7,7 @@ use {
             TimerPhase,
             CombatState,
         },
-        RenderThreadEvent,
+        render::RenderThreadEvent,
     },
     std::{fmt::Display, ops::Deref, sync::Arc},
     tokio::{

@@ -1,15 +1,15 @@
 mod geometry;
-mod renderstate;
 mod settings;
 mod taimistate;
 mod timer;
 mod timermachine;
 mod xnacolour;
+mod render;
 
 use {
     crate::{
-        renderstate::{RenderState, RenderThreadEvent},
-        settings::{SettingsLock, Settings},
+        render::{RenderState, RenderThreadEvent},
+        settings::SettingsLock,
         taimistate::{TaimiState, TaimiThreadEvent},
     },
     arcdps::AgentOwned,
