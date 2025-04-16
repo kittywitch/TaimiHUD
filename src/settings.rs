@@ -244,6 +244,7 @@ impl Settings {
         let _ = self.save(&self.addon_dir).await;
     }
 
+    #[allow(dead_code)]
     pub async fn get_status_for(&self, source: &RemoteSource) -> Option<&RemoteState> {
         self.remotes.iter().find(|dd| *dd.source == *source)
     }

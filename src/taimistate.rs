@@ -392,7 +392,9 @@ pub enum TaimiThreadEvent {
     },
     TimerKeyTrigger(String, bool),
     CheckDataSourceUpdates,
+    #[allow(dead_code)]
     TimerEnable(String),
+    #[allow(dead_code)]
     TimerDisable(String),
     TimerToggle(String),
     Quit,
