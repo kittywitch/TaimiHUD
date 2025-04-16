@@ -1,7 +1,7 @@
 use {
     crate::{
-        geometry::Position,
         timer::{
+            Position,
             TimerAlert,
             TimerFile,
             TimerPhase,

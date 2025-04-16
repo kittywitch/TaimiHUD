@@ -1,8 +1,7 @@
 use {
     crate::{
-        geometry::Position,
         settings::{RemoteSource, SettingsLock, Settings},
-        timer::TimerFile,
+        timer::{Position, TimerFile},
         timermachine::TimerMachine,
         MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
     },

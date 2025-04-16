@@ -1,5 +1,5 @@
 use {
-    crate::geometry::BlishVec3,
+    crate::timer::BlishVec3,
     serde::{Deserialize, Serialize},
 };
 
