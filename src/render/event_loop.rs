@@ -19,7 +19,7 @@ use {
     tokio::sync::mpsc::Receiver,
 };
 
-pub enum RenderThreadEvent {
+pub enum RenderEventEvent {
     TimerData(Vec<Arc<TimerFile>>),
     AlertFeed(PhaseState),
     AlertReset(Arc<TimerFile>),
@@ -31,12 +31,12 @@ pub enum RenderThreadEvent {
 pub struct RenderState {
     pub primary_window: PrimaryWindowState,
     timer_window: TimerWindowState,
-    receiver: Receiver<RenderThreadEvent>,
+    receiver: Receiver<RenderEventEvent>,
     alert: Option<TextAlert>,
 }
 
 impl RenderState {
-    pub fn new(receiver: Receiver<RenderThreadEvent>) -> Self {
+    pub fn new(receiver: Receiver<RenderEventEvent>) -> Self {
         Self {
             receiver,
             alert: Default::default(),
@@ -49,7 +49,7 @@ impl RenderState {
         let io = ui.io();
         match self.receiver.try_recv() {
             Ok(event) => {
-                use RenderThreadEvent::*;
+                use RenderEventEvent::*;
                 match event {
                     CheckingForUpdates(checking_for_updates) => {
                         self.primary_window.data_sources_tab.checking_for_updates =

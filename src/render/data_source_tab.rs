@@ -1,7 +1,7 @@
 use {
     crate::{
         settings::NeedsUpdate,
-        taimistate::TaimiThreadEvent,
+        controller::ControllerEvent,
         SETTINGS, TS_SENDER,
     },
     nexus::imgui::{
@@ -28,7 +28,7 @@ impl DataSourceTabState {
             } else {
                 if ui.button("Check for updates") {
                     let sender = TS_SENDER.get().unwrap();
-                    let event_send = sender.try_send(TaimiThreadEvent::CheckDataSourceUpdates);
+                    let event_send = sender.try_send(ControllerEvent::CheckDataSourceUpdates);
                     drop(event_send);
                 }
                 ui.same_line();
@@ -66,7 +66,7 @@ impl DataSourceTabState {
                             let sender = TS_SENDER.get().unwrap();
                             let source = source.clone();
                             let event_send =
-                                sender.try_send(TaimiThreadEvent::DoDataSourceUpdate { source });
+                                sender.try_send(ControllerEvent::DoDataSourceUpdate { source });
                             drop(event_send);
                         }
                     }

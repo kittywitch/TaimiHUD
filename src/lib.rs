@@ -1,14 +1,14 @@
 mod settings;
-mod taimistate;
+mod controller;
 mod timer;
 mod timermachine;
 mod render;
 
 use {
     crate::{
-        render::{RenderState, RenderThreadEvent},
+        render::{RenderState, RenderEventEvent},
         settings::SettingsLock,
-        taimistate::{TaimiState, TaimiThreadEvent},
+        controller::{Controller, ControllerEvent},
     },
     arcdps::AgentOwned,
     nexus::{
@@ -33,7 +33,7 @@ use {
     tokio::sync::mpsc::{channel, Sender},
 };
 
-static TS_SENDER: OnceLock<Sender<taimistate::TaimiThreadEvent>> = OnceLock::new();
+static TS_SENDER: OnceLock<Sender<controller::ControllerEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
 
 nexus::export! {
@@ -59,10 +59,10 @@ fn load() {
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
 
-    let (ts_event_sender, ts_event_receiver) = channel::<TaimiThreadEvent>(32);
-    let (rt_event_sender, rt_event_receiver) = channel::<RenderThreadEvent>(32);
+    let (ts_event_sender, ts_event_receiver) = channel::<ControllerEvent>(32);
+    let (rt_event_sender, rt_event_receiver) = channel::<RenderEventEvent>(32);
     let tm_handler =
-        thread::spawn(|| TaimiState::load(ts_event_receiver, rt_event_sender, addon_dir));
+        thread::spawn(|| Controller::load(ts_event_receiver, rt_event_sender, addon_dir));
     // muh queues
     let _ = TM_THREAD.set(tm_handler);
     let _ = TS_SENDER.set(ts_event_sender);
@@ -90,7 +90,7 @@ fn load() {
 
     let event_trigger_keybind_handler = keybind_handler!(|id, is_release| {
         let sender = TS_SENDER.get().unwrap();
-        let _ = sender.try_send(TaimiThreadEvent::TimerKeyTrigger(
+        let _ = sender.try_send(ControllerEvent::TimerKeyTrigger(
             id.to_string(),
             is_release,
         ));
@@ -131,7 +131,7 @@ fn load() {
             if let Some(evt) = combat_data.event() {
                 if let Some(agt) = combat_data.src() {
                     let agt = AgentOwned::from(unsafe { ptr::read(agt) });
-                    let event_send = sender.try_send(TaimiThreadEvent::CombatEvent {
+                    let event_send = sender.try_send(ControllerEvent::CombatEvent {
                         src: agt,
                         evt: evt.clone(),
                     });
@@ -150,7 +150,7 @@ fn load() {
                 None => (),
                 Some(ident) => {
                     let copied_identity = ident.clone();
-                    let event_send = sender.try_send(TaimiThreadEvent::MumbleIdentityUpdated(copied_identity));
+                    let event_send = sender.try_send(ControllerEvent::MumbleIdentityUpdated(copied_identity));
                     drop(event_send);
                 },
             }
@@ -162,6 +162,6 @@ fn unload() {
     log::info!("Unloading addon");
     // all actions passed to on_load() or revert_on_unload() are performed automatically
     let sender = TS_SENDER.get().unwrap();
-    let event_send = sender.try_send(TaimiThreadEvent::Quit);
+    let event_send = sender.try_send(ControllerEvent::Quit);
     drop(event_send);
 }

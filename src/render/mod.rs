@@ -13,7 +13,7 @@ pub use {
     info_tab::InfoTabState,
     primary_window::PrimaryWindowState,
     event_loop::{
-        RenderThreadEvent,
+        RenderEventEvent,
         RenderState
     },
 };

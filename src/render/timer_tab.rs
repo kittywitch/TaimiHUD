@@ -5,7 +5,7 @@ use {
             RenderState,
         },
         settings::TimerSettings,
-        taimistate::TaimiThreadEvent,
+        controller::ControllerEvent,
         timer::TimerFile,
         SETTINGS, TS_SENDER,
     },
@@ -109,7 +109,7 @@ if ui.button(button_text) {
                         if ui.button(button_text) {
                             let sender = TS_SENDER.get().unwrap();
                             let event_send = sender
-                                .try_send(TaimiThreadEvent::TimerToggle(selected_timer.id.clone()));
+                                .try_send(ControllerEvent::TimerToggle(selected_timer.id.clone()));
                             drop(event_send);
                         }
                     }

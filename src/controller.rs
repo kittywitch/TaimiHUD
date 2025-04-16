@@ -3,7 +3,7 @@ use {
         settings::{RemoteSource, SettingsLock, Settings},
         timer::{Position, TimerFile},
         timermachine::TimerMachine,
-        MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
+        MumbleIdentityUpdate, RenderEventEvent, SETTINGS,
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -26,10 +26,10 @@ use {
 };
 
 #[derive(Debug, Clone)]
-pub struct TaimiState {
+pub struct Controller {
     pub agent: Option<AgentOwned>,
 
-    pub rt_sender: Sender<RenderThreadEvent>,
+    pub rt_sender: Sender<RenderEventEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub cached_link: Option<MumbleLink>,
     pub map_id: Option<u32>,
@@ -41,19 +41,19 @@ pub struct TaimiState {
     settings: SettingsLock,
 }
 
-impl TaimiState {
+impl Controller {
     pub fn player_position(&self) -> Option<Position> {
         self.player_position.map(Position::Vec3)
     }
 
     pub fn load(
-        mut tm_receiver: Receiver<TaimiThreadEvent>,
-        rt_sender: Sender<crate::RenderThreadEvent>,
+        mut tm_receiver: Receiver<ControllerEvent>,
+        rt_sender: Sender<crate::RenderEventEvent>,
         addon_dir: PathBuf,
     ) {
         let evt_loop = async move {
             let settings = Settings::load_access(&addon_dir.clone()).await;
-            let mut state = TaimiState {
+            let mut state = Controller {
                 rt_sender,
                 settings,
                 agent: Default::default(),
@@ -175,7 +175,7 @@ impl TaimiState {
         log::info!("Set up {} timers.", self.timers.len());
         let _ = self
             .rt_sender
-            .send(RenderThreadEvent::TimerData(self.timers.clone()))
+            .send(RenderEventEvent::TimerData(self.timers.clone()))
             .await;
     }
 
@@ -326,22 +326,22 @@ impl TaimiState {
     async fn check_updates(&mut self) {
         let _ = self
             .rt_sender
-            .send(RenderThreadEvent::CheckingForUpdates(true))
+            .send(RenderEventEvent::CheckingForUpdates(true))
             .await;
         match Settings::check_for_updates().await {
             Ok(_) => (),
-            Err(err) => log::error!("TaimiState.check_updates(): {}", err),
+            Err(err) => log::error!("Controller.check_updates(): {}", err),
         }
         let _ = self
             .rt_sender
-            .send(RenderThreadEvent::CheckingForUpdates(false))
+            .send(RenderEventEvent::CheckingForUpdates(false))
             .await;
     }
 
     async fn do_update(&mut self, source: &RemoteSource) {
         match Settings::download_latest(source).await {
             Ok(_) => (),
-            Err(err) => log::error!("TaimiState.do_update() error for \"{}\": {}", source, err),
+            Err(err) => log::error!("Controller.do_update() error for \"{}\": {}", source, err),
         };
         self.setup_timers().await;
     }
@@ -355,8 +355,8 @@ impl TaimiState {
         }
     }
 
-    async fn handle_event(&mut self, event: TaimiThreadEvent) -> anyhow::Result<bool> {
-        use TaimiThreadEvent::*;
+    async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
+        use ControllerEvent::*;
         match event {
             MumbleIdentityUpdated(identity) => self.handle_mumble(identity).await,
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,
@@ -376,7 +376,7 @@ impl TaimiState {
 }
 
 #[derive(Debug, Clone)]
-pub enum TaimiThreadEvent {
+pub enum ControllerEvent {
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     CombatEvent {
         src: arcdps::AgentOwned,

@@ -7,7 +7,7 @@ use {
             TimerPhase,
             CombatState,
         },
-        render::RenderThreadEvent,
+        render::RenderEventEvent,
     },
     std::{fmt::Display, ops::Deref, sync::Arc},
     tokio::{
@@ -103,7 +103,7 @@ pub struct TimerMachine {
     state: TimerMachineState,
     pub timer: Arc<TimerFile>,
     alert_sem: Arc<Mutex<()>>,
-    sender: Sender<RenderThreadEvent>,
+    sender: Sender<RenderEventEvent>,
     combat_state: CombatState,
     tasks: Vec<Arc<JoinHandle<()>>>,
     key_pressed: bool,
@@ -126,7 +126,7 @@ impl TimerMachine {
     pub fn new(
         timer: Arc<TimerFile>,
         alert_sem: Arc<Mutex<()>>,
-        sender: Sender<RenderThreadEvent>,
+        sender: Sender<RenderEventEvent>,
     ) -> Self {
         TimerMachine {
             state: TimerMachineState::AwakeUnaware,
@@ -140,7 +140,7 @@ impl TimerMachine {
     }
 
     async fn send_alert_event(
-        sender: Sender<RenderThreadEvent>,
+        sender: Sender<RenderEventEvent>,
         lock: Arc<Mutex<()>>,
         timer: Arc<TimerFile>,
         message: String,
@@ -162,14 +162,14 @@ impl TimerMachine {
             display_duration
         );
         let _ = sender
-            .send(RenderThreadEvent::AlertStart(TextAlert {
+            .send(RenderEventEvent::AlertStart(TextAlert {
                 timer: timer.clone(),
                 message: message.clone(),
             }))
             .await;
         sleep(display_duration).await;
         let _ = sender
-            .send(RenderThreadEvent::AlertEnd(timer.clone()))
+            .send(RenderEventEvent::AlertEnd(timer.clone()))
             .await;
         log::info!(
             "Stopping displaying {}: we slept for {:?} a message with {:?} duration",
@@ -229,7 +229,7 @@ impl TimerMachine {
         self.abort_tasks(reason).await;
         let event_send = self
             .sender
-            .send(RenderThreadEvent::AlertEnd(self.timer.clone()))
+            .send(RenderEventEvent::AlertEnd(self.timer.clone()))
             .await;
         drop(event_send);
     }
@@ -241,7 +241,7 @@ impl TimerMachine {
             reason
         );
         self.sender
-            .send(RenderThreadEvent::AlertReset(self.timer.clone()))
+            .send(RenderEventEvent::AlertReset(self.timer.clone()))
             .await
             .unwrap();
     }
@@ -254,7 +254,7 @@ impl TimerMachine {
             alerts,
         };
         self.sender
-            .send(RenderThreadEvent::AlertFeed(phase_state))
+            .send(RenderEventEvent::AlertFeed(phase_state))
             .await
             .unwrap();
     }
