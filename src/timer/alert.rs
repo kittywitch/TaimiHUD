@@ -1,5 +1,5 @@
 use {
-    crate::xnacolour::XNAColour,
+    crate::timer::BlishColour,
     serde::{Deserialize, Serialize},
     strum_macros::Display,
     tokio::time::{Duration, Instant},
@@ -7,7 +7,7 @@ use {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct DeserializeAlert {
+pub struct BlishAlert {
     #[serde(default)]
     pub warning_duration: Option<f32>,
     #[serde(default)]
@@ -15,15 +15,15 @@ pub struct DeserializeAlert {
     #[serde(default)]
     pub warning: Option<String>,
     #[serde(default)]
-    pub warning_color: Option<XNAColour>,
+    pub warning_color: Option<BlishColour>,
     #[serde(default)]
     pub alert: Option<String>,
     #[serde(default)]
-    pub alert_color: Option<XNAColour>,
+    pub alert_color: Option<BlishColour>,
     #[serde(default)]
     pub icon: Option<String>,
     #[serde(default)]
-    pub fill_color: Option<XNAColour>,
+    pub fill_color: Option<BlishColour>,
     #[serde(default)]
     pub timestamps: Vec<f32>,
 }
@@ -34,7 +34,7 @@ pub enum TimerAlertType {
     Warning,
 }
 
-impl DeserializeAlert {
+impl BlishAlert {
     pub fn alert(&self, timestamp: f32) -> Option<TimerAlert> {
         Some(TimerAlert {
             kind: TimerAlertType::Alert,
@@ -75,8 +75,8 @@ impl DeserializeAlert {
 pub struct TimerAlert {
     pub kind: TimerAlertType,
     pub text: String,
-    pub colour: Option<XNAColour>,
-    pub fill_colour: Option<XNAColour>,
+    pub colour: Option<BlishColour>,
+    pub fill_colour: Option<BlishColour>,
     pub icon: Option<String>,
     pub timestamp: f32,
     pub duration: f32,

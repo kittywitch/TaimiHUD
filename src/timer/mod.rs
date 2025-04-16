@@ -1,9 +1,11 @@
 pub mod action;
 pub mod alert;
 pub mod file;
+pub mod geometry;
 pub mod marker;
 pub mod phase;
 pub mod trigger;
+pub mod blishcolour;
 
 #[allow(unused_imports)]
 pub use {
@@ -14,9 +16,15 @@ pub use {
     alert::{
         TimerAlert,
         TimerAlertType,
-        DeserializeAlert,
+        BlishAlert,
     },
     file::TimerFile,
+    geometry::{
+        BlishPosition,
+        Position,
+        Polytope,
+        BlishVec3,
+    },
     marker::TimerMarker,
     phase::TimerPhase,
     trigger::{
@@ -24,4 +32,5 @@ pub use {
         TimerTriggerType,
         CombatState
     },
+    blishcolour::BlishColour,
 };

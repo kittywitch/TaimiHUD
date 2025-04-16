@@ -27,7 +27,7 @@ impl BlishVec3 {
     }
 }
 
-pub type DeserializePosition = Position<BlishVec3>;
+pub type BlishPosition = Position<BlishVec3>;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(untagged)]
@@ -232,17 +232,17 @@ impl Polytope {
     }
 }
 
-impl DeserializePosition {
+impl BlishPosition {
     pub fn to_sane(self) -> Position<Vec3> {
         match self {
-            DeserializePosition::Vec3(vec) => Position::Vec3(vec.to_vec3()),
-            DeserializePosition::Vec2(vec) => Position::Vec2(vec),
+            BlishPosition::Vec3(vec) => Position::Vec3(vec.to_vec3()),
+            BlishPosition::Vec2(vec) => Position::Vec2(vec),
         }
     }
 }
 
-impl From<DeserializePosition> for Position {
-    fn from(pos: DeserializePosition) -> Self {
+impl From<BlishPosition> for Position {
+    fn from(pos: BlishPosition) -> Self {
         pos.to_sane()
     }
 }

@@ -1,9 +1,7 @@
-mod geometry;
 mod settings;
 mod taimistate;
 mod timer;
 mod timermachine;
-mod xnacolour;
 mod render;
 
 use {

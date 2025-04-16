@@ -1,7 +1,7 @@
 use {
     crate::timer::{
         TimerAction,
-        DeserializeAlert,
+        BlishAlert,
         TimerAlert,
         TimerTrigger,
     },
@@ -17,7 +17,7 @@ pub struct TimerPhase {
     #[serde(default)]
     pub finish: Option<TimerTrigger>,
     #[serde(default)]
-    pub alerts: Vec<DeserializeAlert>,
+    pub alerts: Vec<BlishAlert>,
     #[serde(default)]
     pub actions: Vec<TimerAction>,
     /*
@@ -41,7 +41,7 @@ impl TimerPhase {
     pub fn get_alerts(&self) -> Vec<TimerAlert> {
         self.alerts
             .iter()
-            .flat_map(DeserializeAlert::get_alerts)
+            .flat_map(BlishAlert::get_alerts)
             .collect()
     }
 }

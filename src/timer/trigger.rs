@@ -1,5 +1,5 @@
 use {
-    crate::geometry::{DeserializePosition, Polytope, Position},
+    crate::timer::{BlishPosition, Polytope, Position},
     serde::{Deserialize, Serialize},
 };
 
@@ -9,8 +9,8 @@ pub struct TimerTrigger {
     #[serde(rename = "type", default)]
     pub kind: TimerTriggerType,
     pub key_bind: Option<String>,
-    pub position: Option<DeserializePosition>,
-    pub antipode: Option<DeserializePosition>,
+    pub position: Option<BlishPosition>,
+    pub antipode: Option<BlishPosition>,
     pub radius: Option<f32>,
     #[serde(default)]
     pub require_combat: bool,
