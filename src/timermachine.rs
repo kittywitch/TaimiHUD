@@ -197,14 +197,6 @@ impl TimerMachine {
         ))
     }
 
-    #[cfg(whee)]
-    fn timer_alert(&mut self, alert: TimerAlert) {
-        let (timestamp, duration) = (alert.timestamp(), alert.duration());
-        let join = self.text_alert(alert.text, timestamp, duration);
-        let jarc = Arc::new(join);
-        self.tasks.push(jarc);
-    }
-
     async fn reset_check(&mut self, pos: Position) {
         let trigger = &self.timer.reset;
         use TimerMachineState::*;
@@ -242,26 +234,6 @@ impl TimerMachine {
         drop(event_send);
     }
 
-    #[cfg(whee)]
-    fn abort_tasks_old(&mut self, reason: String) {
-        log::info!(
-            "Aborting {} tasks for reason: \"{}\".",
-            self.tasks.len(),
-            reason
-        );
-        // Kill currently running timers
-        for task in &self.tasks {
-            log::debug!("Aborting task with ID \"{:?}\".", task.id());
-            task.abort()
-        }
-        // Clean up HUD text
-        let alert_handle = self.alert_sem.lock();
-        let event_send = self.sender.send(RenderThreadEvent::AlertEnd);
-        // The usual emotional support drop
-        drop(alert_handle);
-        drop(event_send);
-    }
-
     async fn abort_tasks(&self, reason: String) {
         log::info!(
             "Aborting {} tasks for reason: \"{}\".",
@@ -272,14 +244,6 @@ impl TimerMachine {
             .send(RenderThreadEvent::AlertReset(self.timer.clone()))
             .await
             .unwrap();
-    }
-
-    #[cfg(whee)]
-    fn start_tasks_old(&mut self, phase: &TimerFilePhase) {
-        let timers = phase.get_alerts();
-        for timer in timers {
-            self.timer_alert(timer);
-        }
     }
 
     async fn start_tasks(&self, phase: &TimerFilePhase) {
