@@ -1,5 +1,8 @@
 use {
-    crate::timer::{timerphase::TimerPhase, timertrigger::TimerTrigger},
+    crate::timer::{
+        TimerPhase,
+        TimerTrigger
+    },
     serde::{Deserialize, Serialize},
 };
 

@@ -2,7 +2,10 @@ use {
     crate::{
         settings::{NeedsUpdate, RemoteState, Settings, TimerSettings},
         taimistate::TaimiThreadEvent,
-        timer::{timeralert::TimerAlert, timerfile::TimerFile},
+        timer::{
+            TimerAlert,
+            TimerFile
+        },
         timermachine::{PhaseState, TextAlert},
         RENDER_STATE, SETTINGS, TS_SENDER,
     },

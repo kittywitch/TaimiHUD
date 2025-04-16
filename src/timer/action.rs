@@ -1,5 +1,5 @@
 use {
-    crate::timer::timertrigger::TimerTrigger,
+    crate::timer::TimerTrigger,
     serde::{Deserialize, Serialize},
 };
 

@@ -2,7 +2,7 @@ use {
     crate::{
         geometry::Position,
         settings::{RemoteSource, Settings, SettingsRaw},
-        timer::timerfile::TimerFile,
+        timer::TimerFile,
         timermachine::TimerMachine,
         MumbleIdentityUpdate, RenderThreadEvent, SETTINGS,
     },
