@@ -57,6 +57,9 @@ impl TimerTabState {
                 };
 if ui.button(button_text) {
                     timer_window_state.open = !timer_window_state.open;
+                    let sender = TS_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::WindowState("timers".to_string(), timer_window_state.open));
+                    drop(event_send);
                 }
                 ui.same_line();
                 if ui.button("Reset Timers") {
