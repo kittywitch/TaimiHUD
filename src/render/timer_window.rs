@@ -5,7 +5,7 @@ use {
         }, ControllerEvent, SETTINGS, TS_SENDER
     }, glam::Vec2, nexus::{imgui::{
         Image, ProgressBar, StyleColor, Ui, Window
-    }, texture::{get_texture, get_texture_or_create_from_file}}, std::sync::Arc, tokio::time::Instant
+    }, texture::get_texture}, std::sync::Arc
 };
 
 pub struct TimerWindowState {
