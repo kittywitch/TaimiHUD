@@ -10,14 +10,12 @@ use {
         SETTINGS, TS_SENDER,
     },
     indexmap::IndexMap,
-    nexus::{
-        imgui::{
-            ChildWindow,
-            Selectable,
-            TreeNodeFlags,
-            Ui,
-            WindowFlags,
-        },
+    nexus::imgui::{
+        ChildWindow,
+        Selectable,
+        TreeNodeFlags,
+        Ui,
+        WindowFlags,
     },
     std::sync::Arc,
 };

@@ -51,17 +51,14 @@ impl PrimaryWindowState {
                     if let Some(_token) = ui.tab_item("Markers") {
                         ui.text("To-do!");
                     }
-                    if let Some(_token) = ui.tab_item("Config") {
-                        self.config_tab.draw(ui);
-                    }
-                    if let Some(_token) = ui.tab_item("Info") {
-                        self.info_tab.draw(ui);
-                    }
                     if let Some(_token) = ui.tab_item("Data Sources") {
                         self.data_sources_tab.draw(ui);
                     }
+                    if let Some(_token) = ui.tab_item("Config") {
+                        self.config_tab.draw(ui, timer_window_state);
+                    }
                     if let Some(_token) = ui.tab_item("Info") {
-                        self.info_tab.draw(ui);
+                        self.info_tab.draw(ui, timer_window_state);
                     }
                 }
             });

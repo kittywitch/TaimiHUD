@@ -57,7 +57,7 @@ impl Display for TimerMachineState {
 }
 
 #[derive(Debug, Clone)]
-struct TimerFilePhase {
+pub struct TimerFilePhase {
     timer: Arc<TimerFile>,
     phase: usize,
 }
@@ -85,7 +85,7 @@ impl TimerFilePhase {
         })
     }
 
-    fn phase(&self) -> &TimerPhase {
+    pub fn phase(&self) -> &TimerPhase {
         &self.timer.phases[self.phase]
     }
 }
@@ -113,6 +113,7 @@ pub struct TimerMachine {
 pub struct PhaseState {
     pub timer: Arc<TimerFile>,
     pub start: Instant,
+    pub phase: TimerFilePhase,
     pub alerts: Vec<TimerAlert>,
 }
 
@@ -251,6 +252,7 @@ impl TimerMachine {
         let phase_state = PhaseState {
             timer: self.timer.clone(),
             start: Instant::now(),
+            phase: phase.clone(),
             alerts,
         };
         self.sender
