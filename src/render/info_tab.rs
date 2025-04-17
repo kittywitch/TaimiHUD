@@ -24,13 +24,11 @@ impl InfoTabState {
         RenderState::font_text("big", ui, &project_heading);
         let profile_info = format!("Built in the {} profile.", profile);
         ui.text(profile_info);
-        ui.new_line();
         let description = env!("CARGO_PKG_DESCRIPTION");
         ui.text(description);
-        ui.new_line();
         ui.text("If you need keybind based timer triggers, please bind the appropriate keys in the Nexus settings.");
-        ui.new_line();
-        ui.text("Currently active phase states:");
+        ui.separator();
+        RenderState::font_text("ui", ui, "Active Phase States");
         let table_token = ui.begin_table_header(
             "phase_states",
             [

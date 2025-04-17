@@ -1,4 +1,5 @@
 use {
+    glam::Vec2,
     crate::{
         render::{
             TimerWindowState,
@@ -68,19 +69,34 @@ if ui.button(button_text) {
                     timer_window_state.reset_phases();
                 }
                 let header_flags = TreeNodeFlags::FRAMED;
+                // interface design is my passion
+                let height = Vec2::from_array(ui.calc_text_size("U\nI"));
+                let height = height.y;
+                // SOMETHING HORRIBLE HAPPENED HERE. THIS GRAVE IS COMMEMORATION
+                /*let _height = self.timers
+                    .iter()
+                    .map(|timer| Vec2::from_array(ui.calc_text_size(&timer.name)).y)
+                    .max_by(|x, y| x.partial_cmp(y).unwrap() )
+                .unwrap_or(32.0);*/
                 for (category_name, category) in &mut self.categories {
                     // Header for category
-                    ui.collapsing_header(category_name, header_flags);
-                    for timer in category {
-                        let mut selected = false;
-                        if let Some(selected_timer) = &self.timer_selection {
-                            selected = Arc::ptr_eq(selected_timer, timer);
-                        }
-                        if Selectable::new(timer.name.clone())
-                            .selected(selected)
-                            .build(ui)
-                        {
-                            self.timer_selection = Some(timer.clone());
+                    if ui.collapsing_header(category_name, header_flags) {
+                        ui.dummy([0.0, 4.0]);
+                        for timer in category {
+                            let mut selected = false;
+                            if let Some(selected_timer) = &self.timer_selection {
+                                selected = Arc::ptr_eq(selected_timer, timer);
+                            }
+                            let group_token = ui.begin_group();
+                            RenderState::icon(ui, Some(height), Some(&timer.icon), timer.path.as_ref());
+                            if Selectable::new(&timer.combined())
+                                .selected(selected)
+                                .build(ui)
+                            {
+                                self.timer_selection = Some(timer.clone());
+                            }
+                            ui.dummy([0.0, 4.0]);
+                            group_token.end();
                         }
                     }
                 }
@@ -93,17 +109,7 @@ if ui.button(button_text) {
             .size([0.0, 0.0])
             .build(ui, || {
                 if let Some(selected_timer) = &self.timer_selection {
-                    let icon = &selected_timer.icon;
-                    if let Some(path) = &selected_timer.path {
-                            if let Some(icon) = get_texture(icon.as_str()) {
-                            Image::new(icon.id(),icon.size()).build(ui);
-                            ui.same_line();
-                        } else {
-                            let sender = TS_SENDER.get().unwrap();
-                            let event_send = sender.try_send(ControllerEvent::LoadTexture(icon.clone(), path.to_path_buf()));
-                            drop(event_send);
-                        }
-                    };
+                    RenderState::icon(ui, None, Some(&selected_timer.icon), selected_timer.path.as_ref());
                     ui.same_line();
                     let split_name = selected_timer.name.split("\n");
                     let layout_group = ui.begin_group();

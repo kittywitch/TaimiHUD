@@ -4,14 +4,20 @@ use {
             PrimaryWindowState,
             TimerWindowState,
         },
+        controller::ControllerEvent,
         timer::{PhaseState, TextAlert, TimerFile},
-        RENDER_STATE,
+        RENDER_STATE, TS_SENDER,
     }, glam::Vec2, nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, Font, FontId, Io, StyleColor, Ui, Window, WindowFlags
+            internal::RawCast, Condition, Font, FontId, Io, StyleColor, Ui, Window, WindowFlags, Image
         },
-    }, std::sync::{Arc, MutexGuard}, tokio::sync::mpsc::Receiver
+        texture::get_texture,
+    }, std::{
+        path::PathBuf,
+        sync::{Arc, MutexGuard}
+    }, tokio::sync::mpsc::Receiver,
+    relative_path::RelativePathBuf,
 };
 
 pub enum RenderEvent {
@@ -76,6 +82,24 @@ impl RenderState {
         self.handle_alert(ui, io);
         self.timer_window.draw(ui);
         self.primary_window.draw(ui, &mut self.timer_window);
+    }
+    pub fn icon(ui: &Ui, height: Option<f32>, alert_icon: Option<&RelativePathBuf>, path: Option<&PathBuf>) {
+            if let Some(icon) = alert_icon {
+                    if let Some(path) = path {
+                        if let Some(icon) = get_texture(icon.as_str()) {
+                        let size = match height {
+                            Some(height) => [height,height],
+                            None => icon.size(),
+                        };
+                        Image::new(icon.id(),size).build(ui);
+                        ui.same_line();
+                    } else {
+                        let sender = TS_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::LoadTexture(icon.clone(), path.to_path_buf()));
+                        drop(event_send);
+                    }
+                }
+            };
     }
     pub fn font_text(font: &str, ui: &Ui, text: &str) {
         let mut font_handles = Vec::new();

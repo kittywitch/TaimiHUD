@@ -27,6 +27,19 @@ impl TimerFile {
     pub fn name(&self) -> String {
         self.name.replace("\n", " ")
     }
+    pub fn title(&self) -> &str {
+        self.name.split('\n').next().unwrap()
+    }
+    pub fn subtitle(&self) -> Option<String> {
+        Some(self.name.split_once('\n')?.1.replace("\n", " - "))
+    }
+    pub fn combined(&self) -> String {
+        match self.subtitle() {
+            Some(sbubby) => format!("{}\n{}", self.title(), sbubby),
+            None => self.name.clone()
+        }
+
+    }
     pub fn hypheny_name(&self) -> String {
         self.name.replace("\n", " - ")
     }
