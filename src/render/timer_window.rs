@@ -5,7 +5,11 @@ use {
         }, ControllerEvent, SETTINGS, TS_SENDER
     }, glam::Vec2, nexus::{imgui::{
         Image, ProgressBar, StyleColor, Ui, Window
-    }, texture::get_texture}, std::sync::Arc
+    }, texture::get_texture}, std::{
+        sync::Arc,
+        path::PathBuf,
+    },
+    relative_path::RelativePathBuf,
 };
 
 pub struct TimerWindowState {
@@ -55,18 +59,8 @@ impl TimerWindowState {
         let start = ps.start;
         let height = 24.0;
         if let Some(percent) = alert.percentage(start) {
-            if let Some(icon) = &alert.icon {
-                    if let Some(path) = &ps.timer.path {
-                        if let Some(icon) = get_texture(icon.as_str()) {
-                        Image::new(icon.id(),[height,height]).build(ui);
-                        ui.same_line();
-                    } else {
-                        let sender = TS_SENDER.get().unwrap();
-                        let event_send = sender.try_send(ControllerEvent::LoadTexture(icon.clone(), path.to_path_buf()));
-                        drop(event_send);
-                    }
-                }
-            };
+            let original_position = Vec2::from_array(ui.cursor_pos());
+            Self::icon(ui, height, alert.icon.as_ref(), ps.timer.path.as_ref());
             let mut colour_tokens = Vec::new();
             if let Some(fill_colour) = alert.fill_colour {
                 colour_tokens
@@ -75,7 +69,6 @@ impl TimerWindowState {
             if let Some(colour) = alert.colour {
                 colour_tokens.push(ui.push_style_color(StyleColor::Text, colour.imgcolor()));
             }
-            let original_position = Vec2::from_array(ui.cursor_pos());
             ProgressBar::new(percent)
                 .size([-1.0, height])
                 .overlay_text("")
@@ -95,7 +88,9 @@ impl TimerWindowState {
 
     fn stock_progress_bar(alert: &TimerAlert, ui: &Ui, ps: &PhaseState) {
         let start = ps.start;
+        let height = 24.0;
         if let Some(percent) = alert.percentage(start) {
+            Self::icon(ui, height, alert.icon.as_ref(), ps.timer.path.as_ref());
             let mut colour_tokens = Vec::new();
             if let Some(fill_colour) = alert.fill_colour {
                 colour_tokens
@@ -105,13 +100,28 @@ impl TimerWindowState {
                 colour_tokens.push(ui.push_style_color(StyleColor::Text, colour.imgcolor()));
             }
             ProgressBar::new(percent)
-                .size([-1.0, 12.0])
+                .size([-1.0, height])
                 .overlay_text(alert.progress_bar_text(start))
                 .build(ui);
             for token in colour_tokens {
                 token.pop();
             }
         }
+    }
+
+    fn icon(ui: &Ui, height: f32, alert_icon: Option<&RelativePathBuf>, path: Option<&PathBuf>) {
+            if let Some(icon) = alert_icon {
+                    if let Some(path) = path {
+                        if let Some(icon) = get_texture(icon.as_str()) {
+                        Image::new(icon.id(),[height,height]).build(ui);
+                        ui.same_line();
+                    } else {
+                        let sender = TS_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::LoadTexture(icon.clone(), path.to_path_buf()));
+                        drop(event_send);
+                    }
+                }
+            };
     }
 
     pub fn new_phase(&mut self, phase_state: PhaseState) {
