@@ -192,6 +192,12 @@ impl Controller {
     async fn handle_mumble(&mut self, identity: MumbleIdentityUpdate) {
         let new_map_id = identity.map_id;
         if Some(new_map_id) != self.map_id {
+            for timer in &self.current_timers {
+                let _ = self
+                    .rt_sender
+                    .send(RenderEvent::AlertReset(timer.timer.clone()))
+                    .await;
+            }
             self.current_timers.clear();
             if self.map_id_to_timers.contains_key(&new_map_id) {
                 let map_timers = &self.map_id_to_timers[&new_map_id];

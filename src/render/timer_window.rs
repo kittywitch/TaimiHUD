@@ -3,13 +3,9 @@ use {
         timer::{
             PhaseState, TimerAlert, TimerFile
         }, ControllerEvent, SETTINGS, TS_SENDER
-    }, glam::Vec2, nexus::{imgui::{
-        Image, ProgressBar, StyleColor, Ui, Window
-    }, texture::get_texture}, std::{
-        sync::Arc,
-        path::PathBuf,
-    },
-    relative_path::RelativePathBuf,
+    }, glam::Vec2, nexus::imgui::{
+        ProgressBar, StyleColor, Ui, Window
+    }, std::sync::Arc,
 };
 
 pub struct TimerWindowState {
