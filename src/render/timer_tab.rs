@@ -10,12 +10,16 @@ use {
         SETTINGS, TS_SENDER,
     },
     indexmap::IndexMap,
-    nexus::imgui::{
-        ChildWindow,
-        Selectable,
-        TreeNodeFlags,
-        Ui,
-        WindowFlags,
+    nexus::{
+        texture::get_texture,
+        imgui::{
+            ChildWindow,
+            Selectable,
+            TreeNodeFlags,
+            Ui,
+            WindowFlags,
+            Image,
+        },
     },
     std::sync::Arc,
 };
@@ -89,7 +93,20 @@ if ui.button(button_text) {
             .size([0.0, 0.0])
             .build(ui, || {
                 if let Some(selected_timer) = &self.timer_selection {
+                    let icon = &selected_timer.icon;
+                    if let Some(path) = &selected_timer.path {
+                            if let Some(icon) = get_texture(icon.as_str()) {
+                            Image::new(icon.id(),icon.size()).build(ui);
+                            ui.same_line();
+                        } else {
+                            let sender = TS_SENDER.get().unwrap();
+                            let event_send = sender.try_send(ControllerEvent::LoadTexture(icon.clone(), path.to_path_buf()));
+                            drop(event_send);
+                        }
+                    };
+                    ui.same_line();
                     let split_name = selected_timer.name.split("\n");
+                    let layout_group = ui.begin_group();
                     for (i, text) in split_name.into_iter().enumerate() {
                         if i == 0 {
                             RenderState::font_text("big", ui, text);
@@ -97,6 +114,7 @@ if ui.button(button_text) {
                             RenderState::font_text("ui", ui, text);
                         }
                     }
+                    layout_group.end();
                     RenderState::font_text("font", ui, &format!("Author: {}", selected_timer.author()));
                     RenderState::font_text("font", ui, &selected_timer.description);
                     if let Some(settings) =

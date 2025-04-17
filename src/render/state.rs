@@ -4,18 +4,15 @@ use {
             PrimaryWindowState,
             TimerWindowState,
         },
-        timer::{TimerFile, PhaseState, TextAlert},
+        timer::{PhaseState, TextAlert, TimerFile},
         RENDER_STATE,
-    },
-    nexus::{
+    }, glam::Vec2, nexus::{
         data_link::read_nexus_link,
         imgui::{
             internal::RawCast, Condition, Font, FontId, Io,
             Ui, Window, WindowFlags,
         },
-    },
-    std::sync::{Arc, MutexGuard},
-    tokio::sync::mpsc::Receiver,
+    }, std::sync::{Arc, MutexGuard}, tokio::sync::mpsc::Receiver
 };
 
 pub enum RenderEvent {
@@ -82,17 +79,48 @@ impl RenderState {
         self.primary_window.draw(ui, &mut self.timer_window);
     }
     pub fn font_text(font: &str, ui: &Ui, text: &str) {
+        let mut font_handles = Vec::new();
         let nexus_link = read_nexus_link().unwrap();
         let imfont_pointer = match font {
-            "big" => nexus_link.font_big,
-            "ui" => nexus_link.font_ui,
-            _ => nexus_link.font,
+            "big" => Some(nexus_link.font_big),
+            "ui" => Some(nexus_link.font_ui),
+            "font" => Some(nexus_link.font),
+            _ => None,
         };
-        let font = unsafe { Font::from_raw(&*imfont_pointer) };
-        let font_handle = ui.push_font(font.id());
+        if let Some(ptr) = imfont_pointer {
+            let font = unsafe { Font::from_raw(&*ptr) };
+            let font_handle = ui.push_font(font.id());
+            font_handles.push(font_handle);
+        }
         ui.text(text);
-        font_handle.pop();
+        for font_handle in font_handles {
+            font_handle.pop();
+        }
     }
+    pub fn offset_font_text(font: &str, ui: &Ui, centre: Vec2, text: &str) {
+        let mut font_handles = Vec::new();
+        let nexus_link = read_nexus_link().unwrap();
+        let imfont_pointer = match font {
+            "big" => Some(nexus_link.font_big),
+            "ui" => Some(nexus_link.font_ui),
+            "font" => Some(nexus_link.font),
+            _ => None,
+        };
+        if let Some(ptr) = imfont_pointer {
+            let font = unsafe { Font::from_raw(&*ptr) };
+            let font_handle = ui.push_font(font.id());
+            font_handles.push(font_handle);
+        }
+        let text_size = Vec2::from(ui.calc_text_size(text));
+        let offset_text_size = text_size / 2.0;
+        let new_cursor_pos = centre - offset_text_size;
+        ui.set_cursor_pos(new_cursor_pos.into());
+        ui.text(text);
+        for font_handle in font_handles {
+            font_handle.pop();
+        }
+    }
+
     fn handle_alert(&mut self, ui: &Ui, io: &Io) {
         if let Some(alert) = &self.alert {
             let message = &alert.message;

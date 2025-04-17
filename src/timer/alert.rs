@@ -1,5 +1,6 @@
 use {
     crate::timer::BlishColour,
+    relative_path::RelativePathBuf,
     serde::{Deserialize, Serialize},
     strum_macros::Display,
     tokio::time::{Duration, Instant},
@@ -21,7 +22,7 @@ pub struct BlishAlert {
     #[serde(default)]
     pub alert_color: Option<BlishColour>,
     #[serde(default)]
-    pub icon: Option<String>,
+    pub icon: Option<RelativePathBuf>,
     #[serde(default)]
     pub fill_color: Option<BlishColour>,
     #[serde(default)]
@@ -77,7 +78,7 @@ pub struct TimerAlert {
     pub text: String,
     pub colour: Option<BlishColour>,
     pub fill_colour: Option<BlishColour>,
-    pub icon: Option<String>,
+    pub icon: Option<RelativePathBuf>,
     pub timestamp: f32,
     pub duration: f32,
 }

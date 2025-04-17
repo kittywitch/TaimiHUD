@@ -1,14 +1,11 @@
 use {
-    crate::{
+    super::RenderState, crate::{
         timer::{
             PhaseState, TimerAlert, TimerFile
         }, ControllerEvent, SETTINGS, TS_SENDER
-    }, glam::Vec2, nexus::imgui::{
-        ProgressBar,
-        StyleColor,
-        Ui,
-        Window,
-    }, std::sync::Arc, tokio::time::Instant
+    }, glam::Vec2, nexus::{imgui::{
+        Image, ProgressBar, StyleColor, Ui, Window
+    }, texture::{get_texture, get_texture_or_create_from_file}}, std::sync::Arc, tokio::time::Instant
 };
 
 pub struct TimerWindowState {
@@ -37,9 +34,9 @@ impl TimerWindowState {
                 for ps in &self.phase_states {
                     for alert in ps.alerts.iter() {
                         if self.stock_progress_bar {
-                                Self::stock_progress_bar(alert, ui, ps.start);
+                                Self::stock_progress_bar(alert, ui, ps);
                         } else {
-                                Self::progress_bar(alert, ui, ps.start);
+                                Self::progress_bar(alert, ui, ps);
                         }
                     }
                 }
@@ -54,8 +51,22 @@ impl TimerWindowState {
         }
     }
 
-    fn progress_bar(alert: &TimerAlert, ui: &Ui, start: Instant) {
+    fn progress_bar(alert: &TimerAlert, ui: &Ui, ps: &PhaseState) {
+        let start = ps.start;
+        let height = 24.0;
         if let Some(percent) = alert.percentage(start) {
+            if let Some(icon) = &alert.icon {
+                    if let Some(path) = &ps.timer.path {
+                        if let Some(icon) = get_texture(icon.as_str()) {
+                        Image::new(icon.id(),[height,height]).build(ui);
+                        ui.same_line();
+                    } else {
+                        let sender = TS_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::LoadTexture(icon.clone(), path.to_path_buf()));
+                        drop(event_send);
+                    }
+                }
+            };
             let mut colour_tokens = Vec::new();
             if let Some(fill_colour) = alert.fill_colour {
                 colour_tokens
@@ -65,34 +76,25 @@ impl TimerWindowState {
                 colour_tokens.push(ui.push_style_color(StyleColor::Text, colour.imgcolor()));
             }
             let original_position = Vec2::from_array(ui.cursor_pos());
-            let height = 24.0;
             ProgressBar::new(percent)
                 .size([-1.0, height])
                 .overlay_text("")
                 .build(ui);
             let window_size = Vec2::from(ui.window_size());
-            let window_width = window_size.x;
             for token in colour_tokens {
                 token.pop();
             }
             let text = alert.progress_bar_text(start);
-            let text_size = Vec2::from_array(ui.calc_text_size(&text));
-            let centre_x = original_position.x + (window_width / 2.0);
-            let centre_y = original_position.y + (height / 2.0);
-            let new_cursor_pos_x = centre_x - (text_size.x / 2.0);
-            let new_cursor_pos_y = centre_y - (text_size.y / 2.0);
-            let new_cursor_pos = Vec2 {
-                x: new_cursor_pos_x,
-                y: new_cursor_pos_y,
-            };
-            ui.set_cursor_pos(new_cursor_pos.into());
-            ui.text(text);
+            let widget_centre = window_size.with_y(height) / 2.0;
+            let centre = original_position + widget_centre;
+            RenderState::offset_font_text("ui", ui, centre, &text);
             ui.dummy([0.0,height/4.0]);
         }
 
     }
 
-    fn stock_progress_bar(alert: &TimerAlert, ui: &Ui, start: Instant) {
+    fn stock_progress_bar(alert: &TimerAlert, ui: &Ui, ps: &PhaseState) {
+        let start = ps.start;
         if let Some(percent) = alert.percentage(start) {
             let mut colour_tokens = Vec::new();
             if let Some(fill_colour) = alert.fill_colour {

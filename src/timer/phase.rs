@@ -1,12 +1,7 @@
 use {
     crate::timer::{
-        TimerAction,
-        BlishAlert,
-        TimerAlert,
-        TimerTrigger,
-    },
-    serde::{Deserialize, Serialize},
-    serde_json::Value,
+        BlishAlert, TimerAction, TimerAlert, TimerTrigger
+    }, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, serde_json::Value, std::path::PathBuf
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -43,5 +38,9 @@ impl TimerPhase {
             .iter()
             .flat_map(BlishAlert::get_alerts)
             .collect()
+    }
+
+    pub fn list_icon_paths(&self, base: &PathBuf) -> Vec<(RelativePathBuf, PathBuf)> {
+        self.get_alerts().iter().flat_map(|alert| &alert.icon).map(|icon| (icon.clone(), icon.to_path(base))).collect()
     }
 }

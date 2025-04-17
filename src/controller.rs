@@ -3,7 +3,7 @@ use {
         settings::{RemoteSource, Settings, SettingsLock},
         timer::{Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, SETTINGS,
-    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::data_link::{read_mumble_link, MumbleLink}, std::{
+    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::{data_link::{read_mumble_link, MumbleLink}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive}, relative_path::RelativePathBuf, std::{
         collections::HashMap,
         fs::read_to_string,
         path::{Path, PathBuf},
@@ -101,10 +101,10 @@ impl Controller {
         log::debug!("Attempting to load the timer file at '{path:?}'.");
         //let file = File::open(path)?;
         //let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
-        let mut file_data = read_to_string(path)?;
+        let mut file_data = read_to_string(&path)?;
         json_strip_comments::strip(&mut file_data)?;
-        let timer_data: TimerFile = serde_json::from_str(&file_data)?;
-
+        let mut timer_data: TimerFile = serde_json::from_str(&file_data)?;
+        timer_data.path = Some(path);
         Ok(timer_data)
     }
 
@@ -360,6 +360,16 @@ impl Controller {
         }
     }
 
+    async fn load_texture(&self, rel: RelativePathBuf, base: PathBuf) {
+        if let Some(base) = base.parent() {
+            let abs = rel.to_path(base);
+            let cally: RawTextureReceiveCallback = texture_receive!(|id, _texture| {
+                log::info!("Texture {id} loaded.");
+            });
+            load_texture_from_file(rel.as_str(), abs, Some(cally));
+        }
+    }
+
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
@@ -374,7 +384,7 @@ impl Controller {
             DoDataSourceUpdate { source } => self.do_update(&source).await,
             ProgressBarStyle(stock) => self.progress_bar_switch(stock).await,
             WindowState(window, state) => self.set_window_state(window, state).await,
-
+            LoadTexture(rel, base) => self.load_texture(rel, base).await,
             Quit => return Ok(false),
             // I forget why we needed this, but I think it's a holdover from the buttplug one o:
             //_ => (),
@@ -396,6 +406,7 @@ pub enum ControllerEvent {
     ProgressBarStyle(bool),
     WindowState(String, bool),
     TimerKeyTrigger(String, bool),
+    LoadTexture(RelativePathBuf, PathBuf),
     CheckDataSourceUpdates,
     #[allow(dead_code)]
     TimerEnable(String),
