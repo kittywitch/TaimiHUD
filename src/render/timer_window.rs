@@ -81,14 +81,14 @@ impl TimerWindowState {
                 .overlay_text("")
                 .build(ui);
             let window_size = Vec2::from(ui.window_size());
-            for token in colour_tokens {
-                token.pop();
-            }
             let text = alert.progress_bar_text(start);
             let widget_centre = window_size.with_y(height) / 2.0;
             let centre = original_position + widget_centre;
-            RenderState::offset_font_text("ui", ui, centre, &text);
+            RenderState::offset_font_text("ui", ui, centre, true, &text);
             ui.dummy([0.0,height/4.0]);
+            for token in colour_tokens {
+                token.pop();
+            }
         }
 
     }
