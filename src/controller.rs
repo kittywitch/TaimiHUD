@@ -1,27 +1,21 @@
 use {
     crate::{
-        settings::{RemoteSource, SettingsLock, Settings},
+        settings::{RemoteSource, Settings, SettingsLock},
         timer::{Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, SETTINGS,
-    },
-    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
-    glam::f32::Vec3,
-    glob::{glob, Paths},
-    nexus::data_link::{read_mumble_link, MumbleLink},
-    std::{
+    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::data_link::{read_mumble_link, MumbleLink}, std::{
         collections::HashMap,
         fs::read_to_string,
         path::{Path, PathBuf},
         sync::Arc,
-    },
-    tokio::{
+    }, strum_macros::Display, tokio::{
         runtime, select,
         sync::{
             mpsc::{Receiver, Sender},
             Mutex,
         },
         time::{interval, Duration},
-    },
+    }
 };
 
 #[derive(Debug, Clone)]
@@ -345,6 +339,18 @@ impl Controller {
         self.setup_timers().await;
     }
 
+    async fn progress_bar_switch(&mut self, stock: bool) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.set_progress_bar(stock).await;
+        drop(settings_lock);
+    }
+    
+    async fn set_window_state(&mut self, window: String, state: bool) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.set_window_state(&window, state).await;
+        drop(settings_lock);
+    }
+
     async fn timer_key_trigger(&mut self, id: String, is_release: bool) {
         if !is_release {
             log::info!("{}", self.current_timers.len());
@@ -356,6 +362,7 @@ impl Controller {
 
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
+        log::debug!("Controller received event: {}", event);
         match event {
             MumbleIdentityUpdated(identity) => self.handle_mumble(identity).await,
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,
@@ -365,6 +372,8 @@ impl Controller {
             CheckDataSourceUpdates => self.check_updates().await,
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
+            ProgressBarStyle(stock) => self.progress_bar_switch(stock).await,
+            WindowState(window, state) => self.set_window_state(window, state).await,
 
             Quit => return Ok(false),
             // I forget why we needed this, but I think it's a holdover from the buttplug one o:
@@ -374,7 +383,7 @@ impl Controller {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     CombatEvent {
@@ -384,6 +393,8 @@ pub enum ControllerEvent {
     DoDataSourceUpdate {
         source: Arc<RemoteSource>,
     },
+    ProgressBarStyle(bool),
+    WindowState(String, bool),
     TimerKeyTrigger(String, bool),
     CheckDataSourceUpdates,
     #[allow(dead_code)]

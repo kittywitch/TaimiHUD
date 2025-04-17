@@ -1,3 +1,4 @@
+pub mod config_tab;
 pub mod data_source_tab;
 pub mod state;
 pub mod primary_window;
@@ -7,6 +8,7 @@ pub mod info_tab;
 
 #[allow(unused_imports)]
 pub use {
+    config_tab::ConfigTabState,
     timer_window::TimerWindowState,
     timer_tab::TimerTabState,
     data_source_tab::DataSourceTabState,

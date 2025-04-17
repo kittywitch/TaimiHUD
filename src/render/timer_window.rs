@@ -1,5 +1,8 @@
 use {
     crate::{
+        SETTINGS,
+        TS_SENDER,
+        ControllerEvent,
         timer::{
             TimerAlert,
             TimerFile,
@@ -32,14 +35,25 @@ impl TimerWindowState {
     }
 
     pub fn draw(&mut self, ui: &Ui) {
-        if self.open {
-            Window::new("Timers").opened(&mut self.open).build(ui, || {
+        let mut open = self.open;
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            open = settings.timers_window_open;
+        };
+        if open {
+            Window::new("Timers").opened(&mut open).build(ui, || {
                 for ps in &self.phase_states {
                     for alert in ps.alerts.iter() {
                         Self::progress_bar(alert, ui, ps.start)
                     }
                 }
             });
+        }
+
+        if open != self.open {
+            let sender = TS_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::WindowState("timers".to_string(), open));
+            drop(event_send);
+            self.open = open;
         }
     }
 

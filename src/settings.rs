@@ -207,6 +207,12 @@ pub struct Settings {
     pub timers: HashMap<String, TimerSettings>,
     #[serde(default)]
     pub remotes: Vec<RemoteState>,
+    #[serde(default)]
+    pub stock_progress_bar: bool,
+    #[serde(default)]
+    pub primary_window_open: bool,
+    #[serde(default)]
+    pub timers_window_open: bool,
 }
 
 impl Settings {
@@ -215,6 +221,17 @@ impl Settings {
             .iter()
             .filter_map(|dd| dd.installed_path.as_ref())
             .collect()
+    }
+
+    pub async fn set_window_state(&mut self, window: &str, state: bool) {
+        let window_open = match window {
+            "primary" => &mut self.primary_window_open,
+            "timers" => &mut self.timers_window_open,
+            _ => unreachable!("unsupported window"),
+        };
+
+        *window_open = state;
+        let _ = self.save(&self.addon_dir).await;
     }
 
     pub async fn toggle_timer(&mut self, timer: String) -> bool {
@@ -277,11 +294,17 @@ impl Settings {
         Ok(())
     }
 
+    pub async fn set_progress_bar(&mut self, stock: bool) {
+        self.stock_progress_bar = stock;
+        let _ = self.save(&self.addon_dir).await;
+    }
+
     pub async fn check_for_updates() -> anyhow::Result<()> {
+        let settings_arc = SETTINGS
+            .get()
+            .expect("SettingsLock should've been initialized by now!");
         let sources: Vec<(Arc<RemoteSource>, NeedsUpdate)> = {
-            let settings_read_lock = SETTINGS
-                .get()
-                .expect("SettingsLock should've been initialized by now!")
+            let settings_read_lock = settings_arc
                 .read()
                 .await;
             tokio_stream::iter(settings_read_lock.remotes.iter())
@@ -291,9 +314,7 @@ impl Settings {
         };
         log::debug!("meep {:?}", sources);
         {
-            let mut settings_write_lock = SETTINGS
-                .get()
-                .expect("SettingsLock should've been initialized by now!")
+            let mut settings_write_lock = settings_arc
                 .write()
                 .await;
             for (source, nu) in sources {
@@ -317,6 +338,9 @@ impl Settings {
             addon_dir: addon_dir.to_path_buf(),
             timers: Default::default(),
             remotes: RemoteState::suggested_sources().collect(),
+            stock_progress_bar: false,
+            timers_window_open: false,
+            primary_window_open: false,
         }
     }
     pub async fn load(addon_dir: &Path) -> anyhow::Result<Self> {
