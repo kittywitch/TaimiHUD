@@ -213,6 +213,8 @@ pub struct Settings {
     pub primary_window_open: bool,
     #[serde(default)]
     pub timers_window_open: bool,
+    #[serde(default)]
+    pub category_status: HashMap<String,bool>,
 }
 
 impl Settings {
@@ -334,6 +336,7 @@ impl Settings {
 
     pub async fn new(addon_dir: &Path) -> Self {
         Self {
+            category_status: Default::default(),
             last_checked: None,
             addon_dir: addon_dir.to_path_buf(),
             timers: Default::default(),

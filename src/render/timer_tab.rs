@@ -1,30 +1,21 @@
 use {
-    glam::Vec2,
     crate::{
-        render::{
-            TimerWindowState,
-            RenderState,
-        },
-        settings::TimerSettings,
-        controller::ControllerEvent,
-        timer::TimerFile,
-        SETTINGS, TS_SENDER,
+        controller::ControllerEvent, render::{
+            RenderState, TimerWindowState
+        }, settings::TimerSettings, timer::TimerFile, SETTINGS, TS_SENDER
+    }, glam::Vec2, indexmap::IndexMap, nexus::imgui::{
+            ChildWindow, Selectable, TreeNodeFlags, Ui, WindowFlags
+        }, std::{
+        sync::Arc,
+        collections::HashMap,
     },
-    indexmap::IndexMap,
-    nexus::imgui::{
-            ChildWindow,
-            Selectable,
-            TreeNodeFlags,
-            Ui,
-            WindowFlags,
-        },
-    std::sync::Arc,
 };
 
 pub struct TimerTabState {
     timers: Vec<Arc<TimerFile>>,
     categories: IndexMap<String, Vec<Arc<TimerFile>>>,
     timer_selection: Option<Arc<TimerFile>>,
+    category_status: HashMap<String,bool>,
 }
 
 impl TimerTabState {
@@ -33,6 +24,7 @@ impl TimerTabState {
             timers: Default::default(),
             categories: Default::default(),
             timer_selection: Default::default(),
+            category_status: Default::default(),
         }
     }
 
@@ -54,7 +46,7 @@ impl TimerTabState {
                     true => "Close Timers",
                     false => "Open Timers",
                 };
-if ui.button(button_text) {
+                if ui.button(button_text) {
                     timer_window_state.open = !timer_window_state.open;
                     let sender = TS_SENDER.get().unwrap();
                     let event_send = sender.try_send(ControllerEvent::WindowState("timers".to_string(), timer_window_state.open));
@@ -64,6 +56,11 @@ if ui.button(button_text) {
                 if ui.button("Reset Timers") {
                     timer_window_state.reset_phases();
                 }
+                ui.same_line();
+
+                if ui.button("Expand All") {
+                
+                };
                 let header_flags = TreeNodeFlags::FRAMED;
                 // interface design is my passion
                 let height = Vec2::from_array(ui.calc_text_size("U\nI"));
@@ -76,6 +73,11 @@ if ui.button(button_text) {
                 .unwrap_or(32.0);*/
                 for (category_name, category) in &mut self.categories {
                     // Header for category
+                    /*let collapsing_header = CollapsingHeader
+                        ::new(category_name)
+                        .flags(header_flags)
+                        //.default_open();
+                    //  .build(ui); */
                     if ui.collapsing_header(category_name, header_flags) {
                         ui.dummy([0.0, 4.0]);
                         for timer in category {

@@ -3,11 +3,11 @@ use {
         settings::{RemoteSource, Settings, SettingsLock},
         timer::{Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, SETTINGS,
-    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::{data_link::{read_mumble_link, MumbleLink}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive}, relative_path::RelativePathBuf, std::{
+    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::{data_link::{mumble::UiState, read_mumble_link, MumbleLink}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive}, relative_path::RelativePathBuf, std::{
         collections::HashMap,
         fs::read_to_string,
         path::{Path, PathBuf},
-        sync::Arc,
+        sync::Arc, time::SystemTime,
     }, strum_macros::Display, tokio::{
         runtime, select,
         sync::{
@@ -21,7 +21,7 @@ use {
 #[derive(Debug, Clone)]
 pub struct Controller {
     pub agent: Option<AgentOwned>,
-
+    pub previous_combat_state: bool,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub cached_link: Option<MumbleLink>,
@@ -47,6 +47,7 @@ impl Controller {
         let evt_loop = async move {
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
+                previous_combat_state: Default::default(),
                 rt_sender,
                 settings,
                 agent: Default::default(),
@@ -61,7 +62,7 @@ impl Controller {
             };
             let _ = SETTINGS.set(state.settings.clone());
             state.setup_timers().await;
-            let mut taimi_interval = interval(Duration::from_millis(250));
+            let mut taimi_interval = interval(Duration::from_millis(125));
             let mut mumblelink_interval = interval(Duration::from_millis(20));
             loop {
                 select! {
@@ -178,14 +179,30 @@ impl Controller {
 
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         self.cached_link = read_mumble_link();
-        if let Some(link) = &self.cached_link {
-            self.player_position = Some(Vec3::from_array(link.avatar.position));
+        if let Some(mumble_link_data) = read_mumble_link() {
+            self.player_position = Some(Vec3::from_array(mumble_link_data.avatar.position));
             if let Some(pos) = self.player_position() {
                 for machine in &mut self.current_timers {
                     machine.tick(pos).await
                 }
             }
-        };
+            let combat_state = mumble_link_data.context.ui_state.contains(UiState::IS_IN_COMBAT);
+            if combat_state != self.previous_combat_state {
+                if combat_state {
+                    log::info!("MumbleLink: Combat begins at {:?}!", SystemTime::now());
+                    for machine in &mut self.current_timers {
+                        machine.combat_entered()
+                    }
+                } else {
+                    log::info!("MumbleLink: Combat ends at {:?}!", SystemTime::now());
+                    for machine in &mut self.current_timers {
+                        machine.combat_exited()
+                    }
+                }
+                self.previous_combat_state = combat_state;
+            }
+            self.cached_link = Some(mumble_link_data);
+        }
         Ok(())
     }
 
@@ -242,13 +259,13 @@ impl Controller {
         match evt.get_statechange() {
             StateChange::None => {}
             StateChange::EnterCombat => {
-                log::info!("Combat begins at {}!", evt.time);
+                log::info!("ArcDPS: Combat begins at {}!", evt.time);
                 for machine in &mut self.current_timers {
                     machine.combat_entered()
                 }
             }
             StateChange::ExitCombat => {
-                log::info!("Combat ends at {}!", evt.time);
+                log::info!("ArcDPS: Combat ends at {}!", evt.time);
                 for machine in &mut self.current_timers {
                     machine.combat_exited()
                 }
