@@ -178,7 +178,6 @@ impl Controller {
     }
 
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
-        self.cached_link = read_mumble_link();
         if let Some(mumble_link_data) = read_mumble_link() {
             self.player_position = Some(Vec3::from_array(mumble_link_data.avatar.position));
             if let Some(pos) = self.player_position() {
