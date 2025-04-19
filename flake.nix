@@ -40,7 +40,7 @@
         packageCraneLib = (crane.mkLib pkgs).overrideToolchain (p: packageToolchain);
 
         taimiHUD = import ./package.nix {
-          pkgsCross = pkgs.pkgsCross.mingwW64;
+          inherit pkgs;
           craneLib = packageCraneLib;
         };
 
@@ -60,7 +60,7 @@
       in
       rec {
         defaultPackage = packages.x86_64-pc-windows-gnu;
-
+        inherit pkgs;
         devShells.default = taimiShell;
 
         packages = {

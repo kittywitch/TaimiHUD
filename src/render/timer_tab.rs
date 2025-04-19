@@ -5,17 +5,13 @@ use {
         }, settings::TimerSettings, timer::TimerFile, SETTINGS, TS_SENDER
     }, glam::Vec2, indexmap::IndexMap, nexus::imgui::{
             ChildWindow, Selectable, TreeNodeFlags, Ui, WindowFlags
-        }, std::{
-        sync::Arc,
-        collections::HashMap,
-    },
+        }, std::sync::Arc,
 };
 
 pub struct TimerTabState {
     timers: Vec<Arc<TimerFile>>,
     categories: IndexMap<String, Vec<Arc<TimerFile>>>,
     timer_selection: Option<Arc<TimerFile>>,
-    category_status: HashMap<String,bool>,
 }
 
 impl TimerTabState {
@@ -24,7 +20,6 @@ impl TimerTabState {
             timers: Default::default(),
             categories: Default::default(),
             timer_selection: Default::default(),
-            category_status: Default::default(),
         }
     }
 
@@ -54,13 +49,13 @@ impl TimerTabState {
                 }
                 ui.same_line();
                 if ui.button("Reset Timers") {
+                    let sender = TS_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::TimerReset);
+                    drop(event_send);
                     timer_window_state.reset_phases();
                 }
                 ui.same_line();
 
-                if ui.button("Expand All") {
-                
-                };
                 let header_flags = TreeNodeFlags::FRAMED;
                 // interface design is my passion
                 let height = Vec2::from_array(ui.calc_text_size("U\nI"));
@@ -76,8 +71,8 @@ impl TimerTabState {
                     /*let collapsing_header = CollapsingHeader
                         ::new(category_name)
                         .flags(header_flags)
-                        //.default_open();
-                    //  .build(ui); */
+                        .default_open();
+                        .build(ui);*/
                     if ui.collapsing_header(category_name, header_flags) {
                         ui.dummy([0.0, 4.0]);
                         for timer in category {

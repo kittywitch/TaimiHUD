@@ -1,4 +1,5 @@
 use {
+    crate::built_info,
     super::TimerWindowState, crate::render::RenderState, nexus::imgui::{Ui, TableColumnSetup},
 };
 
@@ -13,14 +14,20 @@ impl InfoTabState {
     pub fn draw(&self, ui: &Ui, timer_window_state: &TimerWindowState) {
         let name = env!("CARGO_PKG_NAME");
         let authors = env!("CARGO_PKG_AUTHORS");
-        let version = env!("CARGO_PKG_VERSION");
+        let version: String;
+        if let Some(git_version) = built_info::GIT_VERSION {
+            version = format!("v{}, {}", env!("CARGO_PKG_VERSION"), git_version);
+        } else {
+            version = env!("CARGO_PKG_VERSION").to_string();
+        }
         let profile = match () {
             #[cfg(debug_assertions)]
             _ => "debug",
             #[cfg(not(debug_assertions))]
             _ => "release",
         };
-        let project_heading = format!("{}, v{} by {}", name, version, authors);
+
+        let project_heading = format!("{}, {} by {}", name, version, authors);
         RenderState::font_text("big", ui, &project_heading);
         let profile_info = format!("Built in the {} profile.", profile);
         ui.text(profile_info);

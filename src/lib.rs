@@ -32,6 +32,10 @@ use {
     tokio::sync::mpsc::{channel, Sender},
 };
 
+pub mod built_info {
+    include!(concat!(env!("OUT_DIR"), "/built.rs"));
+}
+
 static TS_SENDER: OnceLock<Sender<controller::ControllerEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
 

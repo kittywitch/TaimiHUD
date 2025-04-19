@@ -11,14 +11,20 @@ let
   pkgsCross = pkgs.pkgsCross.mingwW64;
 in
 pkgs.callPackage
-  ({ mkShell, buildPackages, stdenv, windows }: mkShell rec {
-    depsBuildBuild = [
-      pkgsCross.stdenv.cc
-      pkgsCross.windows.pthreads
-    ];
+  ({ mkShell, lib, buildPackages, stdenv, windows, libgit2, pkg-config }: mkShell rec {
+    buildInputs = [
+      stdenv.cc
+      windows.pthreads
+  ];
 
+  depsBuildBuild = [
+      pkg-config
+  ];
+
+  LD_LIBRARY_PATH="${lib.makeLibraryPath [buildPackages.buildPackages.libgit2]}";
     nativeBuildInputs = [
       buildPackages.stdenv.cc
+      libgit2
       (fenix'.combine [
         (fenix'.complete.withComponents [
           "cargo"
@@ -32,8 +38,9 @@ pkgs.callPackage
       ])
     ];
 
+    LIBGIT2_NO_VENDOR=1;
     CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
-    TARGET_CC = "${pkgsCross.stdenv.cc.targetPrefix}cc";
+    TARGET_CC = "${stdenv.cc.targetPrefix}cc";
     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = TARGET_CC;
     CXXFLAGS_x86_64_pc_windows_gnu = "-shared -fno-threadsafe-statics";
   })

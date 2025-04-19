@@ -389,6 +389,12 @@ impl Controller {
         }
     }
 
+    async fn reset_timers(&mut self) {
+        for timer in &mut self.current_timers {
+            timer.do_reset().await;
+        }
+    }
+
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
@@ -398,6 +404,7 @@ impl Controller {
             TimerEnable(id) => self.enable_timer(&id).await,
             TimerDisable(id) => self.disable_timer(&id).await,
             TimerToggle(id) => self.toggle_timer(&id).await,
+            TimerReset => self.reset_timers().await,
             CheckDataSourceUpdates => self.check_updates().await,
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
@@ -431,6 +438,7 @@ pub enum ControllerEvent {
     TimerEnable(String),
     #[allow(dead_code)]
     TimerDisable(String),
+    TimerReset,
     TimerToggle(String),
     Quit,
 }

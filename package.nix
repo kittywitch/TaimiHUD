@@ -1,12 +1,19 @@
-{ craneLib, pkgsCross }:
+{ craneLib, pkgs }:
 
-craneLib.buildPackage rec {
+let
+    pkgsCross = pkgs.pkgsCross.mingwW64;
+in craneLib.buildPackage rec {
   src = ./.;
   strictDeps = true;
 
   depsBuildBuild = with pkgsCross; [
     stdenv.cc
     windows.pthreads
+    libgit2
+  ];
+
+  nativeBuildInputs = [
+    pkg-config
   ];
 
   doCheck = false;

@@ -4,6 +4,10 @@ authors = [ "kittywitch" ]
 description = "Timers for RaidcoreGG Nexus"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
+
+[build-dependencies]
+built = { version = "0.7.7", features = [ "chrono", "git2" ] }
 
 [dependencies]
 anyhow = "1.0.95"

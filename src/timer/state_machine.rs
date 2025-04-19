@@ -211,7 +211,7 @@ impl TimerMachine {
         }
     }
 
-    async fn do_reset(&mut self) {
+    pub async fn do_reset(&mut self) {
         let reason = format!("Reset triggered for \"{}\"", self.timer.name);
         log::info!("Reset triggered!");
         self.combat_state = CombatState::Outside;

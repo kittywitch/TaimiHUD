@@ -33,7 +33,7 @@ impl PrimaryWindowState {
             timer_tab: TimerTabState::new(),
             data_sources_tab: DataSourceTabState::new(),
             info_tab: InfoTabState::new(),
-            open: true,
+            open: false,
         }
     }
 
