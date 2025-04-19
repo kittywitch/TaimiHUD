@@ -1,28 +1,35 @@
-{ craneLib, pkgs }:
+{ lib, buildPackages, craneLib, stdenv, windows, libgit2, pkg-config }:
 
-let
-    pkgsCross = pkgs.pkgsCross.mingwW64;
-in craneLib.buildPackage rec {
+craneLib.buildPackage rec {
   src = ./.;
   strictDeps = true;
 
-  depsBuildBuild = with pkgsCross; [
-    stdenv.cc
-    windows.pthreads
-    libgit2
+    buildInputs = [
+      stdenv.cc
+      windows.pthreads
   ];
 
-  nativeBuildInputs = [
-    pkg-config
+  depsBuildBuild = [
+      pkg-config
+  ];
+
+  LD_LIBRARY_PATH="${lib.makeLibraryPath [buildPackages.buildPackages.libgit2]}";
+
+    nativeBuildInputs = [
+      buildPackages.stdenv.cc
+      libgit2
   ];
 
   doCheck = false;
+
+  LIBGIT2_NO_VENDOR = 1;
 
   # Tells Cargo that we're building for Windows.
   # (https://doc.rust-lang.org/cargo/reference/config.html#buildtarget)
   CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
 
-  TARGET_CC = "${pkgsCross.stdenv.cc}/bin/${pkgsCross.stdenv.cc.targetPrefix}cc";
+  #TARGET_CC = "${pkgsCross.stdenv.cc}/bin/${pkgsCross.stdenv.cc.targetPrefix}cc";
+  TARGET_CC = "${stdenv.cc.targetPrefix}cc";
 
   # Build without a dependency not provided by wine
   CXXFLAGS_x86_64_pc_windows_gnu = "-shared -fno-threadsafe-statics";

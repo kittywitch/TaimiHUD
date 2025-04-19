@@ -8,7 +8,6 @@
 }:
 let
   fenix' = fenix.packages.${system};
-  pkgsCross = pkgs.pkgsCross.mingwW64;
 in
 pkgs.callPackage
   ({ mkShell, lib, buildPackages, stdenv, windows, libgit2, pkg-config }: mkShell rec {

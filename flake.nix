@@ -39,8 +39,7 @@
 
         packageCraneLib = (crane.mkLib pkgs).overrideToolchain (p: packageToolchain);
 
-        taimiHUD = import ./package.nix {
-          inherit pkgs;
+        taimiHUD = pkgs.callPackage ./package.nix {
           craneLib = packageCraneLib;
         };
 
