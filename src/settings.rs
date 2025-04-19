@@ -213,8 +213,6 @@ pub struct Settings {
     pub primary_window_open: bool,
     #[serde(default)]
     pub timers_window_open: bool,
-    #[serde(default)]
-    pub category_status: HashMap<String,bool>,
 }
 
 impl Settings {
@@ -343,7 +341,6 @@ impl Settings {
             stock_progress_bar: false,
             timers_window_open: false,
             primary_window_open: false,
-            category_status: Default::default(),
         }
     }
     pub async fn load(addon_dir: &Path) -> anyhow::Result<Self> {
