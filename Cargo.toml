@@ -39,6 +39,7 @@ futures = "0.3.31"
 chrono = { version = "0.4.40", features = [ "serde", "alloc" ] }
 indexmap = "2.9.0"
 relative-path = { version = "1.9.3", features = [ "serde" ] }
+bitflags = "2.9.0"
 
 [lib]
 crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)

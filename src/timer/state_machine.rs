@@ -9,6 +9,7 @@ use {
         },
         render::RenderEvent,
     },
+    bitflags::bitflags,
     std::{fmt::Display, ops::Deref, sync::Arc},
     tokio::{
         sync::{mpsc::Sender, Mutex},
@@ -16,6 +17,18 @@ use {
         time::{sleep, Duration, Instant},
     },
 };
+
+
+bitflags! {
+    #[derive(Debug, Clone, Default)]
+    pub struct TimerKeybinds: u8 {
+        const A = 1;
+        const B = 1 << 1;
+        const C = 1 << 2;
+        const D = 1 << 3;
+        const E = 1 << 4;
+    }
+}
 
 /*
 * A timer can be:
@@ -106,7 +119,7 @@ pub struct TimerMachine {
     sender: Sender<RenderEvent>,
     combat_state: CombatState,
     tasks: Vec<Arc<JoinHandle<()>>>,
-    key_pressed: bool,
+    key_pressed: TimerKeybinds,
 }
 
 #[derive(Clone)]
@@ -136,7 +149,7 @@ impl TimerMachine {
             sender,
             combat_state: CombatState::Outside,
             tasks: Default::default(),
-            key_pressed: false,
+            key_pressed: Default::default(),
         }
     }
 
@@ -203,7 +216,7 @@ impl TimerMachine {
         use TimerMachineState::*;
         match &self.state {
             OnPhase(_) | FinishedPhase(_) => {
-                if trigger.check(pos, self.combat_state, self.key_pressed) {
+                if trigger.check(pos, self.combat_state, &self.key_pressed) {
                     self.do_reset().await;
                 }
             }
@@ -298,7 +311,7 @@ impl TimerMachine {
             OnMap => {
                 // All timers have a start trigger and a zeroth (first) phase
                 let trigger = &self.timer.phases.first().unwrap().start;
-                if trigger.check(pos, self.combat_state, self.key_pressed) {
+                if trigger.check(pos, self.combat_state, &self.key_pressed) {
                     if let Some(phase) = TimerFilePhase::new(self.timer.clone()) {
                         self.state_change(OnPhase(phase)).await;
                     }
@@ -308,7 +321,7 @@ impl TimerMachine {
             OnPhase(phase) => {
                 // handle the finish check
                 if let Some(trigger) = &phase.finish {
-                    if trigger.check(pos, self.combat_state, self.key_pressed) {
+                    if trigger.check(pos, self.combat_state, &self.key_pressed) {
                         self.state_change(FinishedPhase(phase.clone())).await;
                     }
                 }
@@ -317,7 +330,7 @@ impl TimerMachine {
                 // check the next phase's start trigger
                 if let Some(next_phase) = &phase.clone().next() {
                     let trigger = &next_phase.start;
-                    if trigger.check(pos, self.combat_state, self.key_pressed) {
+                    if trigger.check(pos, self.combat_state, &self.key_pressed) {
                         self.state_change(OnPhase(next_phase.clone())).await;
                     }
                 }
@@ -326,9 +339,14 @@ impl TimerMachine {
         }
     }
 
-    pub fn key_pressed(&mut self, id: String) {
-        log::info!("{} was pressed!", id);
-        self.key_pressed = true;
+    pub fn key_down(&mut self, idx: u32) {
+        let flag = 1u8 << idx;
+        self.key_pressed.insert(TimerKeybinds::from_bits_retain(flag));
+    }
+
+    pub fn key_up(&mut self, idx: u32) {
+        let flag = 1u8 << idx;
+        self.key_pressed.remove(TimerKeybinds::from_bits_retain(flag));
     }
 
     pub fn combat_entered(&mut self) {

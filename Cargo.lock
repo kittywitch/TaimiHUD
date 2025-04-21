@@ -2475,6 +2475,7 @@ dependencies = [
  "arcdps",
  "async-compression",
  "async-tar",
+ "bitflags 2.9.0",
  "built",
  "bytes",
  "chrono",

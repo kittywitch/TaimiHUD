@@ -32,6 +32,7 @@ pub use {
         TimerMachine,
         PhaseState,
         TextAlert,
+        TimerKeybinds,
     },
     trigger::{
         TimerTrigger,

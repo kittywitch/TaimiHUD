@@ -1,6 +1,5 @@
 use {
-    crate::timer::{BlishPosition, Polytope, Position},
-    serde::{Deserialize, Serialize},
+    super::TimerKeybinds, crate::timer::{BlishPosition, Polytope, Position}, serde::{Deserialize, Serialize}
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -61,7 +60,7 @@ impl TimerTrigger {
             _ => None,
         }
     }
-    pub fn check(&self, pos: Position, cb: CombatState, key_pressed: bool) -> bool {
+    pub fn check(&self, pos: Position, cb: CombatState, key_pressed: &TimerKeybinds) -> bool {
         let shape = match self.polytope() {
             Some(s) => s,
             None => return false,
@@ -69,7 +68,15 @@ impl TimerTrigger {
         use TimerTriggerType::*;
         let key_check = match self.kind {
             Location => true,
-            Key => key_pressed,
+            Key => {
+                if let Some(key_bind) = &self.key_bind {
+                    let idx = key_bind.parse::<usize>().unwrap();
+                    let flag = 1u8 << idx;
+                    key_pressed.contains(TimerKeybinds::from_bits_retain(flag))
+                } else {
+                    unreachable!("keybind not specified for a key type phase trigger");
+                }
+            },
         };
         let position_check = shape.point_is_within(pos);
         let combat_entered_check = !self.require_combat || cb == CombatState::Entered;

@@ -363,7 +363,7 @@ impl Controller {
         settings_lock.set_progress_bar(stock).await;
         drop(settings_lock);
     }
-    
+
     async fn set_window_state(&mut self, window: String, state: bool) {
         let mut settings_lock = self.settings.write().await;
         settings_lock.set_window_state(&window, state).await;
@@ -371,10 +371,14 @@ impl Controller {
     }
 
     async fn timer_key_trigger(&mut self, id: String, is_release: bool) {
+        let idx = id.chars().last().unwrap().to_digit(10).unwrap();
         if !is_release {
-            log::info!("{}", self.current_timers.len());
             for timer in &mut self.current_timers {
-                timer.key_pressed(id.clone());
+                timer.key_down(idx);
+            }
+        } else {
+            for timer in &mut self.current_timers {
+                timer.key_up(idx);
             }
         }
     }
@@ -431,6 +435,7 @@ pub enum ControllerEvent {
     },
     ProgressBarStyle(bool),
     WindowState(String, bool),
+    #[strum(to_string = "Id {0}, pressed {1}")]
     TimerKeyTrigger(String, bool),
     LoadTexture(RelativePathBuf, PathBuf),
     CheckDataSourceUpdates,
@@ -439,6 +444,7 @@ pub enum ControllerEvent {
     #[allow(dead_code)]
     TimerDisable(String),
     TimerReset,
+    #[strum(to_string = "Toggled {0}")]
     TimerToggle(String),
     Quit,
 }

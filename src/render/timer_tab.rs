@@ -68,7 +68,6 @@ impl TimerTabState {
                 self.category_status.clear();
             }
         }
-        log::debug!("{:?}",self.category_status);
 
     }
 
