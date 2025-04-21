@@ -223,7 +223,7 @@ impl Alignment {
     pub const RIGHT_BOTTOM: Vec2 = Vec2::new(1.0, 1.0);
 
     pub fn get_position(scaler: Vec2, position: Vec2, bounding_size: Vec2, element_size: Vec2) -> Vec2 {
-        let scaled_size = (bounding_size + element_size) * scaler;
+        let scaled_size = (bounding_size - element_size) * scaler;
         position + scaled_size
 
     }
