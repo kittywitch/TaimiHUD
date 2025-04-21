@@ -124,7 +124,7 @@ impl TimerTabState {
         let mut selected = selected_in;
         let group_token = ui.begin_group();
         let widget_pos = Vec2::from(ui.cursor_pos());
-        let window_size = Vec2::from(ui.window_size());
+        let window_size = Vec2::from(ui.window_content_region_max());
         let widget_size = window_size.with_y(height);
         RenderState::icon(ui, Some(height), Some(&timer.icon), timer.path.as_ref());
         if Selectable::new(&timer.combined())
