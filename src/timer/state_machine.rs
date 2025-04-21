@@ -339,22 +339,17 @@ impl TimerMachine {
         }
     }
 
-    pub fn key_down(&mut self, idx: u32) {
+    pub fn key_event(&mut self, idx: u32, is_release: bool) {
         let flag = 1u8 << idx;
-        self.key_pressed.insert(TimerKeybinds::from_bits_retain(flag));
+        match is_release {
+            false => self.key_pressed.insert(TimerKeybinds::from_bits_retain(flag)),
+            true => self.key_pressed.remove(TimerKeybinds::from_bits_retain(flag)),
+        }
+
     }
 
-    pub fn key_up(&mut self, idx: u32) {
-        let flag = 1u8 << idx;
-        self.key_pressed.remove(TimerKeybinds::from_bits_retain(flag));
-    }
-
-    pub fn combat_entered(&mut self) {
-        self.combat_state = CombatState::Entered;
-    }
-
-    pub fn combat_exited(&mut self) {
-        self.combat_state = CombatState::Exited;
+    pub fn set_combat_state(&mut self, combat_state: CombatState) {
+        self.combat_state = combat_state;
     }
 
     pub fn update_on_map(&mut self, map_id: u32) {

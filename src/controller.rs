@@ -1,7 +1,7 @@
 use {
     crate::{
         settings::{RemoteSource, Settings, SettingsLock},
-        timer::{Position, TimerFile, TimerMachine},
+        timer::{CombatState, Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, SETTINGS,
     }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::{data_link::{mumble::UiState, read_mumble_link, MumbleLink}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive}, relative_path::RelativePathBuf, std::{
         collections::HashMap,
@@ -185,12 +185,12 @@ impl Controller {
                 if combat_state {
                     log::info!("MumbleLink: Combat begins at {:?}!", SystemTime::now());
                     for machine in &mut self.current_timers {
-                        machine.combat_entered()
+                        machine.set_combat_state(CombatState::Entered);
                     }
                 } else {
                     log::info!("MumbleLink: Combat ends at {:?}!", SystemTime::now());
                     for machine in &mut self.current_timers {
-                        machine.combat_exited()
+                        machine.set_combat_state(CombatState::Exited);
                     }
                 }
                 self.previous_combat_state = combat_state;
@@ -260,13 +260,13 @@ impl Controller {
             StateChange::EnterCombat => {
                 log::info!("ArcDPS: Combat begins at {}!", evt.time);
                 for machine in &mut self.current_timers {
-                    machine.combat_entered()
+                    machine.set_combat_state(CombatState::Entered);
                 }
             }
             StateChange::ExitCombat => {
                 log::info!("ArcDPS: Combat ends at {}!", evt.time);
                 for machine in &mut self.current_timers {
-                    machine.combat_exited()
+                    machine.set_combat_state(CombatState::Exited);
                 }
             }
             _ => (),
@@ -372,14 +372,8 @@ impl Controller {
 
     async fn timer_key_trigger(&mut self, id: String, is_release: bool) {
         let idx = id.chars().last().unwrap().to_digit(10).unwrap();
-        if !is_release {
-            for timer in &mut self.current_timers {
-                timer.key_down(idx);
-            }
-        } else {
-            for timer in &mut self.current_timers {
-                timer.key_up(idx);
-            }
+        for timer in &mut self.current_timers {
+            timer.key_event(idx, is_release);
         }
     }
 
