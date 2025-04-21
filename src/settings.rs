@@ -369,6 +369,7 @@ impl Settings {
     }
 
     pub async fn save(&self, addon_dir: &Path) -> anyhow::Result<()> {
+        create_dir_all(addon_dir).await?;
         let settings_path = addon_dir.join("settings.json");
         log::debug!("Settings: Saving to \"{:?}\".", settings_path);
         let settings_str = serde_json::to_string(self)?;
