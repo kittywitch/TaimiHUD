@@ -180,11 +180,6 @@ impl Controller {
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         if let Some(mumble_link_data) = read_mumble_link() {
             self.player_position = Some(Vec3::from_array(mumble_link_data.avatar.position));
-            if let Some(pos) = self.player_position() {
-                for machine in &mut self.current_timers {
-                    machine.tick(pos).await
-                }
-            }
             let combat_state = mumble_link_data.context.ui_state.contains(UiState::IS_IN_COMBAT);
             if combat_state != self.previous_combat_state {
                 if combat_state {
@@ -199,6 +194,11 @@ impl Controller {
                     }
                 }
                 self.previous_combat_state = combat_state;
+            }
+            if let Some(pos) = self.player_position() {
+                for machine in &mut self.current_timers {
+                    machine.tick(pos).await
+                }
             }
             self.cached_link = Some(mumble_link_data);
         }
