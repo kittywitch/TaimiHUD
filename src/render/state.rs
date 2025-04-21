@@ -120,7 +120,7 @@ impl RenderState {
             font_handle.pop();
         }
     }
-    pub fn offset_font_text(font: &str, ui: &Ui, centre: Vec2, shadow: bool, text: &str) {
+    pub fn offset_font_text(font: &str, ui: &Ui, position: Vec2, bounding_size: Vec2, shadow: bool, text: &str) {
         let mut font_handles = Vec::new();
         let nexus_link = read_nexus_link().unwrap();
         let imfont_pointer = match font {
@@ -135,19 +135,18 @@ impl RenderState {
             font_handles.push(font_handle);
         }
         let text_size = Vec2::from(ui.calc_text_size(text));
-        let offset_text_size = text_size / 2.0;
-        let new_cursor_pos = centre - offset_text_size;
+        let cursor_pos = Alignment::get_position(Alignment::CENTRE_MIDDLE, position, bounding_size, text_size);
         if shadow {
-            let new_cursor_pos_shadow = new_cursor_pos + Vec2 {
+            let cursor_pos_shadow = cursor_pos + Vec2 {
                 x: 2.0,
                 y: text_size.y / 8.0,
             };
-            ui.set_cursor_pos(new_cursor_pos_shadow.into());
+            ui.set_cursor_pos(cursor_pos_shadow.into());
             let token = ui.push_style_color(StyleColor::Text, [0.0, 0.0, 0.0, 1.0]);
             ui.text(text);
             token.pop();
         }
-        ui.set_cursor_pos(new_cursor_pos.into());
+        ui.set_cursor_pos(cursor_pos.into());
         ui.text(text);
         for font_handle in font_handles {
             font_handle.pop();
@@ -207,3 +206,34 @@ impl RenderState {
     }
 }
 
+pub struct Alignment {
+}
+
+
+#[allow(dead_code)]
+impl Alignment {
+    pub const LEFT_TOP: Vec2 = Vec2::new(0.0, 0.0);
+    pub const LEFT_MIDDLE: Vec2 = Vec2::new(0.0, 0.5);
+    pub const LEFT_BOTTOM: Vec2 = Vec2::new(0.0, 1.0);
+    pub const CENTRE_TOP: Vec2 = Vec2::new(0.5, 0.0);
+    pub const CENTRE_MIDDLE: Vec2 = Vec2::new(0.5, 0.5);
+    pub const CENTRE_BOTTOM: Vec2 = Vec2::new(0.5, 1.0);
+    pub const RIGHT_TOP: Vec2 = Vec2::new(1.0, 0.0);
+    pub const RIGHT_MIDDLE: Vec2 = Vec2::new(1.0, 0.5);
+    pub const RIGHT_BOTTOM: Vec2 = Vec2::new(1.0, 1.0);
+
+    pub fn get_position(scaler: Vec2, position: Vec2, bounding_size: Vec2, element_size: Vec2) -> Vec2 {
+        let scaled_size = (bounding_size + element_size) * scaler;
+        position + scaled_size
+
+    }
+
+    pub fn set_cursor(ui: &Ui, scaler: Vec2, position: Vec2, bounding_size: Vec2, element_size: Vec2) {
+        ui.set_cursor_pos(Self::get_position(scaler, position, bounding_size, element_size).into());
+    }
+
+    pub fn set_cursor_with_offset(ui: &Ui, scaler: Vec2, position: Vec2, bounding_size: Vec2, element_size: Vec2, offset: Vec2) {
+        let position = position + offset;
+        Self::set_cursor(ui, scaler, position, bounding_size, element_size);
+    }
+}

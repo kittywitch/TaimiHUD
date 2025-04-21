@@ -16,6 +16,7 @@ pub use {
     primary_window::PrimaryWindowState,
     state::{
         RenderEvent,
-        RenderState
+        RenderState,
+        Alignment,
     },
 };

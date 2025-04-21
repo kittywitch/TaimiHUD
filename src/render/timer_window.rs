@@ -55,7 +55,7 @@ impl TimerWindowState {
         let start = ps.start;
         let height = 24.0;
         if let Some(percent) = alert.percentage(start) {
-            let original_position = Vec2::from_array(ui.cursor_pos());
+            let widget_pos = Vec2::from(ui.cursor_pos());
             RenderState::icon(ui, Some(height), alert.icon.as_ref(), ps.timer.path.as_ref());
             let mut colour_tokens = Vec::new();
             if let Some(fill_colour) = alert.fill_colour {
@@ -70,10 +70,9 @@ impl TimerWindowState {
                 .overlay_text("")
                 .build(ui);
             let window_size = Vec2::from(ui.window_size());
+            let widget_size = window_size.with_y(height);
             let text = alert.progress_bar_text(start);
-            let widget_centre = window_size.with_y(height) / 2.0;
-            let centre = original_position + widget_centre;
-            RenderState::offset_font_text("ui", ui, centre, true, &text);
+            RenderState::offset_font_text("ui", ui, widget_pos, widget_size, true, &text);
             ui.dummy([0.0,height/4.0]);
             for token in colour_tokens {
                 token.pop();

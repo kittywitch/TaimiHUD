@@ -1,11 +1,11 @@
 use {
-    crate::{
+    super::Alignment, crate::{
         controller::ControllerEvent, render::{
             RenderState, TimerWindowState
         }, settings::TimerSettings, timer::TimerFile, SETTINGS, TS_SENDER
     }, glam::Vec2, indexmap::IndexMap, nexus::imgui::{
             ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags
-        }, std::{collections::HashSet, sync::Arc},
+        }, std::{collections::HashSet, sync::Arc}
 };
 
 pub struct TimerTabState {
@@ -97,16 +97,11 @@ impl TimerTabState {
                 if let Some(selected_timer) = &self.timer_selection {
                     selected = Arc::ptr_eq(selected_timer, timer);
                 }
-                let group_token = ui.begin_group();
-                RenderState::icon(ui, Some(height), Some(&timer.icon), timer.path.as_ref());
-                if Selectable::new(&timer.combined())
-                    .selected(selected)
-                    .build(ui)
-                {
+                let element_selected = Self::draw_timer(ui, height, timer, selected);
+                if element_selected && element_selected != selected {
                     self.timer_selection = Some(timer.clone());
                 }
-                ui.dummy([0.0, 4.0]);
-                group_token.end();
+
             }
         };
         let tree_node = TreeNode
@@ -123,6 +118,39 @@ impl TimerTabState {
                 self.category_status.remove(category_name);
             },
         }
+    }
+
+    fn draw_timer(ui: &Ui, height: f32, timer: &Arc<TimerFile>, selected_in: bool) -> bool {
+        let mut selected = selected_in;
+        let group_token = ui.begin_group();
+        let widget_pos = Vec2::from(ui.cursor_pos());
+        let window_size = Vec2::from(ui.window_size());
+        let widget_size = window_size.with_y(height);
+        RenderState::icon(ui, Some(height), Some(&timer.icon), timer.path.as_ref());
+        if Selectable::new(&timer.combined())
+            .selected(selected)
+            .build(ui)
+        {
+            selected = true;
+        }
+        if let Some(settings) =
+            SETTINGS.get().and_then(|settings| settings.try_read().ok())
+        {
+            let settings_for_timer = settings.timers.get(&timer.id);
+            ui.same_line();
+            let (color, text) = match settings_for_timer {
+                Some(TimerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0],"Disabled"),
+                _ => ([0.0, 1.0, 0.0 ,1.0],"Enabled"),
+
+            };
+            let text_size = Vec2::from(ui.calc_text_size(text));
+            Alignment::set_cursor(ui, Alignment::RIGHT_MIDDLE, widget_pos, widget_size, text_size);
+            ui.text_colored(color, text);
+        }
+        ui.dummy([0.0, 4.0]);
+        group_token.end();
+        selected
+
     }
 
     fn draw_main(&mut self, ui: &Ui) {

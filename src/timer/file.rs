@@ -47,3 +47,4 @@ impl TimerFile {
         self.author.replace("\n", "")
     }
 }
+
