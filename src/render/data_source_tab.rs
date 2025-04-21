@@ -4,10 +4,7 @@ use {
         controller::ControllerEvent,
         SETTINGS, TS_SENDER,
     },
-    nexus::imgui::{
-        TableColumnSetup,
-        Ui,
-    },
+    nexus::imgui::Ui,
 };
 
 pub struct DataSourceTabState {
@@ -40,20 +37,10 @@ impl DataSourceTabState {
                 } else {
                     ui.text("Last checked for updates: Never");
                 }
-                let table_token = ui.begin_table_header(
-                    "remotes",
-                    [
-                        TableColumnSetup::new("Remote"),
-                        TableColumnSetup::new("Status"),
-                    ],
-                );
-                ui.table_next_column();
                 for download_data in &settings.remotes {
                     let source = download_data.source.clone();
-                    ui.text(format!("{}", source));
-                    ui.table_next_column();
-                    ui.text(format!("{}", download_data.needs_update));
-                    ui.table_next_column();
+                    ui.text(format!("Remote: {}", source));
+                    ui.text(format!("Status: {}", download_data.needs_update));
                     use NeedsUpdate::*;
                     let button_text = match &download_data.needs_update {
                         Unknown => Some("Attempt to update anyway?"),
@@ -61,7 +48,6 @@ impl DataSourceTabState {
                         Known(false, _id) => None,
                     };
                     if let Some(button_text) = button_text {
-                        ui.same_line();
                         if ui.button(button_text) {
                             let sender = TS_SENDER.get().unwrap();
                             let source = source.clone();
@@ -71,7 +57,6 @@ impl DataSourceTabState {
                         }
                     }
                 }
-                drop(table_token);
             }
         } else {
             ui.text("SettingsLock have not yet loaded!");
