@@ -18,5 +18,6 @@ pub use {
         RenderEvent,
         RenderState,
         Alignment,
+        TextFont,
     },
 };

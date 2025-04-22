@@ -2,7 +2,8 @@ use {
     super::RenderState, crate::{
         timer::{
             PhaseState, TimerAlert, TimerFile
-        }, ControllerEvent, SETTINGS, TS_SENDER
+        }, ControllerEvent, SETTINGS, TS_SENDER,
+        settings::ProgressBarSettings,
     }, glam::Vec2, nexus::imgui::{
         ProgressBar, StyleColor, Ui, Window
     }, std::sync::Arc,
@@ -10,7 +11,7 @@ use {
 
 pub struct TimerWindowState {
     pub open: bool,
-    pub stock_progress_bar: bool,
+    pub progress_bar: ProgressBarSettings,
     pub phase_states: Vec<PhaseState>,
 }
 
@@ -18,7 +19,7 @@ impl TimerWindowState {
     pub fn new() -> Self {
         Self {
             open: false,
-            stock_progress_bar: false,
+            progress_bar: Default::default(),
             phase_states: Default::default(),
         }
     }
@@ -27,16 +28,15 @@ impl TimerWindowState {
         let mut open = self.open;
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             open = settings.timers_window_open;
-            self.stock_progress_bar = settings.stock_progress_bar;
         };
         if open {
             Window::new("Timers").opened(&mut open).build(ui, || {
                 for ps in &self.phase_states {
                     for alert in ps.alerts.iter() {
-                        if self.stock_progress_bar {
-                                Self::stock_progress_bar(alert, ui, ps);
+                        if self.progress_bar.stock {
+                                Self::stock_progress_bar(&self.progress_bar, alert, ui, ps);
                         } else {
-                                Self::progress_bar(alert, ui, ps);
+                                Self::progress_bar(&self.progress_bar, alert, ui, ps);
                         }
                     }
                 }
@@ -51,9 +51,9 @@ impl TimerWindowState {
         }
     }
 
-    fn progress_bar(alert: &TimerAlert, ui: &Ui, ps: &PhaseState) {
+    fn progress_bar(settings: &ProgressBarSettings, alert: &TimerAlert, ui: &Ui, ps: &PhaseState) {
         let start = ps.start;
-        let height = 24.0;
+        let height = settings.height;
         if let Some(percent) = alert.percentage(start) {
             let widget_pos = Vec2::from(ui.cursor_pos());
             RenderState::icon(ui, Some(height), alert.icon.as_ref(), ps.timer.path.as_ref());
@@ -72,7 +72,7 @@ impl TimerWindowState {
             let window_size = Vec2::from(ui.window_size());
             let widget_size = window_size.with_y(height);
             let text = alert.progress_bar_text(start);
-            RenderState::offset_font_text("ui", ui, widget_pos, widget_size, true, &text);
+            RenderState::offset_font_text(&settings.font.to_string(), ui, widget_pos, widget_size, settings.shadow, &text);
             ui.dummy([0.0,height/4.0]);
             for token in colour_tokens {
                 token.pop();
@@ -81,9 +81,9 @@ impl TimerWindowState {
 
     }
 
-    fn stock_progress_bar(alert: &TimerAlert, ui: &Ui, ps: &PhaseState) {
+    fn stock_progress_bar(settings: &ProgressBarSettings, alert: &TimerAlert, ui: &Ui, ps: &PhaseState) {
         let start = ps.start;
-        let height = 24.0;
+        let height = settings.height;
         if let Some(percent) = alert.percentage(start) {
             RenderState::icon(ui, Some(height), alert.icon.as_ref(), ps.timer.path.as_ref());
             let mut colour_tokens = Vec::new();

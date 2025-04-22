@@ -89,7 +89,7 @@ impl TimerTabState {
 
     fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, height: f32, idx: usize) {
         let (category_name, category) = self.categories.get_index(idx).expect("given an incorrect index for the category");
-        let tree_node_closure = || {
+        let category_closure = || {
             ui.dummy([0.0, 4.0]);
             for timer in category {
                 let mut selected = false;
@@ -108,7 +108,7 @@ impl TimerTabState {
             .flags(header_flags)
             .opened(self.category_status.contains(category_name), Condition::Always)
             .tree_push_on_open(false)
-            .build(ui,tree_node_closure);
+            .build(ui,category_closure);
         match tree_node {
             Some(_) => {
                 self.category_status.insert(category_name.to_string());

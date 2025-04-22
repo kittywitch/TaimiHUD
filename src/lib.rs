@@ -5,24 +5,14 @@ mod render;
 
 use {
     crate::{
-        render::{RenderState, RenderEvent},
-        settings::SettingsLock,
-        controller::{Controller, ControllerEvent},
+        controller::{Controller, ControllerEvent}, render::{RenderEvent, RenderState}, settings::SettingsLock
     },
     arcdps::AgentOwned,
     nexus::{
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
-        },
-        gui::{register_render, render, RenderType},
-        keybind::{keybind_handler, register_keybind_with_string},
-        paths::get_addon_dir,
-        quick_access::add_quick_access,
-        // TODO
-        //texture::{load_texture_from_file, texture_receive, Texture},
-        AddonFlags,
-        UpdateProvider,
+        }, gui::{register_render, render, RenderType}, keybind::{keybind_handler, register_keybind_with_string}, paths::get_addon_dir, quick_access::add_quick_access, AddonApi, AddonFlags, UpdateProvider
     },
     std::{
         ptr,

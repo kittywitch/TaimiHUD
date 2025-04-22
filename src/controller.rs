@@ -3,6 +3,7 @@ use {
         settings::{RemoteSource, Settings, SettingsLock},
         timer::{CombatState, Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, SETTINGS,
+        render::TextFont,
     }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::{data_link::{mumble::UiState, read_mumble_link, MumbleLink}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive}, relative_path::RelativePathBuf, std::{
         collections::HashMap,
         fs::read_to_string,
@@ -358,9 +359,14 @@ impl Controller {
         self.setup_timers().await;
     }
 
-    async fn progress_bar_switch(&mut self, stock: bool) {
+    async fn progress_bar_style(&mut self, style: ProgressBarStyleChange) {
         let mut settings_lock = self.settings.write().await;
-        settings_lock.set_progress_bar(stock).await;
+        let settings = settings_lock.set_progress_bar(style).await;
+        let _ = self
+            .rt_sender
+            .send(RenderEvent::ProgressBarUpdate(settings))
+            .await;
+
         drop(settings_lock);
     }
 
@@ -406,7 +412,7 @@ impl Controller {
             CheckDataSourceUpdates => self.check_updates().await,
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
-            ProgressBarStyle(stock) => self.progress_bar_switch(stock).await,
+            ProgressBarStyle(style) => self.progress_bar_style(style).await,
             WindowState(window, state) => self.set_window_state(window, state).await,
             LoadTexture(rel, base) => self.load_texture(rel, base).await,
             Quit => return Ok(false),
@@ -415,6 +421,14 @@ impl Controller {
         }
         Ok(true)
     }
+}
+
+#[derive(Debug, Clone, Display)]
+pub enum ProgressBarStyleChange {
+    Stock(bool),
+    Shadow(bool),
+    Height(f32),
+    Font(TextFont),
 }
 
 #[derive(Debug, Clone, Display)]
@@ -427,7 +441,7 @@ pub enum ControllerEvent {
     DoDataSourceUpdate {
         source: Arc<RemoteSource>,
     },
-    ProgressBarStyle(bool),
+    ProgressBarStyle(ProgressBarStyleChange),
     WindowState(String, bool),
     #[strum(to_string = "Id {0}, pressed {1}")]
     TimerKeyTrigger(String, bool),

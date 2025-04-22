@@ -1,5 +1,5 @@
 use {
-    crate::SETTINGS,
+    crate::{SETTINGS, controller::ProgressBarStyleChange, render::TextFont},
     anyhow::anyhow,
     async_compression::tokio::bufread::GzipDecoder,
     chrono::{DateTime, Utc},
@@ -197,6 +197,62 @@ impl RemoteState {
     }
 }
 
+fn default_text_font() -> TextFont {
+    TextFont::Ui
+}
+
+fn default_height() -> f32 {
+    24.0
+}
+
+fn bool_true() -> bool {
+    true
+}
+#[derive(Deserialize, Serialize, Debug, Clone)]
+pub struct ProgressBarSettings {
+    #[serde(default)]
+    pub stock: bool,
+
+    #[serde(default="default_text_font")]
+    pub font: TextFont,
+    #[serde(default="default_height")]
+    pub height: f32,
+    #[serde(default="bool_true")]
+    pub shadow: bool,
+}
+
+impl Default for ProgressBarSettings {
+    fn default() -> Self {
+        Self {
+            font: default_text_font(),
+            height: default_height(),
+            stock: false,
+            shadow: true,
+        }
+    }
+}
+
+impl ProgressBarSettings {
+    fn set_height(&mut self, height: f32) {
+        self.height = height;
+    }
+    fn set_font(&mut self, font: TextFont) {
+        self.font = font;
+    }
+    fn set_shadow(&mut self, shadow: bool) {
+        self.shadow = shadow;
+    }
+    fn toggle_shadow(&mut self) {
+        self.shadow = !self.shadow;
+    }
+    fn set_stock(&mut self, stock: bool) {
+        self.stock = stock;
+    }
+    fn toggle_stock(&mut self) {
+        self.stock = !self.stock;
+    }
+}
+
 #[derive(Deserialize, Serialize, Default, Debug, Clone)]
 pub struct Settings {
     #[serde(default)]
@@ -208,11 +264,11 @@ pub struct Settings {
     #[serde(default)]
     pub remotes: Vec<RemoteState>,
     #[serde(default)]
-    pub stock_progress_bar: bool,
-    #[serde(default)]
     pub primary_window_open: bool,
     #[serde(default)]
     pub timers_window_open: bool,
+    #[serde(default)]
+    pub progress_bar: ProgressBarSettings,
 }
 
 impl Settings {
@@ -294,9 +350,16 @@ impl Settings {
         Ok(())
     }
 
-    pub async fn set_progress_bar(&mut self, stock: bool) {
-        self.stock_progress_bar = stock;
+    pub async fn set_progress_bar(&mut self, style: ProgressBarStyleChange) -> ProgressBarSettings {
+        use ProgressBarStyleChange::*;
+        match style {
+            Stock(t) => self.progress_bar.set_stock(t),
+            Shadow(t) => self.progress_bar.set_shadow(t),
+            Height(h) => self.progress_bar.set_height(h),
+            Font(f) => self.progress_bar.set_font(f),
+        }
         let _ = self.save(&self.addon_dir).await;
+        self.progress_bar.clone()
     }
 
     pub async fn check_for_updates() -> anyhow::Result<()> {
@@ -312,7 +375,6 @@ impl Settings {
                 .collect()
                 .await
         };
-        log::debug!("meep {:?}", sources);
         {
             let mut settings_write_lock = settings_arc
                 .write()
@@ -338,7 +400,7 @@ impl Settings {
             addon_dir: addon_dir.to_path_buf(),
             timers: Default::default(),
             remotes: RemoteState::suggested_sources().collect(),
-            stock_progress_bar: false,
+            progress_bar: Default::default(),
             timers_window_open: false,
             primary_window_open: false,
         }

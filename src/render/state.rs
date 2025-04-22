@@ -7,13 +7,18 @@ use {
         controller::ControllerEvent,
         timer::{PhaseState, TextAlert, TimerFile},
         RENDER_STATE, TS_SENDER,
+        settings::ProgressBarSettings,
     }, glam::Vec2, nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, Font, FontId, Io, StyleColor, Ui, Window, WindowFlags, Image
+            internal::RawCast, Condition, Font, FontId, Io, StyleColor, Ui, Window, WindowFlags, Image,
+            Context
         },
         texture::get_texture,
-    }, std::{
+    },
+    strum_macros::{EnumIter, Display},
+    serde::{Serialize,Deserialize},
+    std::{
         path::PathBuf,
         sync::{Arc, MutexGuard}
     }, tokio::sync::mpsc::Receiver,
@@ -27,6 +32,17 @@ pub enum RenderEvent {
     AlertStart(TextAlert),
     AlertEnd(Arc<TimerFile>),
     CheckingForUpdates(bool),
+    ProgressBarUpdate(ProgressBarSettings),
+}
+
+#[derive(Display,Default,Clone,Debug,Deserialize,Serialize,EnumIter,PartialEq)]
+#[serde(rename_all="snake_case")]
+pub enum TextFont {
+    #[default]
+    Fontless,
+    Font,
+    Ui,
+    Big,
 }
 
 pub struct RenderState {
@@ -52,29 +68,32 @@ impl RenderState {
             Ok(event) => {
                 use RenderEvent::*;
                 match event {
+                    ProgressBarUpdate(settings) => {
+                        self.timer_window.progress_bar = settings;
+                    },
                     CheckingForUpdates(checking_for_updates) => {
                         self.primary_window.data_sources_tab.checking_for_updates =
                             checking_for_updates;
-                    }
+                    },
                     TimerData(timers) => {
                         self.primary_window.timer_tab.timers_update(timers);
-                    }
+                    },
                     AlertStart(alert) => {
                         self.alert = Some(alert);
-                    }
+                    },
                     AlertEnd(timer_file) => {
                         if let Some(alert) = &self.alert {
                             if Arc::ptr_eq(&alert.timer, &timer_file) {
                                 self.alert = None;
                             }
                         }
-                    }
+                    },
                     AlertFeed(phase_state) => {
                         self.timer_window.new_phase(phase_state);
-                    }
+                    },
                     AlertReset(timer) => {
                         self.timer_window.remove_phase(timer);
-                    }
+                    },
                 }
             }
             Err(_error) => (),
