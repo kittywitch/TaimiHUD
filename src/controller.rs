@@ -425,6 +425,7 @@ impl Controller {
 
 #[derive(Debug, Clone, Display)]
 pub enum ProgressBarStyleChange {
+    Centre(bool),
     Stock(bool),
     Shadow(bool),
     Height(f32),

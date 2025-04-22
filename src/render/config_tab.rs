@@ -42,6 +42,11 @@ impl ConfigTabState {
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(ProgressBarStyleChange::Shadow(timer_window_state.progress_bar.shadow)));
                 drop(event_send);
             }
+            if ui.checkbox("Centre text after icon", &mut timer_window_state.progress_bar.centre_after) {
+                let sender = TS_SENDER.get().unwrap();
+                let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(ProgressBarStyleChange::Centre(timer_window_state.progress_bar.shadow)));
+                drop(event_send);
+            }
             if Slider
                 ::new("Height", 8.0, 256.0)
                 .display_format("%.0f")

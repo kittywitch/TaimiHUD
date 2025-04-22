@@ -55,8 +55,14 @@ impl TimerWindowState {
         let start = ps.start;
         let height = settings.height;
         if let Some(percent) = alert.percentage(start) {
-            let widget_pos = Vec2::from(ui.cursor_pos());
+            let mut widget_pos: Vec2 = Vec2::new(0.0, 0.0);
+            if !settings.centre_after {
+                widget_pos = Vec2::from(ui.cursor_pos());
+            }
             RenderState::icon(ui, Some(height), alert.icon.as_ref(), ps.timer.path.as_ref());
+            if settings.centre_after {
+                widget_pos = Vec2::from(ui.cursor_pos());
+            }
             let mut colour_tokens = Vec::new();
             if let Some(fill_colour) = alert.fill_colour {
                 colour_tokens

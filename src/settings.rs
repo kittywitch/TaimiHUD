@@ -219,6 +219,8 @@ pub struct ProgressBarSettings {
     pub height: f32,
     #[serde(default="bool_true")]
     pub shadow: bool,
+    #[serde(default)]
+    pub centre_after: bool,
 }
 
 impl Default for ProgressBarSettings {
@@ -228,6 +230,7 @@ impl Default for ProgressBarSettings {
             height: default_height(),
             stock: false,
             shadow: true,
+            centre_after: false,
         }
     }
 }
@@ -250,6 +253,12 @@ impl ProgressBarSettings {
     }
     fn toggle_stock(&mut self) {
         self.stock = !self.stock;
+    }
+    fn set_centre_after(&mut self, centre_after: bool) {
+        self.centre_after = centre_after;
+    }
+    fn toggle_centre_after(&mut self) {
+        self.centre_after = !self.centre_after;
     }
 }
 
@@ -353,6 +362,7 @@ impl Settings {
     pub async fn set_progress_bar(&mut self, style: ProgressBarStyleChange) -> ProgressBarSettings {
         use ProgressBarStyleChange::*;
         match style {
+            Centre(t) => self.progress_bar.set_centre_after(t),
             Stock(t) => self.progress_bar.set_stock(t),
             Shadow(t) => self.progress_bar.set_shadow(t),
             Height(h) => self.progress_bar.set_height(h),
