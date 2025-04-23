@@ -1,43 +1,22 @@
 pub mod action;
 pub mod alert;
+pub mod blishcolour;
 pub mod file;
 pub mod geometry;
 pub mod marker;
 pub mod phase;
-pub mod trigger;
-pub mod blishcolour;
 pub mod state_machine;
+pub mod trigger;
 
 #[allow(unused_imports)]
 pub use {
-    action::{
-        TimerAction,
-        TimerActionType,
-    },
-    alert::{
-        TimerAlert,
-        TimerAlertType,
-        BlishAlert,
-    },
+    action::{TimerAction, TimerActionType},
+    alert::{BlishAlert, TimerAlert, TimerAlertType},
+    blishcolour::BlishColour,
     file::TimerFile,
-    geometry::{
-        BlishPosition,
-        Position,
-        Polytope,
-        BlishVec3,
-    },
+    geometry::{BlishPosition, BlishVec3, Polytope, Position},
     marker::TimerMarker,
     phase::TimerPhase,
-    state_machine::{
-        TimerMachine,
-        PhaseState,
-        TextAlert,
-        TimerKeybinds,
-    },
-    trigger::{
-        TimerTrigger,
-        TimerTriggerType,
-        CombatState
-    },
-    blishcolour::BlishColour,
+    state_machine::{PhaseState, TextAlert, TimerKeybinds, TimerMachine},
+    trigger::{CombatState, TimerTrigger, TimerTriggerType},
 };

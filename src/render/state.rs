@@ -1,28 +1,28 @@
 use {
     crate::{
-        render::{
-            PrimaryWindowState,
-            TimerWindowState,
-        },
         controller::ControllerEvent,
+        render::{PrimaryWindowState, TimerWindowState},
+        settings::ProgressBarSettings,
         timer::{PhaseState, TextAlert, TimerFile},
         RENDER_STATE, TS_SENDER,
-        settings::ProgressBarSettings,
-    }, glam::Vec2, nexus::{
+    },
+    glam::Vec2,
+    nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, Font, FontId, Io, StyleColor, Ui, Window, WindowFlags, Image,
-            Context
+            internal::RawCast, Condition, Font, FontId, Image, Io, StyleColor, Ui, Window,
+            WindowFlags,
         },
         texture::get_texture,
     },
-    strum_macros::{EnumIter, Display},
-    serde::{Serialize,Deserialize},
+    relative_path::RelativePathBuf,
+    serde::{Deserialize, Serialize},
     std::{
         path::PathBuf,
-        sync::{Arc, MutexGuard}
-    }, tokio::sync::mpsc::Receiver,
-    relative_path::RelativePathBuf,
+        sync::{Arc, MutexGuard},
+    },
+    strum_macros::{Display, EnumIter},
+    tokio::sync::mpsc::Receiver,
 };
 
 pub enum RenderEvent {
@@ -35,8 +35,8 @@ pub enum RenderEvent {
     ProgressBarUpdate(ProgressBarSettings),
 }
 
-#[derive(Display,Default,Clone,Debug,Deserialize,Serialize,EnumIter,PartialEq)]
-#[serde(rename_all="snake_case")]
+#[derive(Display, Default, Clone, Debug, Deserialize, Serialize, EnumIter, PartialEq)]
+#[serde(rename_all = "snake_case")]
 pub enum TextFont {
     #[default]
     Fontless,
@@ -70,30 +70,30 @@ impl RenderState {
                 match event {
                     ProgressBarUpdate(settings) => {
                         self.timer_window.progress_bar = settings;
-                    },
+                    }
                     CheckingForUpdates(checking_for_updates) => {
                         self.primary_window.data_sources_tab.checking_for_updates =
                             checking_for_updates;
-                    },
+                    }
                     TimerData(timers) => {
                         self.primary_window.timer_tab.timers_update(timers);
-                    },
+                    }
                     AlertStart(alert) => {
                         self.alert = Some(alert);
-                    },
+                    }
                     AlertEnd(timer_file) => {
                         if let Some(alert) = &self.alert {
                             if Arc::ptr_eq(&alert.timer, &timer_file) {
                                 self.alert = None;
                             }
                         }
-                    },
+                    }
                     AlertFeed(phase_state) => {
                         self.timer_window.new_phase(phase_state);
-                    },
+                    }
                     AlertReset(timer) => {
                         self.timer_window.remove_phase(timer);
-                    },
+                    }
                 }
             }
             Err(_error) => (),
@@ -102,23 +102,31 @@ impl RenderState {
         self.timer_window.draw(ui);
         self.primary_window.draw(ui, &mut self.timer_window);
     }
-    pub fn icon(ui: &Ui, height: Option<f32>, alert_icon: Option<&RelativePathBuf>, path: Option<&PathBuf>) {
-            if let Some(icon) = alert_icon {
-                    if let Some(path) = path {
-                        if let Some(icon) = get_texture(icon.as_str()) {
-                        let size = match height {
-                            Some(height) => [height,height],
-                            None => icon.size(),
-                        };
-                        Image::new(icon.id(),size).build(ui);
-                        ui.same_line();
-                    } else {
-                        let sender = TS_SENDER.get().unwrap();
-                        let event_send = sender.try_send(ControllerEvent::LoadTexture(icon.clone(), path.to_path_buf()));
-                        drop(event_send);
-                    }
+    pub fn icon(
+        ui: &Ui,
+        height: Option<f32>,
+        alert_icon: Option<&RelativePathBuf>,
+        path: Option<&PathBuf>,
+    ) {
+        if let Some(icon) = alert_icon {
+            if let Some(path) = path {
+                if let Some(icon) = get_texture(icon.as_str()) {
+                    let size = match height {
+                        Some(height) => [height, height],
+                        None => icon.size(),
+                    };
+                    Image::new(icon.id(), size).build(ui);
+                    ui.same_line();
+                } else {
+                    let sender = TS_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::LoadTexture(
+                        icon.clone(),
+                        path.to_path_buf(),
+                    ));
+                    drop(event_send);
                 }
-            };
+            }
+        };
     }
     pub fn font_text(font: &str, ui: &Ui, text: &str) {
         let mut font_handles = Vec::new();
@@ -139,7 +147,14 @@ impl RenderState {
             font_handle.pop();
         }
     }
-    pub fn offset_font_text(font: &str, ui: &Ui, position: Vec2, bounding_size: Vec2, shadow: bool, text: &str) {
+    pub fn offset_font_text(
+        font: &str,
+        ui: &Ui,
+        position: Vec2,
+        bounding_size: Vec2,
+        shadow: bool,
+        text: &str,
+    ) {
         let mut font_handles = Vec::new();
         let nexus_link = read_nexus_link().unwrap();
         let imfont_pointer = match font {
@@ -154,12 +169,14 @@ impl RenderState {
             font_handles.push(font_handle);
         }
         let text_size = Vec2::from(ui.calc_text_size(text));
-        let cursor_pos = Alignment::get_position(Alignment::CENTRE_MIDDLE, position, bounding_size, text_size);
+        let cursor_pos =
+            Alignment::get_position(Alignment::CENTRE_MIDDLE, position, bounding_size, text_size);
         if shadow {
-            let cursor_pos_shadow = cursor_pos + Vec2 {
-                x: 2.0,
-                y: text_size.y / 8.0,
-            };
+            let cursor_pos_shadow = cursor_pos
+                + Vec2 {
+                    x: 2.0,
+                    y: text_size.y / 8.0,
+                };
             ui.set_cursor_pos(cursor_pos_shadow.into());
             let token = ui.push_style_color(StyleColor::Text, [0.0, 0.0, 0.0, 1.0]);
             ui.text(text);
@@ -225,9 +242,7 @@ impl RenderState {
     }
 }
 
-pub struct Alignment {
-}
-
+pub struct Alignment {}
 
 #[allow(dead_code)]
 impl Alignment {
@@ -241,17 +256,34 @@ impl Alignment {
     pub const RIGHT_MIDDLE: Vec2 = Vec2::new(1.0, 0.5);
     pub const RIGHT_BOTTOM: Vec2 = Vec2::new(1.0, 1.0);
 
-    pub fn get_position(scaler: Vec2, position: Vec2, bounding_size: Vec2, element_size: Vec2) -> Vec2 {
+    pub fn get_position(
+        scaler: Vec2,
+        position: Vec2,
+        bounding_size: Vec2,
+        element_size: Vec2,
+    ) -> Vec2 {
         let scaled_size = (bounding_size - element_size) * scaler;
         position + scaled_size
-
     }
 
-    pub fn set_cursor(ui: &Ui, scaler: Vec2, position: Vec2, bounding_size: Vec2, element_size: Vec2) {
+    pub fn set_cursor(
+        ui: &Ui,
+        scaler: Vec2,
+        position: Vec2,
+        bounding_size: Vec2,
+        element_size: Vec2,
+    ) {
         ui.set_cursor_pos(Self::get_position(scaler, position, bounding_size, element_size).into());
     }
 
-    pub fn set_cursor_with_offset(ui: &Ui, scaler: Vec2, position: Vec2, bounding_size: Vec2, element_size: Vec2, offset: Vec2) {
+    pub fn set_cursor_with_offset(
+        ui: &Ui,
+        scaler: Vec2,
+        position: Vec2,
+        bounding_size: Vec2,
+        element_size: Vec2,
+        offset: Vec2,
+    ) {
         let position = position + offset;
         Self::set_cursor(ui, scaler, position, bounding_size, element_size);
     }

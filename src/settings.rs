@@ -1,5 +1,5 @@
 use {
-    crate::{SETTINGS, controller::ProgressBarStyleChange, render::TextFont},
+    crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS},
     anyhow::anyhow,
     async_compression::tokio::bufread::GzipDecoder,
     chrono::{DateTime, Utc},
@@ -9,8 +9,7 @@ use {
     serde::{Deserialize, Serialize},
     std::{
         collections::HashMap,
-        fmt,
-        io,
+        fmt, io,
         path::{Path, PathBuf},
         sync::Arc,
     },
@@ -213,11 +212,11 @@ pub struct ProgressBarSettings {
     #[serde(default)]
     pub stock: bool,
 
-    #[serde(default="default_text_font")]
+    #[serde(default = "default_text_font")]
     pub font: TextFont,
-    #[serde(default="default_height")]
+    #[serde(default = "default_height")]
     pub height: f32,
-    #[serde(default="bool_true")]
+    #[serde(default = "bool_true")]
     pub shadow: bool,
     #[serde(default)]
     pub centre_after: bool,
@@ -377,18 +376,14 @@ impl Settings {
             .get()
             .expect("SettingsLock should've been initialized by now!");
         let sources: Vec<(Arc<RemoteSource>, NeedsUpdate)> = {
-            let settings_read_lock = settings_arc
-                .read()
-                .await;
+            let settings_read_lock = settings_arc.read().await;
             tokio_stream::iter(settings_read_lock.remotes.iter())
                 .then(|r| async move { (r.source.clone(), r.needs_update().await) })
                 .collect()
                 .await
         };
         {
-            let mut settings_write_lock = settings_arc
-                .write()
-                .await;
+            let mut settings_write_lock = settings_arc.write().await;
             for (source, nu) in sources {
                 log::debug!("{} update state: {:?}", source, nu);
                 if let Some(dd) = settings_write_lock.get_status_for_mut(&source).await {

@@ -1,14 +1,14 @@
 use {
-    crate::timer::{
-        TimerPhase,
-        TimerTrigger
-    }, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, std::path::PathBuf
+    crate::timer::{TimerPhase, TimerTrigger},
+    relative_path::RelativePathBuf,
+    serde::{Deserialize, Serialize},
+    std::path::PathBuf,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct TimerFile {
-    #[serde(default,skip)]
+    #[serde(default, skip)]
     pub path: Option<PathBuf>,
     pub id: String,
     pub name: String,
@@ -36,9 +36,8 @@ impl TimerFile {
     pub fn combined(&self) -> String {
         match self.subtitle() {
             Some(sbubby) => format!("{}\n{}", self.title(), sbubby),
-            None => self.name.clone()
+            None => self.name.clone(),
         }
-
     }
     pub fn hypheny_name(&self) -> String {
         self.name.replace("\n", " - ")
@@ -47,4 +46,3 @@ impl TimerFile {
         self.author.replace("\n", "")
     }
 }
-

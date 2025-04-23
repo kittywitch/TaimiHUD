@@ -1,13 +1,7 @@
 use {
     crate::{
-        timer::{
-            Position,
-            TimerAlert,
-            TimerFile,
-            TimerPhase,
-            CombatState,
-        },
         render::RenderEvent,
+        timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase},
     },
     bitflags::bitflags,
     std::{fmt::Display, ops::Deref, sync::Arc},
@@ -17,7 +11,6 @@ use {
         time::{sleep, Duration, Instant},
     },
 };
-
 
 bitflags! {
     #[derive(Debug, Clone, Default)]
@@ -182,9 +175,7 @@ impl TimerMachine {
             }))
             .await;
         sleep(display_duration).await;
-        let _ = sender
-            .send(RenderEvent::AlertEnd(timer.clone()))
-            .await;
+        let _ = sender.send(RenderEvent::AlertEnd(timer.clone())).await;
         log::info!(
             "Stopping displaying {}: we slept for {:?} a message with {:?} duration",
             message,
@@ -342,10 +333,13 @@ impl TimerMachine {
     pub fn key_event(&mut self, idx: u32, is_release: bool) {
         let flag = 1u8 << idx;
         match is_release {
-            false => self.key_pressed.insert(TimerKeybinds::from_bits_retain(flag)),
-            true => self.key_pressed.remove(TimerKeybinds::from_bits_retain(flag)),
+            false => self
+                .key_pressed
+                .insert(TimerKeybinds::from_bits_retain(flag)),
+            true => self
+                .key_pressed
+                .remove(TimerKeybinds::from_bits_retain(flag)),
         }
-
     }
 
     pub fn set_combat_state(&mut self, combat_state: CombatState) {

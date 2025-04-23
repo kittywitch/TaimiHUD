@@ -1,5 +1,7 @@
 use {
-    super::TimerKeybinds, crate::timer::{BlishPosition, Polytope, Position}, serde::{Deserialize, Serialize}
+    super::TimerKeybinds,
+    crate::timer::{BlishPosition, Polytope, Position},
+    serde::{Deserialize, Serialize},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -76,7 +78,7 @@ impl TimerTrigger {
                 } else {
                     unreachable!("keybind not specified for a key type phase trigger");
                 }
-            },
+            }
         };
         let position_check = shape.point_is_within(pos);
         let combat_entered_check = !self.require_combat || cb == CombatState::Entered;

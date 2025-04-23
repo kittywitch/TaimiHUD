@@ -1,22 +1,12 @@
 use {
     crate::{
-        SETTINGS,
-        TS_SENDER,
-        ControllerEvent,
         render::{
-            ConfigTabState,
-            TimerWindowState,
-            TimerTabState,
-            DataSourceTabState,
-            InfoTabState,
+            ConfigTabState, DataSourceTabState, InfoTabState, TimerTabState, TimerWindowState,
         },
+        ControllerEvent, SETTINGS, TS_SENDER,
     },
-    nexus::imgui::{
-        Ui,
-        Window,
-    },
+    nexus::imgui::{Ui, Window},
 };
-
 
 pub struct PrimaryWindowState {
     pub config_tab: ConfigTabState,
@@ -27,7 +17,7 @@ pub struct PrimaryWindowState {
 }
 
 impl PrimaryWindowState {
- pub fn new() -> Self {
+    pub fn new() -> Self {
         Self {
             config_tab: ConfigTabState::new(),
             timer_tab: TimerTabState::new(),
@@ -65,7 +55,8 @@ impl PrimaryWindowState {
         }
         if open != self.open {
             let sender = TS_SENDER.get().unwrap();
-            let event_send = sender.try_send(ControllerEvent::WindowState("primary".to_string(), open));
+            let event_send =
+                sender.try_send(ControllerEvent::WindowState("primary".to_string(), open));
             drop(event_send);
             self.open = open;
         }
@@ -74,9 +65,11 @@ impl PrimaryWindowState {
     pub fn keybind_handler(&mut self, _id: &str, is_release: bool) {
         if !is_release {
             let sender = TS_SENDER.get().unwrap();
-            let event_send = sender.try_send(ControllerEvent::WindowState("primary".to_string(), !self.open));
+            let event_send = sender.try_send(ControllerEvent::WindowState(
+                "primary".to_string(),
+                !self.open,
+            ));
             drop(event_send);
         }
     }
 }
-

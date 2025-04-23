@@ -1,7 +1,7 @@
 use {
-    crate::timer::{
-        BlishAlert, TimerAction, TimerAlert, TimerTrigger
-    }, serde::{Deserialize, Serialize}, serde_json::Value
+    crate::timer::{BlishAlert, TimerAction, TimerAlert, TimerTrigger},
+    serde::{Deserialize, Serialize},
+    serde_json::Value,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

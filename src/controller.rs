@@ -1,19 +1,35 @@
 use {
     crate::{
-        render::{space::DrawData, SpaceEvent, TextFont}, settings::{RemoteSource, Settings, SettingsLock}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, SETTINGS, SPACE_SENDER
-    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::{data_link::{mumble::UiState, read_mumble_link, MumbleLink}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive}, relative_path::RelativePathBuf, std::{
+        render::{space::DrawData, SpaceEvent, TextFont},
+        settings::{RemoteSource, Settings, SettingsLock},
+        timer::{CombatState, Position, TimerFile, TimerMachine},
+        MumbleIdentityUpdate, RenderEvent, SETTINGS, SPACE_SENDER,
+    },
+    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
+    glam::f32::Vec3,
+    glob::{glob, Paths},
+    nexus::{
+        data_link::{mumble::UiState, read_mumble_link, MumbleLink},
+        texture::{load_texture_from_file, RawTextureReceiveCallback},
+        texture_receive,
+    },
+    relative_path::RelativePathBuf,
+    std::{
         collections::HashMap,
         fs::read_to_string,
         path::{Path, PathBuf},
-        sync::Arc, time::SystemTime,
-    }, strum_macros::Display, tokio::{
+        sync::Arc,
+        time::SystemTime,
+    },
+    strum_macros::Display,
+    tokio::{
         runtime, select,
         sync::{
             mpsc::{Receiver, Sender},
             Mutex,
         },
         time::{interval, Duration},
-    }
+    },
 };
 
 #[derive(Debug, Clone)]
@@ -185,10 +201,13 @@ impl Controller {
                 camera_up: Vec3::from_array(camera.top),
                 camera_position: Vec3::from_array(camera.position),
             };
-            if let Some(sender ) = SPACE_SENDER.get() {
+            if let Some(sender) = SPACE_SENDER.get() {
                 let _ = sender.try_send(SpaceEvent::Update(draw_data));
             }
-            let combat_state = mumble_link_data.context.ui_state.contains(UiState::IS_IN_COMBAT);
+            let combat_state = mumble_link_data
+                .context
+                .ui_state
+                .contains(UiState::IS_IN_COMBAT);
             if combat_state != self.previous_combat_state {
                 if combat_state {
                     log::info!("MumbleLink: Combat begins at {:?}!", SystemTime::now());
@@ -291,7 +310,10 @@ impl Controller {
                     if let Some(timers_for_map) = &self.map_id_to_timers.get(&map_id) {
                         let timers = timers_for_map.iter().filter(|t| t.id == id);
                         for timer in timers {
-                            log::debug!("Creating timer machine for {} as it has been enabled.", timer.id);
+                            log::debug!(
+                                "Creating timer machine for {} as it has been enabled.",
+                                timer.id
+                            );
                             self.current_timers.push(TimerMachine::new(
                                 timer.clone(),
                                 self.alert_sem.clone(),
@@ -300,12 +322,14 @@ impl Controller {
                         }
                     }
                 }
-            },
+            }
             true => {
-                let timers_to_remove =
-                    self.current_timers.iter_mut().filter(|t| t.timer.id == id);
+                let timers_to_remove = self.current_timers.iter_mut().filter(|t| t.timer.id == id);
                 for timer in timers_to_remove {
-                    log::debug!("Starting cleanup for timer {} as it has been disabled.", timer.timer.id);
+                    log::debug!(
+                        "Starting cleanup for timer {} as it has been disabled.",
+                        timer.timer.id
+                    );
                     timer.cleanup().await;
                 }
             }

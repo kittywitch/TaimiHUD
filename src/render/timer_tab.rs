@@ -1,11 +1,16 @@
 use {
-    super::Alignment, crate::{
-        controller::ControllerEvent, render::{
-            RenderState, TimerWindowState
-        }, settings::TimerSettings, timer::TimerFile, SETTINGS, TS_SENDER
-    }, glam::Vec2, indexmap::IndexMap, nexus::imgui::{
-            ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags, InputText,
-        }, std::{collections::HashSet, sync::Arc}
+    super::Alignment,
+    crate::{
+        controller::ControllerEvent,
+        render::{RenderState, TimerWindowState},
+        settings::TimerSettings,
+        timer::TimerFile,
+        SETTINGS, TS_SENDER,
+    },
+    glam::Vec2,
+    indexmap::IndexMap,
+    nexus::imgui::{ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags},
+    std::{collections::HashSet, sync::Arc},
 };
 
 pub struct TimerTabState {
@@ -47,7 +52,10 @@ impl TimerTabState {
         if ui.button(button_text) {
             timer_window_state.open = !timer_window_state.open;
             let sender = TS_SENDER.get().unwrap();
-            let event_send = sender.try_send(ControllerEvent::WindowState("timers".to_string(), timer_window_state.open));
+            let event_send = sender.try_send(ControllerEvent::WindowState(
+                "timers".to_string(),
+                timer_window_state.open,
+            ));
             drop(event_send);
         }
         ui.same_line();
@@ -89,7 +97,10 @@ impl TimerTabState {
     }
 
     fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, height: f32, idx: usize) {
-        let (category_name, category) = self.categories.get_index(idx).expect("given an incorrect index for the category");
+        let (category_name, category) = self
+            .categories
+            .get_index(idx)
+            .expect("given an incorrect index for the category");
         let category_closure = || {
             ui.dummy([0.0, 4.0]);
             for timer in category {
@@ -101,22 +112,23 @@ impl TimerTabState {
                 if element_selected && element_selected != selected {
                     self.timer_selection = Some(timer.clone());
                 }
-
             }
         };
-        let tree_node = TreeNode
-            ::new(category_name)
+        let tree_node = TreeNode::new(category_name)
             .flags(header_flags)
-            .opened(self.category_status.contains(category_name), Condition::Always)
+            .opened(
+                self.category_status.contains(category_name),
+                Condition::Always,
+            )
             .tree_push_on_open(false)
-            .build(ui,category_closure);
+            .build(ui, category_closure);
         match tree_node {
             Some(_) => {
                 self.category_status.insert(category_name.to_string());
-            },
+            }
             None => {
                 self.category_status.remove(category_name);
-            },
+            }
         }
     }
 
@@ -133,24 +145,26 @@ impl TimerTabState {
         {
             selected = true;
         }
-        if let Some(settings) =
-            SETTINGS.get().and_then(|settings| settings.try_read().ok())
-        {
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             let settings_for_timer = settings.timers.get(&timer.id);
             ui.same_line();
             let (color, text) = match settings_for_timer {
-                Some(TimerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0],"Disabled"),
-                _ => ([0.0, 1.0, 0.0 ,1.0],"Enabled"),
-
+                Some(TimerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], "Disabled"),
+                _ => ([0.0, 1.0, 0.0, 1.0], "Enabled"),
             };
             let text_size = Vec2::from(ui.calc_text_size(text));
-            Alignment::set_cursor(ui, Alignment::RIGHT_MIDDLE, widget_pos, widget_size, text_size);
+            Alignment::set_cursor(
+                ui,
+                Alignment::RIGHT_MIDDLE,
+                widget_pos,
+                widget_size,
+                text_size,
+            );
             ui.text_colored(color, text);
         }
         ui.dummy([0.0, 4.0]);
         group_token.end();
         selected
-
     }
 
     fn draw_main(&mut self, ui: &Ui) {
@@ -160,7 +174,12 @@ impl TimerTabState {
             .size([0.0, 0.0])
             .build(ui, || {
                 if let Some(selected_timer) = &self.timer_selection {
-                    RenderState::icon(ui, None, Some(&selected_timer.icon), selected_timer.path.as_ref());
+                    RenderState::icon(
+                        ui,
+                        None,
+                        Some(&selected_timer.icon),
+                        selected_timer.path.as_ref(),
+                    );
                     ui.same_line();
                     let split_name = selected_timer.name.split("\n");
                     let layout_group = ui.begin_group();
@@ -172,7 +191,11 @@ impl TimerTabState {
                         }
                     }
                     layout_group.end();
-                    RenderState::font_text("font", ui, &format!("Author: {}", selected_timer.author()));
+                    RenderState::font_text(
+                        "font",
+                        ui,
+                        &format!("Author: {}", selected_timer.author()),
+                    );
                     RenderState::font_text("font", ui, &selected_timer.description);
                     if let Some(settings) =
                         SETTINGS.get().and_then(|settings| settings.try_read().ok())
@@ -205,5 +228,3 @@ impl TimerTabState {
         self.categories.sort_keys();
     }
 }
-
-

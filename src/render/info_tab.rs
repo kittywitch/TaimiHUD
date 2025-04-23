@@ -1,14 +1,14 @@
 use {
-    crate::built_info,
-    super::TimerWindowState, crate::render::RenderState, nexus::imgui::{Ui, TableColumnSetup},
+    super::TimerWindowState,
+    crate::{built_info, render::RenderState},
+    nexus::imgui::{TableColumnSetup, Ui},
 };
 
 pub struct InfoTabState {}
 
 impl InfoTabState {
     pub fn new() -> Self {
-        Self {
-        }
+        Self {}
     }
 
     pub fn draw(&self, ui: &Ui, timer_window_state: &TimerWindowState) {
@@ -52,8 +52,5 @@ impl InfoTabState {
             ui.table_next_column();
         }
         drop(table_token);
-
     }
 }
-
-

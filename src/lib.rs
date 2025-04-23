@@ -1,29 +1,37 @@
-mod settings;
 mod controller;
-mod timer;
 mod render;
+mod settings;
+mod timer;
 
 use {
     crate::{
-        controller::{Controller, ControllerEvent}, render::{SpaceEvent, RenderEvent, DrawState, RenderState}, settings::SettingsLock
-    }, anyhow::anyhow, arcdps::AgentOwned, glam::{Mat4, Vec3}, nexus::{
+        controller::{Controller, ControllerEvent},
+        render::{DrawState, RenderEvent, RenderState, SpaceEvent},
+        settings::SettingsLock,
+    },
+    arcdps::AgentOwned,
+    nexus::{
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
-        }, gui::{register_render, render, RenderType}, keybind::{keybind_handler, register_keybind_with_string}, paths::get_addon_dir, quick_access::add_quick_access, AddonApi, AddonFlags, UpdateProvider
-    }, std::{
-        ffi::{c_char, CStr, CString}, mem::offset_of, path::PathBuf, ptr, slice::from_raw_parts, sync::{Mutex, OnceLock}, thread::{self, JoinHandle}
-    }, tokio::sync::mpsc::{channel, Sender}, windows::Win32::{Graphics::{Direct3D::{Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG}, ID3DBlob, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST}, Direct3D11::{ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11RenderTargetView, ID3D11Texture2D, ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_INSTANCE_DATA, D3D11_INPUT_PER_VERTEX_DATA, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_UNKNOWN, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT}, Dxgi::{Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_UNKNOWN}, IDXGISwapChain}, Hlsl::D3D_COMPILE_STANDARD_FILE_INCLUDE}, System::Diagnostics::Debug::OutputDebugStringA}
+        },
+        gui::{register_render, render, RenderType},
+        keybind::{keybind_handler, register_keybind_with_string},
+        paths::get_addon_dir,
+        quick_access::add_quick_access,
+        AddonFlags, UpdateProvider,
+    },
+    std::{
+        ptr,
+        sync::{Mutex, OnceLock},
+        thread::{self, JoinHandle},
+    },
+    tokio::sync::mpsc::{channel, Sender},
 };
-
-use windows_strings::*;
-use windows_core::Param;
-
 
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
-
 
 static SPACE_SENDER: OnceLock<Sender<SpaceEvent>> = OnceLock::new();
 static TS_SENDER: OnceLock<Sender<controller::ControllerEvent>> = OnceLock::new();
@@ -70,7 +78,7 @@ fn load() {
         drop(state);
         let drawstate = DRAWSTATE.get_or_init(|| {
             let (space_sender, space_receiver) = channel::<SpaceEvent>(1);
-            SPACE_SENDER.set(space_sender);
+            let _ = SPACE_SENDER.set(space_sender);
             let drawstate_inner = DrawState::setup(space_receiver);
             if let Err(error) = &drawstate_inner {
                 log::error!("DrawState setup failed: {}", error);
@@ -102,10 +110,7 @@ fn load() {
 
     let event_trigger_keybind_handler = keybind_handler!(|id, is_release| {
         let sender = TS_SENDER.get().unwrap();
-        let _ = sender.try_send(ControllerEvent::TimerKeyTrigger(
-            id.to_string(),
-            is_release,
-        ));
+        let _ = sender.try_send(ControllerEvent::TimerKeyTrigger(id.to_string(), is_release));
     });
     for i in 0..5 {
         register_keybind_with_string(
@@ -127,7 +132,6 @@ fn load() {
         Some(receive_texture),
     );
     */
-
 
     add_quick_access(
         "TAIMI Control",
@@ -178,4 +182,3 @@ fn unload() {
     let event_send = sender.try_send(ControllerEvent::Quit);
     drop(event_send);
 }
-

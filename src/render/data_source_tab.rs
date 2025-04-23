@@ -1,9 +1,5 @@
 use {
-    crate::{
-        settings::NeedsUpdate,
-        controller::ControllerEvent,
-        SETTINGS, TS_SENDER,
-    },
+    crate::{controller::ControllerEvent, settings::NeedsUpdate, SETTINGS, TS_SENDER},
     nexus::imgui::Ui,
 };
 
@@ -63,5 +59,3 @@ impl DataSourceTabState {
         }
     }
 }
-
-

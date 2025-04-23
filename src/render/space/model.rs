@@ -1,17 +1,13 @@
-
 use {
-    crate::{
-        controller::{Controller, ControllerEvent}, render::{RenderEvent, RenderState}, settings::SettingsLock
-    }, anyhow::anyhow, arcdps::AgentOwned, glam::{Mat4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles}, nexus::{
-        event::{
-            arc::{CombatData, COMBAT_LOCAL},
-            event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
-        }, gui::{register_render, render, RenderType}, imgui::Io, keybind::{keybind_handler, register_keybind_with_string}, paths::get_addon_dir, quick_access::add_quick_access, AddonApi, AddonFlags, UpdateProvider
-    }, std::{
-        ffi::{c_char, CStr, CString}, mem::offset_of, path::{Path, PathBuf}, ptr, slice::from_raw_parts, sync::{Mutex, OnceLock}, thread::{self, JoinHandle}
-    }, tokio::sync::mpsc::{channel, Receiver, Sender}, windows::Win32::{Graphics::{Direct3D::{Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG}, ID3DBlob, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST}, Direct3D11::{ID3D11Buffer, ID3D11DepthStencilState, ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11Texture2D, ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_GREATER, D3D11_COMPARISON_GREATER_EQUAL, D3D11_COMPARISON_LESS, D3D11_CULL_BACK, D3D11_CULL_NONE, D3D11_DEFAULT_STENCIL_READ_MASK, D3D11_DEFAULT_STENCIL_WRITE_MASK, D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC, D3D11_DEPTH_WRITE_MASK_ALL, D3D11_FILL_SOLID, D3D11_FILL_WIREFRAME, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_INSTANCE_DATA, D3D11_INPUT_PER_VERTEX_DATA, D3D11_RASTERIZER_DESC, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_UNKNOWN, D3D11_STENCIL_OP_DECR, D3D11_STENCIL_OP_INCR, D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT}, Dxgi::{Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_UNKNOWN}, IDXGISwapChain}, Hlsl::D3D_COMPILE_STANDARD_FILE_INCLUDE}, System::Diagnostics::Debug::OutputDebugStringA}, windows_strings::*
+    anyhow::anyhow,
+    glam::{Vec2, Vec3},
+    std::path::Path,
+    windows::Win32::Graphics::Direct3D11::{
+        ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_VERTEX_BUFFER,
+        D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
+    },
 };
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 #[repr(C)]
 pub struct Vertex {
     pub position: Vec3,
@@ -34,7 +30,6 @@ pub struct VertexBuffer {
 }
 
 impl VertexBuffer {
-
     pub fn set(bufs: &[Self], slot: u32, device_context: &ID3D11DeviceContext) {
         let buf_len = bufs.len() as u32;
         let strides: Vec<_> = bufs.iter().map(|b| b.stride).collect();
@@ -68,16 +63,18 @@ impl VertexBuffer {
 
 impl Model {
     pub fn load(obj_file: &Path) -> Vec<Self> {
-        let (models, _materials) = tobj
-            ::load_obj(obj_file, &tobj::LoadOptions {
+        let (models, _materials) = tobj::load_obj(
+            obj_file,
+            &tobj::LoadOptions {
                 merge_identical_points: false,
                 reorder_data: false,
                 single_index: true,
                 triangulate: true,
                 ignore_points: true,
                 ignore_lines: true,
-            })
-            .expect("Failed to load OBJ file");
+            },
+        )
+        .expect("Failed to load OBJ file");
 
         log::info!("File {:?} contains {} models", obj_file, models.len());
         let mut kat_models = Vec::new();
@@ -99,39 +96,51 @@ impl Model {
             );
             assert!(mesh.positions.len() % 3 == 0);
 
-            log::info!(
-                "model[{}].normals        = {}",
-                i,
-                mesh.normals.len() / 3
-            );
+            log::info!("model[{}].normals        = {}", i, mesh.normals.len() / 3);
 
             let mut vertices = Vec::new();
             for index in mesh.indices.iter() {
-                let start = *index as usize*3;
-                let end = *index as usize*3+3;
-                let start_2d = *index as usize*2;
-                let end_2d = *index as usize*2+2;
-                let vertex = &mesh.positions.get(start..end).map(Vec3::from_slice).unwrap_or_default();
-                let colour = &mesh.vertex_color.get(start..end).map(Vec3::from_slice).unwrap_or(Vec3::new(1.0, 1.0, 1.0));
-                let normal = &mesh.normals.get(start..end).map(Vec3::from_slice).unwrap_or_default();
-                let texture = &mesh.texcoords.get(start_2d..end_2d).map(Vec2::from_slice).unwrap_or_default();
+                let start = *index as usize * 3;
+                let end = *index as usize * 3 + 3;
+                let start_2d = *index as usize * 2;
+                let end_2d = *index as usize * 2 + 2;
+                let vertex = &mesh
+                    .positions
+                    .get(start..end)
+                    .map(Vec3::from_slice)
+                    .unwrap_or_default();
+                let colour = &mesh
+                    .vertex_color
+                    .get(start..end)
+                    .map(Vec3::from_slice)
+                    .unwrap_or(Vec3::new(1.0, 1.0, 1.0));
+                let normal = &mesh
+                    .normals
+                    .get(start..end)
+                    .map(Vec3::from_slice)
+                    .unwrap_or_default();
+                let texture = &mesh
+                    .texcoords
+                    .get(start_2d..end_2d)
+                    .map(Vec2::from_slice)
+                    .unwrap_or_default();
                 vertices.push(Vertex {
                     position: *vertex,
                     colour: *colour,
                     normal: *normal,
                     texture: *texture,
                 })
-
             }
 
-            kat_models.push(Self {
-                vertices,
-            });
+            kat_models.push(Self { vertices });
         }
         kat_models
     }
 
-    pub fn load_to_buffers(d3d11_device: ID3D11Device, obj_file: &Path) -> anyhow::Result<Vec<VertexBuffer>>  {
+    pub fn load_to_buffers(
+        d3d11_device: ID3D11Device,
+        obj_file: &Path,
+    ) -> anyhow::Result<Vec<VertexBuffer>> {
         let models = Self::load(obj_file);
 
         let mut vertex_buffers = Vec::new();
@@ -157,9 +166,15 @@ impl Model {
                 MiscFlags: 0,
                 StructureByteStride: 0,
             };
-            let buffer = unsafe { d3d11_device.CreateBuffer(&vertex_buffer_desc, Some(&subresource_data), Some(&mut vertex_buffer_ptr)) }
-                .map_err(anyhow::Error::from)
-                .and_then(|()| vertex_buffer_ptr.ok_or_else(|| anyhow!("no vertex buffer")))?;
+            let buffer = unsafe {
+                d3d11_device.CreateBuffer(
+                    &vertex_buffer_desc,
+                    Some(&subresource_data),
+                    Some(&mut vertex_buffer_ptr),
+                )
+            }
+            .map_err(anyhow::Error::from)
+            .and_then(|()| vertex_buffer_ptr.ok_or_else(|| anyhow!("no vertex buffer")))?;
 
             let vertex_buffer = VertexBuffer {
                 buffer,
@@ -170,9 +185,6 @@ impl Model {
             vertex_buffers.push(vertex_buffer);
         }
 
-
         Ok(vertex_buffers)
     }
 }
-
-
