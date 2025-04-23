@@ -22,6 +22,7 @@ use {
         AddonFlags, UpdateProvider,
     },
     std::{
+        cell::{RefCell, Cell},
         ptr,
         sync::{Mutex, OnceLock},
         thread::{self, JoinHandle},
@@ -50,7 +51,10 @@ nexus::export! {
 
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
 static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
-static DRAWSTATE: OnceLock<Mutex<Option<DrawState>>> = OnceLock::new();
+thread_local! {
+    static DRAWSTATE_INITIALIZED: Cell<bool> = Cell::new(false);
+    static DRAWSTATE: RefCell<Option<DrawState>> = panic!("!");
+}
 
 fn load() {
     // Say hi to the world :o
@@ -76,22 +80,21 @@ fn load() {
         let mut state = RenderState::lock();
         state.draw(ui);
         drop(state);
-        let drawstate = DRAWSTATE.get_or_init(|| {
+        if !DRAWSTATE_INITIALIZED.get() {
             let (space_sender, space_receiver) = channel::<SpaceEvent>(1);
             let _ = SPACE_SENDER.set(space_sender);
             let drawstate_inner = DrawState::setup(space_receiver);
             if let Err(error) = &drawstate_inner {
                 log::error!("DrawState setup failed: {}", error);
             };
-            Mutex::new(drawstate_inner.ok())
-        });
-        if let Ok(mut ds_lock) = drawstate.lock() {
-            if let Some(ds) = &mut *ds_lock {
+            DRAWSTATE.set(drawstate_inner.ok());
+            DRAWSTATE_INITIALIZED.set(true);
+        }
+        DRAWSTATE.with_borrow_mut(|ds_op| if let Some(ds) = ds_op {
                 let io = ui.io();
 
                 ds.draw(io);
-            };
-        };
+        });
     });
     register_render(RenderType::Render, taimi_window).revert_on_unload();
 

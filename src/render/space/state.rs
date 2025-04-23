@@ -1,5 +1,7 @@
 use {
-    super::model::{Model, Vertex, VertexBuffer}, crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
+    super::model::{Model, Vertex, VertexBuffer},
+    super::shader::{Shader, ShaderKind},
+    crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
         ffi::{c_char, CStr},
         mem::offset_of,
         slice::from_raw_parts,
@@ -38,9 +40,8 @@ pub struct DrawState {
     receiver: Receiver<SpaceEvent>,
     draw_data: Option<DrawData>,
     render_target_view: [Option<ID3D11RenderTargetView>; 1],
-    input_layout: ID3D11InputLayout,
-    vertex_shader: ID3D11VertexShader,
-    pixel_shader: ID3D11PixelShader,
+    pixel_shader: Option<Shader>,
+    vertex_shader: Option<Shader>,
     rasterizer_state: ID3D11RasterizerState,
     vertex_buffers: Vec<VertexBuffer>,
     depth_stencil_state: ID3D11DepthStencilState,
@@ -84,89 +85,13 @@ impl DrawState {
         let mut ps_blob_ptr: Option<ID3DBlob> = None;
         let mut error_blob: Option<ID3DBlob> = None;
         let path = addon_dir.join("shaders.hlsl");
-        let filename = HSTRING::from(path.as_os_str());
-        let vs_entrypoint = s!("VSMain");
-        let vs_target = s!("vs_5_0");
-        let ps_entrypoint = s!("PSMain");
-        let ps_target = s!("ps_5_0");
-        log::info!("Compiling vertex shader");
-        let vs_blob = unsafe {
-            D3DCompileFromFile(
-                &filename,
-                None,
-                None,
-                vs_entrypoint,
-                vs_target,
-                D3DCOMPILE_DEBUG,
-                0,
-                &mut vs_blob_ptr,
-                Some(&mut error_blob),
-            )
+        let mut pixel_shader: Option<Shader> = None;
+        let mut vertex_shader: Option<Shader> = None;
+
+        if path.exists() {
+            vertex_shader = Some(Shader::create(&d3d11_device, &path, ShaderKind::Vertex, s!("VSMain"))?);
+            pixel_shader = Some(Shader::create(&d3d11_device, &path, ShaderKind::Pixel, s!("PSMain"))?);
         }
-        .map_err(anyhow::Error::from)
-        .and_then(|()| vs_blob_ptr.ok_or_else(|| anyhow!("no vertex shader")))
-        .map_err(|e| match error_blob {
-            Some(ref error_blob) => {
-                let msg = unsafe { CStr::from_ptr(error_blob.GetBufferPointer() as *const c_char) };
-                let res = anyhow!("{}: {}", e, msg.to_string_lossy());
-                let _ = error_blob;
-                res
-            }
-            None => e,
-        })?;
-
-        log::info!("Compiling pixel shader");
-        let ps_blob = unsafe {
-            D3DCompileFromFile(
-                &filename,
-                None,
-                None,
-                ps_entrypoint,
-                ps_target,
-                D3DCOMPILE_DEBUG,
-                0,
-                &mut ps_blob_ptr,
-                Some(&mut error_blob),
-            )
-        }
-        .map_err(anyhow::Error::from)
-        .and_then(|()| ps_blob_ptr.ok_or_else(|| anyhow!("no pixel shader")))
-        .map_err(|e| match error_blob {
-            Some(ref error_blob) => {
-                let msg = unsafe { CStr::from_ptr(error_blob.GetBufferPointer() as *const c_char) };
-                let res = anyhow!("{}: {}", e, msg.to_string_lossy());
-                let _ = error_blob;
-                res
-            }
-            None => e,
-        })?;
-
-        log::info!("Setting up vertex shader");
-        let mut vs_ptr: Option<ID3D11VertexShader> = None;
-        let vs_blob_bytes = unsafe {
-            from_raw_parts(
-                vs_blob.GetBufferPointer() as *const u8,
-                vs_blob.GetBufferSize(),
-            )
-        };
-        let vertex_shader =
-            unsafe { d3d11_device.CreateVertexShader(vs_blob_bytes, None, Some(&mut vs_ptr)) }
-                .map_err(anyhow::Error::from)
-                .and_then(|()| vs_ptr.ok_or_else(|| anyhow!("no vertex shader")))?;
-
-        log::info!("Setting up pixel shader");
-        let mut ps_ptr: Option<ID3D11PixelShader> = None;
-        let ps_blob_bytes = unsafe {
-            from_raw_parts(
-                ps_blob.GetBufferPointer() as *const u8,
-                ps_blob.GetBufferSize(),
-            )
-        };
-        let pixel_shader =
-            unsafe { d3d11_device.CreatePixelShader(ps_blob_bytes, None, Some(&mut ps_ptr)) }
-                .map_err(anyhow::Error::from)
-                .and_then(|()| ps_ptr.ok_or_else(|| anyhow!("no pixel shader")))?;
-
         let input_layout_description: &[D3D11_INPUT_ELEMENT_DESC] = &[
             D3D11_INPUT_ELEMENT_DESC {
                 SemanticName: s!("POSITION"),
@@ -204,15 +129,6 @@ impl DrawState {
                 InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
                 InstanceDataStepRate: 0,
             },
-            /*D3D11_INPUT_ELEMENT_DESC {
-                SemanticName: s!("ROT"),
-                SemanticIndex: 0,
-                Format: DXGI_FORMAT_R32G32B32_FLOAT,
-                InputSlot: 0,
-                AlignedByteOffset: D3D11_APPEND_ALIGNED_ELEMENT,
-                InputSlotClass: D3D11_INPUT_PER_INSTANCE_DATA,
-                InstanceDataStepRate: 0,
-            },*/
         ];
 
         let obj_file = addon_dir.join("horse.obj");
@@ -220,17 +136,6 @@ impl DrawState {
         if obj_file.exists() {
             vertex_buffers.extend(Model::load_to_buffers(d3d11_device.clone(), &obj_file)?);
         }
-        log::info!("Setting up input layout");
-        let mut input_layout_ptr: Option<ID3D11InputLayout> = None;
-        let input_layout = unsafe {
-            d3d11_device.CreateInputLayout(
-                input_layout_description,
-                vs_blob_bytes,
-                Some(&mut input_layout_ptr),
-            )
-        }
-        .map_err(anyhow::Error::from)
-        .and_then(|()| input_layout_ptr.ok_or_else(|| anyhow!("no input layout")))?;
 
         let constant_buffer_desc = D3D11_BUFFER_DESC {
             ByteWidth: size_of::<ConstantBufferData>() as u32,
@@ -343,7 +248,6 @@ impl DrawState {
             swap_chain: d3d11_swap_chain.clone(),
             vertex_buffers,
             render_target_view: [Some(render_target_view)],
-            input_layout,
             pixel_shader,
             rasterizer_state,
             vertex_shader,
@@ -415,10 +319,11 @@ impl DrawState {
                     //device_context.OMSetRenderTargets(Some(&self.render_target_view), None);
                     device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
                     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-                    device_context.IASetInputLayout(&self.input_layout);
-                    device_context.VSSetShader(&self.vertex_shader, None);
-                    device_context.PSSetShader(&self.pixel_shader, None);
-                    VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
+                    if let (Some(vs), Some(ps)) = (&self.vertex_shader, &self.pixel_shader) {
+                        vs.set(&device_context);
+                        ps.set(&device_context);
+                        VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
+                    }
                 }
             }
         }
