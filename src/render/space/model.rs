@@ -32,21 +32,23 @@ pub struct VertexBuffer {
 impl VertexBuffer {
     pub fn set(bufs: &[Self], slot: u32, device_context: &ID3D11DeviceContext) {
         let buf_len = bufs.len() as u32;
-        let strides: Vec<_> = bufs.iter().map(|b| b.stride).collect();
-        let strides = strides.as_slice();
-        let offsets: Vec<_> = bufs.iter().map(|b| b.offset).collect();
-        let offsets = offsets.as_slice();
-        let buffers: Vec<_> = bufs.iter().map(|b| Some(b.buffer.to_owned())).collect();
-        let buffers = buffers.as_slice();
+        if buf_len != 0 {
+            let strides: Vec<_> = bufs.iter().map(|b| b.stride).collect();
+            let strides = strides.as_slice();
+            let offsets: Vec<_> = bufs.iter().map(|b| b.offset).collect();
+            let offsets = offsets.as_slice();
+            let buffers: Vec<_> = bufs.iter().map(|b| Some(b.buffer.to_owned())).collect();
+            let buffers = buffers.as_slice();
 
-        unsafe {
-            device_context.IASetVertexBuffers(
-                slot,
-                buf_len,
-                Some(buffers.as_ptr()),
-                Some(strides.as_ptr()),
-                Some(offsets.as_ptr()),
-            );
+            unsafe {
+                device_context.IASetVertexBuffers(
+                    slot,
+                    buf_len,
+                    Some(buffers.as_ptr()),
+                    Some(strides.as_ptr()),
+                    Some(offsets.as_ptr()),
+                );
+            }
         }
     }
 

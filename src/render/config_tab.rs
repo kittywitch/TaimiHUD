@@ -7,15 +7,30 @@ use {
     strum::IntoEnumIterator,
 };
 
-pub struct ConfigTabState {}
+pub struct ConfigTabState {
+    pub katrender: bool,
+}
 
 impl ConfigTabState {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            katrender: false,
+        }
     }
 
     pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            self.katrender = settings.enable_katrender;
+        };
         ui.text("You can control-click on a slider element, or such, to be able to directly input data to it.");
+        if ui.checkbox(
+            "Experimental KatRender",
+            &mut self.katrender,
+        ) {
+            let sender = TS_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::ToggleKatRender);
+            drop(event_send);
+        };
         let timers_window_closure = || {
             if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
                 timer_window_state.progress_bar.stock = settings.progress_bar.stock;

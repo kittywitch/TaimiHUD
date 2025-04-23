@@ -407,6 +407,12 @@ impl Controller {
         drop(settings_lock);
     }
 
+    async fn toggle_katrender(&mut self) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.toggle_katrender().await;
+        drop(settings_lock);
+    }
+
     async fn timer_key_trigger(&mut self, id: String, is_release: bool) {
         let idx = id.chars().last().unwrap().to_digit(10).unwrap();
         for timer in &mut self.current_timers {
@@ -434,6 +440,7 @@ impl Controller {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
         match event {
+            ToggleKatRender => self.toggle_katrender().await,
             MumbleIdentityUpdated(identity) => self.handle_mumble(identity).await,
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,
             TimerEnable(id) => self.enable_timer(&id).await,
@@ -466,6 +473,7 @@ pub enum ProgressBarStyleChange {
 #[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
     MumbleIdentityUpdated(MumbleIdentityUpdate),
+    ToggleKatRender,
     CombatEvent {
         src: arcdps::AgentOwned,
         evt: arcEvent,

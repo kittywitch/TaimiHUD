@@ -277,6 +277,8 @@ pub struct Settings {
     pub timers_window_open: bool,
     #[serde(default)]
     pub progress_bar: ProgressBarSettings,
+    #[serde(default)]
+    pub enable_katrender: bool,
 }
 
 impl Settings {
@@ -371,6 +373,10 @@ impl Settings {
         self.progress_bar.clone()
     }
 
+    pub async fn toggle_katrender(&mut self) {
+        self.enable_katrender = !self.enable_katrender;
+    }
+
     pub async fn check_for_updates() -> anyhow::Result<()> {
         let settings_arc = SETTINGS
             .get()
@@ -408,6 +414,7 @@ impl Settings {
             progress_bar: Default::default(),
             timers_window_open: false,
             primary_window_open: false,
+            enable_katrender: false,
         }
     }
     pub async fn load(addon_dir: &Path) -> anyhow::Result<Self> {

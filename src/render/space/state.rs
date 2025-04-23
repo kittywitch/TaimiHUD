@@ -1,15 +1,9 @@
 use {
-    super::model::{Model, Vertex, VertexBuffer},
-    anyhow::anyhow,
-    glam::{Mat4, Vec3},
-    nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
-    std::{
+    super::model::{Model, Vertex, VertexBuffer}, crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
         ffi::{c_char, CStr},
         mem::offset_of,
         slice::from_raw_parts,
-    },
-    tokio::sync::mpsc::Receiver,
-    windows::Win32::Graphics::{
+    }, tokio::sync::mpsc::Receiver, windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
             ID3DBlob, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
@@ -29,8 +23,7 @@ use {
             Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT},
             IDXGISwapChain,
         },
-    },
-    windows_strings::*,
+    }, windows_strings::*
 };
 
 #[derive(Debug)]
@@ -223,8 +216,10 @@ impl DrawState {
         ];
 
         let obj_file = addon_dir.join("horse.obj");
-        let vertex_buffers = Model::load_to_buffers(d3d11_device.clone(), &obj_file)?;
-
+        let mut vertex_buffers = Vec::new();
+        if obj_file.exists() {
+            vertex_buffers.extend(Model::load_to_buffers(d3d11_device.clone(), &obj_file)?);
+        }
         log::info!("Setting up input layout");
         let mut input_layout_ptr: Option<ID3D11InputLayout> = None;
         let input_layout = unsafe {
@@ -368,60 +363,64 @@ impl DrawState {
         })
     }
     pub fn draw(&mut self, io: &Io) {
-        let display_size = io.display_size;
-        if self.aspect_ratio.is_none() || self.display_size != Some(display_size) {
-            self.aspect_ratio = Some(display_size[0] / display_size[1]);
-            self.display_size = Some(display_size);
-        }
-        use SpaceEvent::*;
-        match self.receiver.try_recv() {
-            Ok(event) => {
-                match event {
-                    Update(data) => {
-                        //log::info!("{:?}", data);
-                        if let Some(aspect_ratio) = self.aspect_ratio {
-                            let up = Vec3::new(0.0, 1.0, 0.0);
-                            self.constant_buffer_data.view =
-                                Mat4::look_to_lh(data.camera_position, data.camera_front, up);
-                            self.constant_buffer_data.projection = Mat4::perspective_lh(
-                                70.0f32.to_radians(),
-                                aspect_ratio,
-                                0.000001,
-                                1000.0,
-                            );
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            if settings.enable_katrender {
+                let display_size = io.display_size;
+                if self.aspect_ratio.is_none() || self.display_size != Some(display_size) {
+                    self.aspect_ratio = Some(display_size[0] / display_size[1]);
+                    self.display_size = Some(display_size);
+                }
+                use SpaceEvent::*;
+                match self.receiver.try_recv() {
+                    Ok(event) => {
+                        match event {
+                            Update(data) => {
+                                //log::info!("{:?}", data);
+                                if let Some(aspect_ratio) = self.aspect_ratio {
+                                    let up = Vec3::new(0.0, 1.0, 0.0);
+                                    self.constant_buffer_data.view =
+                                        Mat4::look_to_lh(data.camera_position, data.camera_front, up);
+                                    self.constant_buffer_data.projection = Mat4::perspective_lh(
+                                        70.0f32.to_radians(),
+                                        aspect_ratio,
+                                        0.000001,
+                                        1000.0,
+                                    );
+                                }
+                                self.draw_data = Some(data);
+                            }
                         }
-                        self.draw_data = Some(data);
                     }
+
+                    Err(_error) => (),
+                }
+
+                self.constant_buffer_data.rotate_model(io.delta_time);
+                unsafe {
+                    let device_context = self
+                        .device
+                        .GetImmediateContext()
+                        .expect("I lost my context!");
+                    device_context.RSSetState(&self.rasterizer_state);
+                    device_context.VSSetConstantBuffers(0, Some(&[Some(self.constant_buffer.clone())]));
+                    device_context.UpdateSubresource(
+                        &self.constant_buffer,
+                        0,
+                        None,
+                        &self.constant_buffer_data as *const _ as *const _,
+                        0,
+                        0,
+                    );
+                    //device_context.RSSetViewports(Some(&[self.viewport]));
+                    //device_context.OMSetRenderTargets(Some(&self.render_target_view), None);
+                    device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
+                    device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+                    device_context.IASetInputLayout(&self.input_layout);
+                    device_context.VSSetShader(&self.vertex_shader, None);
+                    device_context.PSSetShader(&self.pixel_shader, None);
+                    VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
                 }
             }
-
-            Err(_error) => (),
-        }
-
-        self.constant_buffer_data.rotate_model(io.delta_time);
-        unsafe {
-            let device_context = self
-                .device
-                .GetImmediateContext()
-                .expect("I lost my context!");
-            device_context.RSSetState(&self.rasterizer_state);
-            device_context.VSSetConstantBuffers(0, Some(&[Some(self.constant_buffer.clone())]));
-            device_context.UpdateSubresource(
-                &self.constant_buffer,
-                0,
-                None,
-                &self.constant_buffer_data as *const _ as *const _,
-                0,
-                0,
-            );
-            //device_context.RSSetViewports(Some(&[self.viewport]));
-            //device_context.OMSetRenderTargets(Some(&self.render_target_view), None);
-            device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
-            device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            device_context.IASetInputLayout(&self.input_layout);
-            device_context.VSSetShader(&self.vertex_shader, None);
-            device_context.PSSetShader(&self.pixel_shader, None);
-            VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
         }
     }
 }
