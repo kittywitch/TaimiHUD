@@ -4,7 +4,7 @@ use {
             RenderState, TimerWindowState
         }, settings::TimerSettings, timer::TimerFile, SETTINGS, TS_SENDER
     }, glam::Vec2, indexmap::IndexMap, nexus::imgui::{
-            ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags
+            ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags, InputText,
         }, std::{collections::HashSet, sync::Arc}
 };
 
@@ -13,6 +13,7 @@ pub struct TimerTabState {
     categories: IndexMap<String, Vec<Arc<TimerFile>>>,
     timer_selection: Option<Arc<TimerFile>>,
     category_status: HashSet<String>,
+    //search_string: String,
 }
 
 impl TimerTabState {
@@ -68,7 +69,7 @@ impl TimerTabState {
                 self.category_status.clear();
             }
         }
-
+        //InputText::new(ui, "Search", &mut self.search_string);
     }
 
     fn draw_sidebar_child(&mut self, ui: &Ui) {

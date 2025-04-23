@@ -28,6 +28,7 @@ impl ConfigTabState {
     }
 
     pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
+        ui.text("You can control-click on a slider element, or such, to be able to directly input data to it.");
         let timers_window_closure = || {
             if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
                 timer_window_state.progress_bar.stock = settings.progress_bar.stock;

@@ -5,6 +5,7 @@ pub mod primary_window;
 pub mod timer_tab;
 pub mod timer_window;
 pub mod info_tab;
+pub mod space;
 
 #[allow(unused_imports)]
 pub use {
@@ -19,5 +20,9 @@ pub use {
         RenderState,
         Alignment,
         TextFont,
+    },
+    space::{
+        DrawState,
+        SpaceEvent,
     },
 };

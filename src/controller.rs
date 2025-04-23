@@ -1,9 +1,6 @@
 use {
     crate::{
-        settings::{RemoteSource, Settings, SettingsLock},
-        timer::{CombatState, Position, TimerFile, TimerMachine},
-        MumbleIdentityUpdate, RenderEvent, SETTINGS,
-        render::TextFont,
+        render::{space::DrawData, SpaceEvent, TextFont}, settings::{RemoteSource, Settings, SettingsLock}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, SETTINGS, SPACE_SENDER
     }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::f32::Vec3, glob::{glob, Paths}, nexus::{data_link::{mumble::UiState, read_mumble_link, MumbleLink}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive}, relative_path::RelativePathBuf, std::{
         collections::HashMap,
         fs::read_to_string,
@@ -181,6 +178,16 @@ impl Controller {
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         if let Some(mumble_link_data) = read_mumble_link() {
             self.player_position = Some(Vec3::from_array(mumble_link_data.avatar.position));
+            let camera = &mumble_link_data.camera;
+            let draw_data = DrawData {
+                player_position: self.player_position,
+                camera_front: Vec3::from_array(camera.front),
+                camera_up: Vec3::from_array(camera.top),
+                camera_position: Vec3::from_array(camera.position),
+            };
+            if let Some(sender ) = SPACE_SENDER.get() {
+                let _ = sender.try_send(SpaceEvent::Update(draw_data));
+            }
             let combat_state = mumble_link_data.context.ui_state.contains(UiState::IS_IN_COMBAT);
             if combat_state != self.previous_combat_state {
                 if combat_state {
