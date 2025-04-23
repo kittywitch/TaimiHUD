@@ -1,14 +1,19 @@
 use {
+    super::model::{
+        Vertex,
+        VertexBuffer,
+        Model,
+    },
     crate::{
         controller::{Controller, ControllerEvent}, render::{RenderEvent, RenderState}, settings::SettingsLock
-    }, anyhow::anyhow, arcdps::AgentOwned, glam::{Mat4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles}, nexus::{
+    }, anyhow::anyhow, arcdps::AgentOwned, glam::{Mat4, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles}, nexus::{
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         }, gui::{register_render, render, RenderType}, imgui::Io, keybind::{keybind_handler, register_keybind_with_string}, paths::get_addon_dir, quick_access::add_quick_access, AddonApi, AddonFlags, UpdateProvider
     }, std::{
         ffi::{c_char, CStr, CString}, mem::offset_of, path::{Path, PathBuf}, ptr, slice::from_raw_parts, sync::{Mutex, OnceLock}, thread::{self, JoinHandle}
-    }, tokio::sync::mpsc::{channel, Receiver, Sender}, windows::Win32::{Graphics::{Direct3D::{Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG}, ID3DBlob, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST}, Direct3D11::{ID3D11Buffer, ID3D11DepthStencilState, ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11RenderTargetView, ID3D11Texture2D, ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_GREATER, D3D11_COMPARISON_GREATER_EQUAL, D3D11_COMPARISON_LESS, D3D11_DEFAULT_STENCIL_READ_MASK, D3D11_DEFAULT_STENCIL_WRITE_MASK, D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC, D3D11_DEPTH_WRITE_MASK_ALL, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_INSTANCE_DATA, D3D11_INPUT_PER_VERTEX_DATA, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_UNKNOWN, D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT}, Dxgi::{Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_UNKNOWN}, IDXGISwapChain}, Hlsl::D3D_COMPILE_STANDARD_FILE_INCLUDE}, System::Diagnostics::Debug::OutputDebugStringA}, windows_strings::*
+    }, tokio::sync::mpsc::{channel, Receiver, Sender}, windows::Win32::{Graphics::{Direct3D::{Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG}, ID3DBlob, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST}, Direct3D11::{ID3D11Buffer, ID3D11DepthStencilState, ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11Texture2D, ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_GREATER, D3D11_COMPARISON_GREATER_EQUAL, D3D11_COMPARISON_LESS, D3D11_CULL_BACK, D3D11_CULL_NONE, D3D11_DEFAULT_STENCIL_READ_MASK, D3D11_DEFAULT_STENCIL_WRITE_MASK, D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC, D3D11_DEPTH_WRITE_MASK_ALL, D3D11_FILL_SOLID, D3D11_FILL_WIREFRAME, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_INSTANCE_DATA, D3D11_INPUT_PER_VERTEX_DATA, D3D11_RASTERIZER_DESC, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_UNKNOWN, D3D11_STENCIL_OP_DECR, D3D11_STENCIL_OP_INCR, D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT}, Dxgi::{Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_UNKNOWN}, IDXGISwapChain}, Hlsl::D3D_COMPILE_STANDARD_FILE_INCLUDE}, System::Diagnostics::Debug::OutputDebugStringA}, windows_strings::*
 };
 
 #[derive(Debug)]
@@ -26,27 +31,19 @@ pub struct DrawState {
     input_layout: ID3D11InputLayout,
     vertex_shader: ID3D11VertexShader,
     pixel_shader: ID3D11PixelShader,
-    vertex_buffer: Option<ID3D11Buffer>,
+    rasterizer_state: ID3D11RasterizerState,
+    vertex_buffers: Vec<VertexBuffer>,
     depth_stencil_state: ID3D11DepthStencilState,
     constant_buffer: ID3D11Buffer,
     constant_buffer_data: ConstantBufferData,
     viewport: D3D11_VIEWPORT,
     device: ID3D11Device,
     swap_chain: IDXGISwapChain,
-    vertex_count: u32,
-    vertex_offset: u32,
-    vertex_stride: u32,
     aspect_ratio: Option<f32>,
     display_size: Option<[f32; 2]>,
 
 }
 
-#[derive(Copy,Clone)]
-#[repr(C)]
-struct Vertex {
-    pos: Vec3,
-    colour: Vec3,
-}
 
 #[repr(C)]
 struct ConstantBufferData {
@@ -130,7 +127,7 @@ impl DrawState {
                 SemanticIndex: 0,
                 Format: DXGI_FORMAT_R32G32B32_FLOAT,
                 InputSlot: 0,
-                AlignedByteOffset: offset_of!(Vertex, pos) as u32,
+                AlignedByteOffset: offset_of!(Vertex, position) as u32,
                 InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
                 InstanceDataStepRate: 0,
             },
@@ -144,11 +141,11 @@ impl DrawState {
                 InstanceDataStepRate: 0,
             },
             D3D11_INPUT_ELEMENT_DESC {
-                SemanticName: s!("NOR"),
+                SemanticName: s!("NORMAL"),
                 SemanticIndex: 0,
                 Format: DXGI_FORMAT_R32G32B32_FLOAT,
                 InputSlot: 0,
-                AlignedByteOffset: D3D11_APPEND_ALIGNED_ELEMENT,
+                AlignedByteOffset: offset_of!(Vertex, normal) as u32,
                 InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
                 InstanceDataStepRate: 0,
             },
@@ -173,59 +170,8 @@ impl DrawState {
         ];
 
 
-        struct Model {
-            vertices: Vec<Vertex>,
-        }
-
-        impl Model {
-            fn load(obj_file: &Path) -> Self {
-            let (models, _materials) = tobj
-                ::load_obj(obj_file, &tobj::LoadOptions {
-                    merge_identical_points: false,
-                        reorder_data: false,
-                        single_index: true,
-                        triangulate: true,
-                        ignore_points: true,
-                        ignore_lines: true,
-                })
-                .expect("Failed to load OBJ file");
-
-            log::info!("Models: {}", models.len());
-            let mut selfy: Self = Model { vertices: Vec::new() };
-             for (i, m) in models.iter().enumerate() {
-                    let mesh = &m.mesh;
-                    log::info!("model[{}].name             = \'{}\'", i, m.name);
-                    log::info!("model[{}].mesh.material_id = {:?}", i, mesh.material_id);
-
-                    log::info!(
-                        "model[{}].face_count       = {}",
-                        i,
-                        mesh.face_arities.len()
-                    );
-
-                    // Normals and texture coordinates are also loaded, but not printed in
-                    // this example.
-                    log::info!(
-                        "model[{}].positions        = {}",
-                        i,
-                        mesh.positions.len() / 3
-                    );
-                    assert!(mesh.positions.len() % 3 == 0);
-
-                    let vertices_pos: Vec<f32> = mesh.indices.iter().flat_map(|&i| mesh.positions[i as usize*3..i as usize*3+3].iter().copied()).collect();
-                    let vertices_pos: Vec<Vec3> = vertices_pos.chunks(3).map(Vec3::from_slice).map(Vec3Swizzles::xzy).collect();
-                    let vertices: Vec<Vertex>  = vertices_pos.iter().map(|vtx| Vertex { pos: *vtx, colour: *vtx } ).collect();
-                    selfy = Self {
-                        vertices,
-                    };
-                }
-                selfy
-            }
-        }
-
-        log::info!("Loading HORSE");
         let obj_file = addon_dir.join("horse.obj");
-        let horse = Model::load(&obj_file);
+        let vertex_buffers = Model::load_to_buffers(d3d11_device.clone(), &obj_file)?;
 
 
         log::info!("Setting up input layout");
@@ -233,31 +179,6 @@ impl DrawState {
         let input_layout = unsafe { d3d11_device.CreateInputLayout(input_layout_description,vs_blob_bytes, Some(&mut input_layout_ptr)) }
             .map_err(anyhow::Error::from)
             .and_then(|()| input_layout_ptr.ok_or_else(|| anyhow!("no input layout")))?;
-
-        let vertex_data_array: &[Vertex] = horse.vertices.as_slice(); //horse.vertices.as_slice().try_into().unwrap_or_else(|x| panic!("{:?} horse can't into array :(", x));
-        let vertex_stride: u32 = size_of::<Vertex>() as u32;
-        let vertex_offset: u32 = 0;
-        let vertex_count: u32 = vertex_data_array.len() as u32;
-
-        log::info!("Setting up vertex buffer");
-        let mut vertex_buffer_ptr: Option<ID3D11Buffer> = None;
-        let subresource_data = D3D11_SUBRESOURCE_DATA {
-            pSysMem: vertex_data_array.as_ptr() as *const _,
-            SysMemPitch: 0,
-            SysMemSlicePitch: 0,
-        };
-        let vertex_buffer_desc = D3D11_BUFFER_DESC {
-            ByteWidth: size_of_val(vertex_data_array) as u32,
-            Usage: D3D11_USAGE_DEFAULT,
-            BindFlags: D3D11_BIND_VERTEX_BUFFER.0 as u32,
-            CPUAccessFlags: 0,
-            MiscFlags: 0,
-            StructureByteStride: 0,
-        };
-        let vertex_buffer = unsafe { d3d11_device.CreateBuffer(&vertex_buffer_desc, Some(&subresource_data), Some(&mut vertex_buffer_ptr)) }
-            .map_err(anyhow::Error::from)
-            .and_then(|()| vertex_buffer_ptr.ok_or_else(|| anyhow!("no vertex buffer")))?;
-
 
         let constant_buffer_desc = D3D11_BUFFER_DESC {
             ByteWidth: size_of::<ConstantBufferData>() as u32,
@@ -297,9 +218,15 @@ impl DrawState {
             .map_err(anyhow::Error::from)
             .and_then(|()| render_target_view_ptr.ok_or_else(|| anyhow!("no render target view")))?;
 
-        let depth_stencil_face_desc = D3D11_DEPTH_STENCILOP_DESC {
-            StencilFunc: D3D11_COMPARISON_LESS,
-            StencilDepthFailOp: D3D11_STENCIL_OP_KEEP,
+        let depth_stencil_frontface_desc = D3D11_DEPTH_STENCILOP_DESC {
+            StencilFunc: D3D11_COMPARISON_ALWAYS,
+            StencilDepthFailOp: D3D11_STENCIL_OP_INCR,
+            StencilFailOp: D3D11_STENCIL_OP_KEEP,
+            StencilPassOp: D3D11_STENCIL_OP_KEEP,
+        };
+        let depth_stencil_backface_desc = D3D11_DEPTH_STENCILOP_DESC {
+            StencilFunc: D3D11_COMPARISON_ALWAYS,
+            StencilDepthFailOp: D3D11_STENCIL_OP_DECR,
             StencilFailOp: D3D11_STENCIL_OP_KEEP,
             StencilPassOp: D3D11_STENCIL_OP_KEEP,
         };
@@ -311,29 +238,45 @@ impl DrawState {
             StencilEnable: true.into(),
             StencilReadMask: D3D11_DEFAULT_STENCIL_READ_MASK as u8,
             StencilWriteMask: D3D11_DEFAULT_STENCIL_WRITE_MASK as u8,
-            FrontFace: depth_stencil_face_desc,
-            BackFace: depth_stencil_face_desc,
+            FrontFace: depth_stencil_frontface_desc,
+            BackFace: depth_stencil_backface_desc,
         };
         let mut depth_stencil_state_ptr: Option<ID3D11DepthStencilState> = None;
         let depth_stencil_state = unsafe { d3d11_device.CreateDepthStencilState(&depth_stencil_state_desc, Some(&mut depth_stencil_state_ptr)) }
             .map_err(anyhow::Error::from)
             .and_then(|()| depth_stencil_state_ptr.ok_or_else(|| anyhow!("no depth stencil state")))?;
 
+        log::info!("Setting up rasterizer state");
+        let rasterizer_state_desc = D3D11_RASTERIZER_DESC {
+            FillMode: D3D11_FILL_SOLID,
+            CullMode: D3D11_CULL_BACK,
+            FrontCounterClockwise: true.into(),
+            DepthBias: 0,
+            DepthBiasClamp: 0.0,
+            SlopeScaledDepthBias: 0.0,
+            DepthClipEnable: true.into(),
+            ScissorEnable: false.into(),
+            MultisampleEnable: false.into(),
+            AntialiasedLineEnable: false.into(),
+        };
+        let mut rasterizer_state_ptr: Option<ID3D11RasterizerState> = None;
+        let rasterizer_state = unsafe { d3d11_device.CreateRasterizerState(&rasterizer_state_desc, Some(&mut rasterizer_state_ptr)) }
+            .map_err(anyhow::Error::from)
+            .and_then(|()| rasterizer_state_ptr.ok_or_else(|| anyhow!("no rasterizer state")))?;
+
         log::info!("Setting up device context");
         Ok(DrawState {
             receiver,
             device: d3d11_device,
             swap_chain: d3d11_swap_chain.clone(),
-            vertex_buffer: Some(vertex_buffer),
+            vertex_buffers,
             render_target_view: [Some(render_target_view)],
             input_layout,
             pixel_shader,
+            rasterizer_state,
             vertex_shader,
             depth_stencil_state,
             viewport,
-            vertex_stride,
-            vertex_count,
-            vertex_offset,
             constant_buffer,
             draw_data: None,
             aspect_ratio: None,
@@ -377,6 +320,7 @@ impl DrawState {
         self.constant_buffer_data.rotate_model(io.delta_time);
         unsafe {
             let device_context = self.device.GetImmediateContext().expect("I lost my context!");
+            device_context.RSSetState(&self.rasterizer_state);
             device_context.VSSetConstantBuffers(0, Some(&[Some(self.constant_buffer.clone())]));
             device_context.UpdateSubresource(&self.constant_buffer, 0, None, &self.constant_buffer_data as *const _ as *const _, 0, 0);
             //device_context.RSSetViewports(Some(&[self.viewport]));
@@ -384,10 +328,9 @@ impl DrawState {
             device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
             device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
             device_context.IASetInputLayout(&self.input_layout);
-            device_context.IASetVertexBuffers(0, 1, Some(&self.vertex_buffer), Some(&self.vertex_stride), Some(&self.vertex_offset));
             device_context.VSSetShader(&self.vertex_shader, None);
             device_context.PSSetShader(&self.pixel_shader, None);
-            device_context.Draw(self.vertex_count, 0);
+            VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
         }
     }
 }

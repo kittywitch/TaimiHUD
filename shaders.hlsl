@@ -1,6 +1,7 @@
 struct VSInput
 {
     float3 position: POSITION;
+    float3 normal: NORMAL;
     float3 color: COLOR0;
 };
 
@@ -14,6 +15,7 @@ cbuffer ConstantBuffer : register(b0)
 struct VSOutput
 {
     float4 position: SV_Position;
+    float3 normal: NORMAL;
     float3 color: COLOR0;
 };
 
@@ -26,6 +28,7 @@ VSOutput VSMain(VSInput input)
     float4 Transform = mul(Projection, mul(View, mul(Model, VertPos)));
     output.position = Transform;
     output.color = input.color;
+    output.normal = input.normal;
     return output;
 }
 
@@ -33,6 +36,7 @@ VSOutput VSMain(VSInput input)
 struct PSInput
 {
     float4 position: SV_Position;
+    float3 normal: NORMAL;
     float3 color: COLOR0;
 };
 
