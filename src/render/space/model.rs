@@ -1,11 +1,8 @@
 use {
-    anyhow::anyhow,
-    glam::{Vec2, Vec3},
-    std::path::Path,
-    windows::Win32::Graphics::Direct3D11::{
+    anyhow::anyhow, glam::{Vec2, Vec3}, relative_path::RelativePathBuf, std::path::{Path, PathBuf}, windows::Win32::Graphics::Direct3D11::{
         ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_VERTEX_BUFFER,
         D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
-    },
+    }
 };
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -18,6 +15,9 @@ pub struct Vertex {
 
 #[derive(Clone)]
 pub struct Model {
+    // todo! figure out how to store a relative path here o:
+    pub file: PathBuf,
+    pub index: usize,
     pub vertices: Vec<Vertex>,
 }
 
@@ -132,7 +132,11 @@ impl Model {
                 })
             }
 
-            kat_models.push(Self { vertices });
+            kat_models.push(Self {
+                file: obj_file.to_path_buf(),
+                index: i,
+                vertices
+            });
         }
         kat_models
     }
