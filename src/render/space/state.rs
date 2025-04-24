@@ -1,5 +1,5 @@
 use {
-    super::{model::{Model, Vertex, VertexBuffer}, shader::{Shader, ShaderDescription, ShaderKind}}, crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, glob::Paths, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
+    super::{model::{Entity, EntityController, Model, Vertex, VertexBuffer}, shader::{Shader, ShaderDescription, ShaderKind}}, crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, glob::Paths, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
         collections::HashMap, ffi::{c_char, CStr}, mem::offset_of, path::{Path, PathBuf}, slice::from_raw_parts
     }, tokio::sync::mpsc::Receiver, windows::Win32::Graphics::{
         Direct3D::{
@@ -38,7 +38,7 @@ pub struct DrawState {
     render_target_view: [Option<ID3D11RenderTargetView>; 1],
     shaders: HashMap<String, Shader>,
     rasterizer_state: ID3D11RasterizerState,
-    vertex_buffers: Vec<VertexBuffer>,
+    entities: Vec<Entity>,
     depth_stencil_state: ID3D11DepthStencilState,
     constant_buffer: ID3D11Buffer,
     constant_buffer_data: ConstantBufferData,
@@ -87,7 +87,38 @@ impl DrawState {
             };
         }
         Ok(shaders)
+    }
 
+    pub fn setup_entities(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Vec<Entity>> {
+        let entity_controller = EntityController::load_desc(addon_dir)?;
+        let entities = entity_controller.load(device)?;
+        Ok(entities)
+    }
+
+    pub fn setup_constant_buffer(device: &ID3D11Device) -> anyhow::Result<ID3D11Buffer> {
+        let constant_buffer_desc = D3D11_BUFFER_DESC {
+            ByteWidth: size_of::<ConstantBufferData>() as u32,
+            Usage: D3D11_USAGE_DEFAULT,
+            BindFlags: D3D11_BIND_CONSTANT_BUFFER.0 as u32,
+            CPUAccessFlags: 0,
+            MiscFlags: 0,
+            StructureByteStride: 0,
+        };
+
+        let constant_subresource_data = D3D11_SUBRESOURCE_DATA::default();
+
+        let mut constant_buffer_ptr: Option<ID3D11Buffer> = None;
+        let constant_buffer = unsafe {
+            device.CreateBuffer(
+                &constant_buffer_desc,
+                Some(&constant_subresource_data),
+                Some(&mut constant_buffer_ptr),
+            )
+        }
+        .map_err(anyhow::Error::from)
+        .and_then(|()| constant_buffer_ptr.ok_or_else(|| anyhow!("no constant buffer")))?;
+
+        Ok(constant_buffer)
     }
     pub fn setup(receiver: Receiver<SpaceEvent>) -> anyhow::Result<Self> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
@@ -100,32 +131,8 @@ impl DrawState {
         let d3d11_swap_chain = &addon_api.swap_chain;
 
         let shaders = Self::setup_shaders(&addon_dir, &d3d11_device)?;
-
-        let obj_file = addon_dir.join("horse.obj");
-        let mut vertex_buffers = Vec::new();
-        if obj_file.exists() {
-            vertex_buffers.extend(Model::load_to_buffers(d3d11_device.clone(), &obj_file)?);
-        }
-
-        let constant_buffer_desc = D3D11_BUFFER_DESC {
-            ByteWidth: size_of::<ConstantBufferData>() as u32,
-            Usage: D3D11_USAGE_DEFAULT,
-            BindFlags: D3D11_BIND_CONSTANT_BUFFER.0 as u32,
-            CPUAccessFlags: 0,
-            MiscFlags: 0,
-            StructureByteStride: 0,
-        };
-        let constant_subresource_data = D3D11_SUBRESOURCE_DATA::default();
-        let mut constant_buffer_ptr: Option<ID3D11Buffer> = None;
-        let constant_buffer = unsafe {
-            d3d11_device.CreateBuffer(
-                &constant_buffer_desc,
-                Some(&constant_subresource_data),
-                Some(&mut constant_buffer_ptr),
-            )
-        }
-        .map_err(anyhow::Error::from)
-        .and_then(|()| constant_buffer_ptr.ok_or_else(|| anyhow!("no constant buffer")))?;
+        let entities = Self::setup_entities(&addon_dir, &d3d11_device)?;
+        let constant_buffer = Self::setup_constant_buffer(&d3d11_device)?;
 
         let viewport = D3D11_VIEWPORT {
             TopLeftX: 1000.0,
@@ -216,8 +223,8 @@ impl DrawState {
             receiver,
             device: d3d11_device,
             swap_chain: d3d11_swap_chain.clone(),
-            vertex_buffers,
             render_target_view: [Some(render_target_view)],
+            entities,
             rasterizer_state,
             shaders,
             depth_stencil_state,
@@ -291,7 +298,8 @@ impl DrawState {
                     if let (Some(vs), Some(ps)) = (self.shaders.get("generic_vs"), self.shaders.get("generic_ps")) {
                         vs.set(&device_context);
                         ps.set(&device_context);
-                        VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
+                        let vertex_buffers: Vec<VertexBuffer> = self.entities.iter().map(|e| e.vertex_buffer.to_owned()).collect();
+                        VertexBuffer::set_and_draw(vertex_buffers.as_slice(), &device_context);
                     }
                 }
             }

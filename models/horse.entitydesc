@@ -1,0 +1,9 @@
+[
+  {
+    "name": "Horse",
+    "location": {
+      "file": "horse.obj",
+      "index": 0,
+    },
+  },
+]

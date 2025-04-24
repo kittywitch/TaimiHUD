@@ -24,7 +24,6 @@ VSOutput VSMain(VSInput input)
     VSOutput output = (VSOutput)0;
     float4 VertPos = float4(input.position, 1.0);
 
-    //matrix Transform = mul(mul(Projection, View), Model);
     float4 Transform = mul(Projection, mul(View, mul(Model, VertPos)));
     output.position = Transform;
     output.color = input.color;

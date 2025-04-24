@@ -180,11 +180,11 @@ impl Shader {
                         InstanceDataStepRate: 0,
                     },
                     D3D11_INPUT_ELEMENT_DESC {
-                        SemanticName: s!("TEX"),
+                        SemanticName: s!("TEXCOORD"),
                         SemanticIndex: 0,
                         Format: DXGI_FORMAT_R32G32_FLOAT,
                         InputSlot: 0,
-                        AlignedByteOffset: D3D11_APPEND_ALIGNED_ELEMENT,
+                        AlignedByteOffset: offset_of!(Vertex, texture) as u32,
                         InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
                         InstanceDataStepRate: 0,
                     },
