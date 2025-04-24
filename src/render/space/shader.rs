@@ -1,20 +1,10 @@
 use {
-    super::model::Vertex,
-    anyhow::anyhow,
-    core::ffi::c_char,
-    std::{
-        ffi::CStr,
-        path::PathBuf,
-        mem::offset_of,
-        slice::from_raw_parts,
-    },
-    windows_strings::{
-        s,
-        PCSTR,
-        HSTRING,
-    },
-    strum_macros::Display,
-    windows::Win32::Graphics::{
+    super::model::Vertex, anyhow::anyhow, core::ffi::c_char, serde::{
+        Deserialize,
+        Serialize,
+    }, std::{
+        ffi::{CStr, CString}, fs::read_to_string, mem::offset_of, path::{Path, PathBuf}, slice::from_raw_parts
+    }, strum_macros::Display, windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{
                 D3DCompileFromFile,
@@ -23,20 +13,44 @@ use {
             ID3DBlob,
         },
         Direct3D11::{
-            ID3D11Device,
-            ID3D11DeviceContext,
-            ID3D11VertexShader,
-            ID3D11PixelShader,
-            ID3D11InputLayout,
-            D3D11_INPUT_ELEMENT_DESC,
-            D3D11_APPEND_ALIGNED_ELEMENT,
-            D3D11_INPUT_PER_VERTEX_DATA,
+            ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_VERTEX_DATA
         },
         Dxgi::Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT},
-    },
+    }, windows_strings::{
+        s, HSTRING, PCSTR
+    }
 };
 
-#[derive(Display)]
+#[derive(Debug,Serialize,Deserialize)]
+pub struct ShaderDescription {
+    pub identifier: String,
+    pub kind: ShaderKind,
+    pub path: PathBuf,
+    pub entrypoint: String
+}
+
+impl ShaderDescription {
+    pub fn load(path: &PathBuf) -> anyhow::Result<Vec<Self>> {
+        log::debug!("Attempting to load the shader description file at \"{path:?}\".");
+        let mut file_data = read_to_string(path)?;
+        json_strip_comments::strip(&mut file_data)?;
+        let shader_description_data: Vec<Self> = serde_json::from_str(&file_data)?;
+        Ok(shader_description_data)
+    }
+    pub fn get(&self, shader_folder: &Path) -> anyhow::Result<(HSTRING, PCSTR, CString)> {
+        let filename = HSTRING::from(shader_folder.join(&self.path).as_os_str());
+        let target = match self.kind {
+            ShaderKind::Vertex => s!("vs_5_0"),
+            ShaderKind::Pixel => s!("ps_5_0"),
+        };
+        let entrypoint_cstring = CString::new(self.entrypoint.clone())?;
+
+        Ok((filename, target, entrypoint_cstring))
+    }
+}
+
+
+#[derive(Display,Debug,Serialize,Deserialize)]
 pub enum ShaderKind {
     Vertex,
     Pixel,
@@ -75,15 +89,16 @@ impl Shader {
             },
         }
     }
-    pub fn compile(path: &PathBuf, kind: &ShaderKind, entrypoint: PCSTR) -> anyhow::Result<ID3DBlob> {
-        let filename = HSTRING::from(path.as_os_str());
-        let target = match kind {
-            ShaderKind::Vertex => s!("vs_5_0"),
-            ShaderKind::Pixel => s!("ps_5_0"),
-        };
-        log::info!("Beginning compile from {:?} of {} shader, entrypoint {:?}", path, kind, entrypoint);
+    pub fn compile(shader_folder: &PathBuf, desc: &ShaderDescription) -> anyhow::Result<(ID3DBlob, CString)> {
+        let (filename, target, entrypoint_cstring) = desc.get(shader_folder)?;
+        log::info!("Beginning compile from {:?} of {} shader, entrypoint {:?}", 
+            &desc.path,
+            &desc.kind,
+            entrypoint_cstring
+        );
         let mut blob_ptr: Option<ID3DBlob> = None;
         let mut error_blob: Option<ID3DBlob> = None;
+        let entrypoint = PCSTR::from_raw(entrypoint_cstring.as_ptr() as *const u8);
         let blob = unsafe {
             D3DCompileFromFile(
                 &filename,
@@ -98,7 +113,7 @@ impl Shader {
             )
         }
         .map_err(anyhow::Error::from)
-        .and_then(|()| blob_ptr.ok_or_else(|| anyhow!("no {} shader", kind)))
+        .and_then(|()| blob_ptr.ok_or_else(|| anyhow!("no {} shader", &desc.kind)))
         .map_err(|e| match error_blob {
             Some(ref error_blob) => {
                 let msg = unsafe { CStr::from_ptr(error_blob.GetBufferPointer() as *const c_char) };
@@ -109,21 +124,22 @@ impl Shader {
             None => e,
         })?;
 
-        log::info!("Compile successful from {:?} of {} shader, entrypoint {:?}", path, kind, entrypoint);
-        Ok(blob)
+        log::info!("Compile successful from {:?} of {} shader, entrypoint {:?}", &desc.path, &desc.kind, entrypoint);
+        Ok((blob, entrypoint_cstring))
     }
 
-    pub fn create(device: &ID3D11Device, path: &PathBuf, kind: ShaderKind, entrypoint: PCSTR) -> anyhow::Result<Self> {
-        let blob = Self::compile(path, &kind, entrypoint)?;
+    pub fn create(shader_folder: &PathBuf, device: &ID3D11Device, desc: &ShaderDescription) -> anyhow::Result<Self> {
+        let (blob, entrypoint_cstring) = Self::compile(shader_folder, &desc)?;
 
+        let entrypoint = PCSTR::from_raw(entrypoint_cstring.as_ptr() as *const u8);
         let blob_bytes = unsafe {
             from_raw_parts(
                 blob.GetBufferPointer() as *const u8,
                 blob.GetBufferSize(),
             )
         };
-        log::info!("Creating {:?} of {} shader, entrypoint {:?}", path, kind, entrypoint);
-        match kind {
+        log::info!("Creating {:?} of {} shader, entrypoint {:?}", &desc.path, &desc.kind, &desc.entrypoint);
+        match &desc.kind {
             ShaderKind::Vertex => {
                 let mut shader_ptr: Option<ID3D11VertexShader> = None;
                 let shader = unsafe {
@@ -173,7 +189,7 @@ impl Shader {
                         InstanceDataStepRate: 0,
                     },
                 ];
-                log::info!("Creating input layout for {:?} of {} shader, entrypoint {:?}", path, kind, entrypoint);
+                log::info!("Creating input layout for {:?} of {} shader, entrypoint {:?}", &desc.path, &desc.kind, &desc.entrypoint);
                 let mut layout_ptr: Option<ID3D11InputLayout> = None;
                 let layout = unsafe {
                     device.CreateInputLayout(
@@ -187,7 +203,7 @@ impl Shader {
 
                 let wrapped_shader = VertexShader {
 
-                    path: path.to_path_buf(),
+                    path: desc.path.to_path_buf(),
                     layout,
                     entrypoint,
                     shader,
@@ -206,7 +222,7 @@ impl Shader {
                 .map_err(anyhow::Error::from)
                 .and_then(|()| shader_ptr.ok_or_else(|| anyhow!("no pixel shader")))?;
                 let wrapped_shader = PixelShader {
-                    path: path.to_path_buf(),
+                    path: desc.path.to_path_buf(),
                     entrypoint,
                     shader,
                 };

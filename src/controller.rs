@@ -113,7 +113,7 @@ impl Controller {
         rt.block_on(evt_loop);
     }
     async fn load_timer_file(&self, path: PathBuf) -> anyhow::Result<TimerFile> {
-        log::debug!("Attempting to load the timer file at '{path:?}'.");
+        log::debug!("Attempting to load the timer file at \"{path:?}\".");
         //let file = File::open(path)?;
         //let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
         let mut file_data = read_to_string(&path)?;
@@ -124,7 +124,9 @@ impl Controller {
     }
 
     async fn get_paths(&self, path: &Path) -> anyhow::Result<Paths> {
-        let timer_paths: Paths = glob(path.to_str().expect("Pattern is unparseable"))?;
+        let timer_paths: Paths = glob(path
+            .to_str()
+            .expect("Timers load pattern is unparseable"))?;
         Ok(timer_paths)
     }
 

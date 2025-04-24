@@ -1,10 +1,6 @@
 use {
-    super::model::{Model, Vertex, VertexBuffer},
-    super::shader::{Shader, ShaderKind},
-    crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
-        ffi::{c_char, CStr},
-        mem::offset_of,
-        slice::from_raw_parts,
+    super::{model::{Model, Vertex, VertexBuffer}, shader::{Shader, ShaderDescription, ShaderKind}}, crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, glob::Paths, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
+        collections::HashMap, ffi::{c_char, CStr}, mem::offset_of, path::{Path, PathBuf}, slice::from_raw_parts
     }, tokio::sync::mpsc::Receiver, windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
@@ -40,8 +36,7 @@ pub struct DrawState {
     receiver: Receiver<SpaceEvent>,
     draw_data: Option<DrawData>,
     render_target_view: [Option<ID3D11RenderTargetView>; 1],
-    pixel_shader: Option<Shader>,
-    vertex_shader: Option<Shader>,
+    shaders: HashMap<String, Shader>,
     rasterizer_state: ID3D11RasterizerState,
     vertex_buffers: Vec<VertexBuffer>,
     depth_stencil_state: ID3D11DepthStencilState,
@@ -72,6 +67,28 @@ pub enum SpaceEvent {
 }
 
 impl DrawState {
+
+    pub fn setup_shaders(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<HashMap<String, Shader>> {
+        let shader_folder = addon_dir.join("shaders");
+        let mut shader_descriptions: Vec<ShaderDescription> = Vec::new();
+        let mut shaders: HashMap<String, Shader> = HashMap::new();
+        if shader_folder.exists() {
+            let shader_description_paths: Paths = glob::glob(shader_folder
+                .join("*.shaderdesc")
+                .to_str()
+                .expect("Shader load pattern is unparseable"))?;
+            for shader_description_path in shader_description_paths {
+                let shader_description = ShaderDescription::load(&shader_folder.join(shader_description_path?))?;
+                shader_descriptions.extend(shader_description);
+            }
+            for shader_description in shader_descriptions {
+                let shader = Shader::create(&shader_folder, device, &shader_description)?;
+                shaders.insert(shader_description.identifier, shader);
+            };
+        }
+        Ok(shaders)
+
+    }
     pub fn setup(receiver: Receiver<SpaceEvent>) -> anyhow::Result<Self> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let addon_api = AddonApi::get();
@@ -81,55 +98,8 @@ impl DrawState {
             .ok_or_else(|| anyhow!("you will not reach heaven today, how are you here?"))?;
         log::info!("Getting d3d11 device swap chain");
         let d3d11_swap_chain = &addon_api.swap_chain;
-        let mut vs_blob_ptr: Option<ID3DBlob> = None;
-        let mut ps_blob_ptr: Option<ID3DBlob> = None;
-        let mut error_blob: Option<ID3DBlob> = None;
-        let path = addon_dir.join("shaders.hlsl");
-        let mut pixel_shader: Option<Shader> = None;
-        let mut vertex_shader: Option<Shader> = None;
 
-        if path.exists() {
-            vertex_shader = Some(Shader::create(&d3d11_device, &path, ShaderKind::Vertex, s!("VSMain"))?);
-            pixel_shader = Some(Shader::create(&d3d11_device, &path, ShaderKind::Pixel, s!("PSMain"))?);
-        }
-        let input_layout_description: &[D3D11_INPUT_ELEMENT_DESC] = &[
-            D3D11_INPUT_ELEMENT_DESC {
-                SemanticName: s!("POSITION"),
-                SemanticIndex: 0,
-                Format: DXGI_FORMAT_R32G32B32_FLOAT,
-                InputSlot: 0,
-                AlignedByteOffset: offset_of!(Vertex, position) as u32,
-                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
-                InstanceDataStepRate: 0,
-            },
-            D3D11_INPUT_ELEMENT_DESC {
-                SemanticName: s!("COLOR"),
-                SemanticIndex: 0,
-                Format: DXGI_FORMAT_R32G32B32_FLOAT,
-                InputSlot: 0,
-                AlignedByteOffset: offset_of!(Vertex, colour) as u32,
-                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
-                InstanceDataStepRate: 0,
-            },
-            D3D11_INPUT_ELEMENT_DESC {
-                SemanticName: s!("NORMAL"),
-                SemanticIndex: 0,
-                Format: DXGI_FORMAT_R32G32B32_FLOAT,
-                InputSlot: 0,
-                AlignedByteOffset: offset_of!(Vertex, normal) as u32,
-                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
-                InstanceDataStepRate: 0,
-            },
-            D3D11_INPUT_ELEMENT_DESC {
-                SemanticName: s!("TEX"),
-                SemanticIndex: 0,
-                Format: DXGI_FORMAT_R32G32_FLOAT,
-                InputSlot: 0,
-                AlignedByteOffset: D3D11_APPEND_ALIGNED_ELEMENT,
-                InputSlotClass: D3D11_INPUT_PER_VERTEX_DATA,
-                InstanceDataStepRate: 0,
-            },
-        ];
+        let shaders = Self::setup_shaders(&addon_dir, &d3d11_device)?;
 
         let obj_file = addon_dir.join("horse.obj");
         let mut vertex_buffers = Vec::new();
@@ -248,9 +218,8 @@ impl DrawState {
             swap_chain: d3d11_swap_chain.clone(),
             vertex_buffers,
             render_target_view: [Some(render_target_view)],
-            pixel_shader,
             rasterizer_state,
-            vertex_shader,
+            shaders,
             depth_stencil_state,
             viewport,
             constant_buffer,
@@ -319,7 +288,7 @@ impl DrawState {
                     //device_context.OMSetRenderTargets(Some(&self.render_target_view), None);
                     device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
                     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-                    if let (Some(vs), Some(ps)) = (&self.vertex_shader, &self.pixel_shader) {
+                    if let (Some(vs), Some(ps)) = (self.shaders.get("generic-vs"), self.shaders.get("generic-ps")) {
                         vs.set(&device_context);
                         ps.set(&device_context);
                         VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
