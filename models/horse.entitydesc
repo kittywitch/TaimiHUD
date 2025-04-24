@@ -5,5 +5,7 @@
       "file": "horse.obj",
       "index": 0,
     },
+    "vertex_shader": "generic_vs",
+    "pixel_shader": "generic_ps",
   },
 ]

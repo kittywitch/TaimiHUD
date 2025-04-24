@@ -52,7 +52,7 @@ impl EntityController {
         Ok(entity_controller)
     }
 
-    pub fn load(self, device: &ID3D11Device) -> anyhow::Result<Vec<Entity>> {
+    pub fn load(self, device: &ID3D11Device) -> anyhow::Result<Vec<Arc<Entity>>> {
         let mut entities = Vec::new();
         for (file, descs) in &self.0 {
             let file_models = Model::load(file)?;
@@ -68,8 +68,11 @@ impl EntityController {
                     model_matrix: desc.model_matrix,
                     location: desc.location.clone(),
                     model: model.clone(),
+                    pixel_shader: desc.pixel_shader.clone(),
+                    vertex_shader: desc.vertex_shader.clone(),
                     vertex_buffer,
                 };
+                let entity = Arc::new(entity);
                 entities.push(entity);
             }
         }
@@ -78,10 +81,20 @@ impl EntityController {
     }
 }
 
+fn default_pixel_shader() -> String {
+    "generic_ps".to_string()
+}
+fn default_vertex_shader() -> String {
+    "generic_vs".to_string()
+}
 #[derive(Clone,Serialize,Deserialize)]
 pub struct EntityDescription {
     pub name: String,
     pub location: ModelLocation,
+    #[serde(default = "default_vertex_shader")]
+    pub vertex_shader: String,
+    #[serde(default = "default_pixel_shader")]
+    pub pixel_shader: String,
     #[serde(default)]
     pub model_matrix: Mat4,
 }
@@ -92,6 +105,8 @@ pub struct Entity {
     pub location: ModelLocation,
     pub model: Model,
     pub vertex_buffer: VertexBuffer,
+    pub vertex_shader: String,
+    pub pixel_shader: String,
 }
 
 impl EntityDescription {
