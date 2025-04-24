@@ -1,9 +1,8 @@
 use {
-    anyhow::anyhow, glam::{Mat4, Vec2, Vec3}, glob::Paths, relative_path::RelativePathBuf, serde::{Deserialize,Serialize}, std::{
-        collections::HashMap, fs::read_to_string, path::{Path, PathBuf}, sync::Arc
+    super::state::InstanceBufferData, anyhow::anyhow, glam::{Mat4, Vec2, Vec3}, glob::Paths, relative_path::RelativePathBuf, serde::{Deserialize,Serialize}, std::{
+        cell::RefCell, collections::HashMap, fs::read_to_string, path::{Path, PathBuf}, rc::Rc, slice::from_ref
     }, tobj::{Material, Mesh}, windows::Win32::Graphics::Direct3D11::{
-        ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_VERTEX_BUFFER,
-        D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
+        ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT
     }
 };
 #[derive(Copy, Clone)]
@@ -21,7 +20,7 @@ pub struct ModelLocation {
     index: usize,
 }
 
-type Eda = Arc<EntityDescription>;
+type Eda = Rc<EntityDescription>;
 
 #[derive(Default)]
 pub struct EntityController(HashMap<PathBuf, Vec<Eda>>);
@@ -44,7 +43,7 @@ impl EntityController {
                 for entity_desc in entity_descs.into_iter() {
                     let full_path = model_folder.join(&entity_desc.location.file);
                     let entry = entity_controller.0.entry(full_path).or_default();
-                    let entity_desc_arc = Arc::new(entity_desc);
+                    let entity_desc_arc = Rc::new(entity_desc);
                     entry.push(entity_desc_arc);
                 }
             }
@@ -52,7 +51,7 @@ impl EntityController {
         Ok(entity_controller)
     }
 
-    pub fn load(self, device: &ID3D11Device) -> anyhow::Result<Vec<Arc<Entity>>> {
+    pub fn load(self, device: &ID3D11Device) -> anyhow::Result<Vec<Rc<Entity>>> {
         let mut entities = Vec::new();
         for (file, descs) in &self.0 {
             let file_models = Model::load(file)?;
@@ -63,16 +62,18 @@ impl EntityController {
                     .ok_or_else(|| anyhow!("model index {} does not exist in file {:?}", model_idx, file))?;
                 log::info!("Loading entity \"{}\" from \"{:?}\"@{}", desc.name, desc.location.file, desc.location.index);
                 let vertex_buffer = model.clone().to_buffer(device)?;
+                let constant_buffer = Entity::setup_constant_buffer(desc.model_matrix, device)?;
                 let entity = Entity {
                     name: desc.name.clone(),
-                    model_matrix: desc.model_matrix,
+                    model_matrix: RefCell::new(desc.model_matrix),
                     location: desc.location.clone(),
                     model: model.clone(),
                     pixel_shader: desc.pixel_shader.clone(),
                     vertex_shader: desc.vertex_shader.clone(),
                     vertex_buffer,
+                    constant_buffer,
                 };
-                let entity = Arc::new(entity);
+                let entity = Rc::new(entity);
                 entities.push(entity);
             }
         }
@@ -101,12 +102,65 @@ pub struct EntityDescription {
 
 pub struct Entity {
     pub name: String,
-    pub model_matrix: Mat4,
+    pub model_matrix: RefCell<Mat4>,
     pub location: ModelLocation,
     pub model: Model,
     pub vertex_buffer: VertexBuffer,
     pub vertex_shader: String,
     pub pixel_shader: String,
+    pub constant_buffer: ID3D11Buffer,
+}
+
+impl Entity {
+    pub fn rotate(&self, dt: f32) {
+        *self.model_matrix.borrow_mut() *= Mat4::from_rotation_z(dt);
+    }
+    pub fn get_world_matrix(&self) -> InstanceBufferData {
+        InstanceBufferData {
+            model: *self.model_matrix.borrow(),
+        }
+    }
+
+    pub fn setup_constant_buffer(model_matrix: Mat4, device: &ID3D11Device) -> anyhow::Result<ID3D11Buffer> {
+        let model_matrix = InstanceBufferData {
+            model: model_matrix,
+        };
+        let instance_data_array: &[InstanceBufferData] = from_ref(&model_matrix);
+
+        /*let stride: u32 = size_of::<InstanceBufferData>() as u32;
+        let offset: u32 = 0;
+        let count: u32 = instance_data_array.len() as u32;*/
+
+        log::info!("Setting up vertex buffer");
+        let constant_buffer_desc = D3D11_BUFFER_DESC {
+            ByteWidth: size_of::<InstanceBufferData>() as u32,
+            Usage: D3D11_USAGE_DEFAULT,
+            BindFlags: D3D11_BIND_CONSTANT_BUFFER.0 as u32,
+            CPUAccessFlags: 0,
+            MiscFlags: 0,
+            StructureByteStride: 0,
+        };
+
+        let constant_subresource_data = D3D11_SUBRESOURCE_DATA {
+            pSysMem: instance_data_array.as_ptr() as *const _,
+            SysMemPitch: 0,
+            SysMemSlicePitch: 0,
+        };
+
+
+        let mut constant_buffer_ptr: Option<ID3D11Buffer> = None;
+        let constant_buffer = unsafe {
+            device.CreateBuffer(
+                &constant_buffer_desc,
+                Some(&constant_subresource_data),
+                Some(&mut constant_buffer_ptr),
+            )
+        }
+        .map_err(anyhow::Error::from)
+        .and_then(|()| constant_buffer_ptr.ok_or_else(|| anyhow!("no per-entity constant buffer")))?;
+
+        Ok(constant_buffer)
+    }
 }
 
 impl EntityDescription {

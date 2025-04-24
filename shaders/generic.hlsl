@@ -7,9 +7,13 @@ struct VSInput
 
 cbuffer ConstantBuffer : register(b0)
 {
-  column_major matrix Model;
   column_major matrix View;
   column_major matrix Projection;
+}
+
+cbuffer InstanceBuffer : register(b1)
+{
+  column_major matrix Model;
 }
 
 struct VSOutput

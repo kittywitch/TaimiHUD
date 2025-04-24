@@ -1,6 +1,6 @@
 use {
     super::{model::{Entity, EntityController, Model, Vertex, VertexBuffer}, shader::{Shader, ShaderDescription, ShaderKind}}, crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, glob::Paths, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
-        collections::HashMap, ffi::{c_char, CStr}, mem::offset_of, path::{Path, PathBuf}, slice::from_raw_parts, sync::Arc
+        collections::HashMap, ffi::{c_char, CStr}, mem::offset_of, path::{Path, PathBuf}, slice::from_raw_parts, rc::Rc
     }, tokio::sync::mpsc::Receiver, windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
@@ -33,15 +33,15 @@ pub struct DrawData {
     pub camera_position: Vec3,
 }
 
-type ShaderEntityMap = Vec<(Arc<Shader>, Arc<Shader>, Vec<Arc<Entity>>)>;
+type ShaderEntityMap = Vec<(Rc<Shader>, Rc<Shader>, Vec<Rc<Entity>>)>;
 
 pub struct DrawState {
     receiver: Receiver<SpaceEvent>,
     draw_data: Option<DrawData>,
     render_target_view: [Option<ID3D11RenderTargetView>; 1],
-    shaders: HashMap<String, Arc<Shader>>,
+    shaders: HashMap<String, Rc<Shader>>,
     rasterizer_state: ID3D11RasterizerState,
-    entities: Vec<Arc<Entity>>,
+    entities: Vec<Rc<Entity>>,
     shader_entity_map: ShaderEntityMap,
     depth_stencil_state: ID3D11DepthStencilState,
     constant_buffer: ID3D11Buffer,
@@ -54,16 +54,17 @@ pub struct DrawState {
 }
 
 #[repr(C)]
+pub struct InstanceBufferData {
+    pub model: Mat4,
+}
+
+#[repr(C)]
 struct ConstantBufferData {
-    model: Mat4,
     view: Mat4,
     projection: Mat4,
 }
 
 impl ConstantBufferData {
-    fn rotate_model(&mut self, dt: f32) {
-        self.model *= Mat4::from_rotation_y(dt);
-    }
 }
 
 pub enum SpaceEvent {
@@ -72,11 +73,11 @@ pub enum SpaceEvent {
 
 impl DrawState {
 
-    pub fn setup_shaders(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<HashMap<String, Arc<Shader>>> {
+    pub fn setup_shaders(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<HashMap<String, Rc<Shader>>> {
         log::info!("Beginning shader setup!");
         let shader_folder = addon_dir.join("shaders");
         let mut shader_descriptions: Vec<ShaderDescription> = Vec::new();
-        let mut shaders: HashMap<String, Arc<Shader>> = HashMap::new();
+        let mut shaders: HashMap<String, Rc<Shader>> = HashMap::new();
         if shader_folder.exists() {
             let shader_description_paths: Paths = glob::glob(shader_folder
                 .join("*.shaderdesc")
@@ -87,7 +88,7 @@ impl DrawState {
                 shader_descriptions.extend(shader_description);
             }
             for shader_description in shader_descriptions {
-                let shader = Arc::new(Shader::create(&shader_folder, device, &shader_description)?);
+                let shader = Rc::new(Shader::create(&shader_folder, device, &shader_description)?);
                 shaders.insert(shader_description.identifier, shader);
             };
         }
@@ -95,7 +96,7 @@ impl DrawState {
         Ok(shaders)
     }
 
-    pub fn setup_entities(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Vec<Arc<Entity>>> {
+    pub fn setup_entities(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Vec<Rc<Entity>>> {
         log::info!("Beginning entity setup!");
         let entity_controller = EntityController::load_desc(addon_dir)?;
         let entities = entity_controller.load(device)?;
@@ -103,7 +104,7 @@ impl DrawState {
         Ok(entities)
     }
 
-    pub fn setup_shader_entity_map(shaders: &HashMap<String, Arc<Shader>>, entities: &[Arc<Entity>]) -> ShaderEntityMap {
+    pub fn setup_shader_entity_map(shaders: &HashMap<String, Rc<Shader>>, entities: &[Rc<Entity>]) -> ShaderEntityMap {
         log::info!("Beginning shader entity map setup!");
         let mut shader_entity_map = Vec::new();
         let entity_shader_combinations = entities
@@ -114,7 +115,7 @@ impl DrawState {
             ).unique();
         log::info!("There are {:?} unique shader combinations across your currently loaded entities!", entity_shader_combinations.size_hint());
         for combination in entity_shader_combinations {
-            let entities_for_combination: Vec<Arc<Entity>> = entities
+            let entities_for_combination: Vec<Rc<Entity>> = entities
                 .iter()
                 .filter(
                     |e|
@@ -164,7 +165,8 @@ impl DrawState {
 
         let shaders = Self::setup_shaders(&addon_dir, &d3d11_device)?;
         let entities = Self::setup_entities(&addon_dir, &d3d11_device)?;
-        let shader_entity_map = Self::setup_shader_entity_map(&shaders, &entities);
+        //let shader_entity_map = Self::setup_shader_entity_map(&shaders, &entities);
+        let shader_entity_map = Vec::new();
         let constant_buffer = Self::setup_constant_buffer(&d3d11_device)?;
 
         let viewport = D3D11_VIEWPORT {
@@ -268,9 +270,6 @@ impl DrawState {
             aspect_ratio: None,
             display_size: None,
             constant_buffer_data: ConstantBufferData {
-                //model:Mat4::from_translation(Vec3::new(0.25,0.5,1.0)),
-                model: Mat4::from_translation(Vec3::new(-52.0, 130.0, 1.0))
-                    * Mat4::from_scale(Vec3::new(0.25, 0.25, 0.25)),
                 view: Mat4::IDENTITY,
                 projection: Mat4::IDENTITY,
             },
@@ -309,12 +308,25 @@ impl DrawState {
                     Err(_error) => (),
                 }
 
-                self.constant_buffer_data.rotate_model(io.delta_time);
+
+                //self.constant_buffer_data.rotate_model(io.delta_time);
                 unsafe {
                     let device_context = self
                         .device
                         .GetImmediateContext()
                         .expect("I lost my context!");
+                    for entity in &self.entities {
+                        entity.rotate(io.delta_time);
+                        device_context.UpdateSubresource(
+                            &entity.constant_buffer,
+                            0,
+                            None,
+                            &entity.get_world_matrix() as *const _ as *const _,
+                            0,
+                            0,
+                        );
+                    }
+
                     device_context.RSSetState(&self.rasterizer_state);
                     device_context.VSSetConstantBuffers(0, Some(&[Some(self.constant_buffer.clone())]));
                     device_context.UpdateSubresource(
@@ -330,7 +342,16 @@ impl DrawState {
                     device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
                     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
-                    for (vs, ps, entities) in self.shader_entity_map.iter() {
+                    for entity in &self.entities {
+                        if let (Some(vs), Some(ps)) = (&self.shaders.get(&entity.vertex_shader), self.shaders.get(&entity.pixel_shader)) {
+                            device_context.VSSetConstantBuffers(1, Some(&[Some(entity.constant_buffer.clone())]));
+                            vs.set(&device_context);
+                            ps.set(&device_context);
+                            VertexBuffer::set_and_draw(&[entity.vertex_buffer.to_owned()], &device_context);
+                        }
+                    }
+
+                    /*for (vs, ps, entities) in self.shader_entity_map.iter() {
                         vs.set(&device_context);
                         ps.set(&device_context);
                         let vertex_buffers: Vec<VertexBuffer> = entities
@@ -340,7 +361,7 @@ impl DrawState {
                                 e.vertex_buffer.to_owned()
                             ).collect();
                         VertexBuffer::set_and_draw(vertex_buffers.as_slice(), &device_context);
-                    }
+                    }*/
 
 
                 }
