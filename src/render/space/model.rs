@@ -1,9 +1,26 @@
 use {
-    super::state::InstanceBufferData, anyhow::anyhow, glam::{Mat4, Vec2, Vec3}, glob::Paths, relative_path::RelativePathBuf, serde::{Deserialize,Serialize}, std::{
-        cell::RefCell, collections::HashMap, fs::read_to_string, path::{Path, PathBuf}, rc::Rc, slice::from_ref
-    }, tobj::{Material, Mesh}, windows::Win32::Graphics::Direct3D11::{
-        ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT
-    }
+    super::state::InstanceBufferData,
+    anyhow::anyhow,
+    glam::{Affine3A, Mat4, Vec2, Vec3},
+    glob::Paths,
+    itertools::Itertools,
+    rand::Rng,
+    relative_path::RelativePathBuf,
+    serde::{Deserialize, Serialize},
+    std::{
+        cell::RefCell,
+        collections::HashMap,
+        fs::read_to_string,
+        iter,
+        path::{Path, PathBuf},
+        rc::Rc,
+        slice::from_ref,
+    },
+    tobj::{Material, Mesh},
+    windows::Win32::Graphics::Direct3D11::{
+        ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_CONSTANT_BUFFER,
+        D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
+    },
 };
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -14,7 +31,7 @@ pub struct Vertex {
     pub texture: Vec2,
 }
 
-#[derive(Clone,Serialize,Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct ModelLocation {
     file: PathBuf,
     index: usize,
@@ -25,17 +42,18 @@ type Eda = Rc<EntityDescription>;
 #[derive(Default)]
 pub struct EntityController(HashMap<PathBuf, Vec<Eda>>);
 
-
 impl EntityController {
-    pub fn load_desc(addon_dir: &Path) -> anyhow::Result<Self>{
+    pub fn load_desc(addon_dir: &Path) -> anyhow::Result<Self> {
         let mut entity_controller = Self::default();
         let model_folder = addon_dir.join("models");
 
         if model_folder.exists() {
-            let entity_desc_paths: Paths = glob::glob(model_folder
-                .join("*.entitydesc")
-                .to_str()
-                .expect("Model load pattern is unparseable"))?;
+            let entity_desc_paths: Paths = glob::glob(
+                model_folder
+                    .join("*.entitydesc")
+                    .to_str()
+                    .expect("Model load pattern is unparseable"),
+            )?;
             for entity_desc_path in entity_desc_paths {
                 let entity_desc_path = entity_desc_path?;
                 log::info!("Loading entities from {:?}", entity_desc_path);
@@ -57,20 +75,42 @@ impl EntityController {
             let file_models = Model::load(file)?;
             for desc in descs {
                 let model_idx = desc.location.index;
-                let model = file_models
-                    .get(model_idx)
-                    .ok_or_else(|| anyhow!("model index {} does not exist in file {:?}", model_idx, file))?;
-                log::info!("Loading entity \"{}\" from \"{:?}\"@{}", desc.name, desc.location.file, desc.location.index);
-                let vertex_buffer = model.clone().to_buffer(device)?;
-                let constant_buffer = Entity::setup_constant_buffer(desc.model_matrix, device)?;
+                let model = file_models.get(model_idx).ok_or_else(|| {
+                    anyhow!(
+                        "model index {} does not exist in file {:?}",
+                        model_idx,
+                        file
+                    )
+                })?;
+                log::info!(
+                    "Loading entity \"{}\" from \"{:?}\"@{}",
+                    desc.name,
+                    desc.location.file,
+                    desc.location.index
+                );
+                let vertex_buffer = model.to_buffer(device)?;
+                let vertex_buffer_rc = Rc::new(vertex_buffer);
+                let mut rng = rand::rng();
+                let model_matrix: Vec<_> = (0..1000 * 3)
+                    .map(|_| rng.random::<f32>() * 1000.0)
+                    .chunks(3)
+                    .into_iter()
+                    .map(|xyz| Vec3::from_slice(&xyz.into_iter().collect::<Vec<_>>()))
+                    .map(Mat4::from_translation)
+                    .map(|trans| InstanceBufferData {
+                        model: desc.model_matrix * trans,
+                    })
+                    .collect();
+
+                let constant_buffer = Entity::setup_constant_buffer(&model_matrix, device)?;
                 let entity = Entity {
                     name: desc.name.clone(),
-                    model_matrix: RefCell::new(desc.model_matrix),
-                    location: desc.location.clone(),
                     model: model.clone(),
+                    model_matrix: RefCell::new(model_matrix),
+                    location: desc.location.clone(),
                     pixel_shader: desc.pixel_shader.clone(),
                     vertex_shader: desc.vertex_shader.clone(),
-                    vertex_buffer,
+                    vertex_buffer: vertex_buffer_rc.clone(),
                     constant_buffer,
                 };
                 let entity = Rc::new(entity);
@@ -88,7 +128,7 @@ fn default_pixel_shader() -> String {
 fn default_vertex_shader() -> String {
     "generic_vs".to_string()
 }
-#[derive(Clone,Serialize,Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct EntityDescription {
     pub name: String,
     pub location: ModelLocation,
@@ -102,30 +142,51 @@ pub struct EntityDescription {
 
 pub struct Entity {
     pub name: String,
-    pub model_matrix: RefCell<Mat4>,
+    pub model_matrix: RefCell<Vec<InstanceBufferData>>,
     pub location: ModelLocation,
-    pub model: Model,
-    pub vertex_buffer: VertexBuffer,
+    pub model: Rc<Model>,
+    pub vertex_buffer: Rc<VertexBuffer>,
     pub vertex_shader: String,
     pub pixel_shader: String,
     pub constant_buffer: ID3D11Buffer,
 }
 
 impl Entity {
-    pub fn rotate(&self, dt: f32) {
-        *self.model_matrix.borrow_mut() *= Mat4::from_rotation_z(dt);
-    }
-    pub fn get_world_matrix(&self) -> InstanceBufferData {
-        InstanceBufferData {
-            model: *self.model_matrix.borrow(),
+    pub fn set(&self, slot: u32, device_context: &ID3D11DeviceContext) {
+        unsafe {
+            device_context.IASetVertexBuffers(
+                slot,
+                1,
+                Some(&self.vertex_buffer.buffer as *const _ as *const _),
+                Some(&self.vertex_buffer.stride),
+                Some(&self.vertex_buffer.offset),
+            );
         }
     }
 
-    pub fn setup_constant_buffer(model_matrix: Mat4, device: &ID3D11Device) -> anyhow::Result<ID3D11Buffer> {
-        let model_matrix = InstanceBufferData {
-            model: model_matrix,
-        };
-        let instance_data_array: &[InstanceBufferData] = from_ref(&model_matrix);
+    pub fn draw(&self, start: u32, device_context: &ID3D11DeviceContext) {
+        let total = self.vertex_buffer.count;
+        let instances = self.model_matrix.borrow().len();
+        unsafe { device_context.DrawInstanced(total, instances as u32, start, 0) }
+    }
+
+    pub fn set_and_draw(&self, device_context: &ID3D11DeviceContext) {
+        self.set(0_u32, device_context);
+        //Self::set_many(bufs, 0, device_context);
+        self.draw( 0, device_context);
+    }
+
+    pub fn rotate(&self, dt: f32) {
+        let mut model = self.model_matrix.borrow_mut();
+        for mdl in model.iter_mut() {
+            mdl.rotate(dt);
+        }
+    }
+
+    pub fn setup_constant_buffer(
+        model_matrix: &[InstanceBufferData],
+        device: &ID3D11Device,
+    ) -> anyhow::Result<ID3D11Buffer> {
 
         /*let stride: u32 = size_of::<InstanceBufferData>() as u32;
         let offset: u32 = 0;
@@ -133,7 +194,7 @@ impl Entity {
 
         log::info!("Setting up vertex buffer");
         let constant_buffer_desc = D3D11_BUFFER_DESC {
-            ByteWidth: size_of::<InstanceBufferData>() as u32,
+            ByteWidth: size_of_val(model_matrix) as u32,
             Usage: D3D11_USAGE_DEFAULT,
             BindFlags: D3D11_BIND_CONSTANT_BUFFER.0 as u32,
             CPUAccessFlags: 0,
@@ -142,11 +203,10 @@ impl Entity {
         };
 
         let constant_subresource_data = D3D11_SUBRESOURCE_DATA {
-            pSysMem: instance_data_array.as_ptr() as *const _,
+            pSysMem: model_matrix.as_ptr() as *const _,
             SysMemPitch: 0,
             SysMemSlicePitch: 0,
         };
-
 
         let mut constant_buffer_ptr: Option<ID3D11Buffer> = None;
         let constant_buffer = unsafe {
@@ -157,7 +217,9 @@ impl Entity {
             )
         }
         .map_err(anyhow::Error::from)
-        .and_then(|()| constant_buffer_ptr.ok_or_else(|| anyhow!("no per-entity constant buffer")))?;
+        .and_then(|()| {
+            constant_buffer_ptr.ok_or_else(|| anyhow!("no per-entity constant buffer"))
+        })?;
 
         Ok(constant_buffer)
     }
@@ -195,14 +257,25 @@ pub struct VertexBuffer {
 }
 
 impl VertexBuffer {
-    pub fn set(bufs: &[Self], slot: u32, device_context: &ID3D11DeviceContext) {
+    pub fn set(&self, slot: u32, device_context: &ID3D11DeviceContext) {
+        unsafe {
+            device_context.IASetVertexBuffers(
+                slot,
+                1,
+                Some(&self.buffer as *const _ as *const _),
+                Some(&self.stride),
+                Some(&self.offset),
+            );
+        }
+    }
+    pub fn set_many(bufs: &[&Self], slot: u32, device_context: &ID3D11DeviceContext) {
         let buf_len = bufs.len() as u32;
         if buf_len != 0 {
             let strides: Vec<_> = bufs.iter().map(|b| b.stride).collect();
             let strides = strides.as_slice();
             let offsets: Vec<_> = bufs.iter().map(|b| b.offset).collect();
             let offsets = offsets.as_slice();
-            let buffers: Vec<_> = bufs.iter().map(|b| Some(b.buffer.to_owned())).collect();
+            let buffers: Vec<_> = bufs.iter().map(|b| Some(b.buffer.clone())).collect();
             let buffers = buffers.as_slice();
 
             unsafe {
@@ -217,19 +290,22 @@ impl VertexBuffer {
         }
     }
 
-    pub fn draw(bufs: &[Self], start: u32, device_context: &ID3D11DeviceContext) {
+    pub fn draw(bufs: &[&Self], start: u32, device_context: &ID3D11DeviceContext) {
         let total = bufs.iter().map(|b| b.count).sum();
         unsafe { device_context.Draw(total, start) }
     }
 
-    pub fn set_and_draw(bufs: &[Self], device_context: &ID3D11DeviceContext) {
-        Self::set(bufs, 0, device_context);
+    pub fn set_and_draw(bufs: &[&Self], device_context: &ID3D11DeviceContext) {
+        for (i, buf) in bufs.iter().enumerate() {
+            buf.set(i as u32, device_context);
+        }
+        //Self::set_many(bufs, 0, device_context);
         Self::draw(bufs, 0, device_context);
     }
 }
 
 impl Model {
-    pub fn load(obj_file: &Path) -> anyhow::Result<Vec<Self>> {
+    pub fn load(obj_file: &Path) -> anyhow::Result<Vec<Rc<Self>>> {
         let (models, _materials) = tobj::load_obj(
             obj_file,
             &tobj::LoadOptions {
@@ -298,12 +374,12 @@ impl Model {
                 })
             }
 
-            kat_models.push(Self {
+            kat_models.push(Rc::new(Self {
                 name: m.name.clone(),
                 file: obj_file.to_path_buf(),
                 index: i,
-                vertices
-            });
+                vertices,
+            }));
         }
         Ok(kat_models)
     }
@@ -351,7 +427,7 @@ impl Model {
 
     pub fn to_buffers(
         device: &ID3D11Device,
-        models: Vec<Self>,
+        models: Vec<Rc<Self>>,
     ) -> anyhow::Result<Vec<VertexBuffer>> {
         let mut vertex_buffers = Vec::new();
         for model in models {

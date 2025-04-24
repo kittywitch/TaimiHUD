@@ -22,7 +22,7 @@ use {
         AddonFlags, UpdateProvider,
     },
     std::{
-        cell::{RefCell, Cell},
+        cell::{Cell, RefCell},
         ptr,
         sync::{Mutex, OnceLock},
         thread::{self, JoinHandle},
@@ -90,10 +90,12 @@ fn load() {
             DRAWSTATE.set(drawstate_inner.ok());
             DRAWSTATE_INITIALIZED.set(true);
         }
-        DRAWSTATE.with_borrow_mut(|ds_op| if let Some(ds) = ds_op {
+        DRAWSTATE.with_borrow_mut(|ds_op| {
+            if let Some(ds) = ds_op {
                 let io = ui.io();
 
                 ds.draw(io);
+            }
         });
     });
     register_render(RenderType::Render, taimi_window).revert_on_unload();

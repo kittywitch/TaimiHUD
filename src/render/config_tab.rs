@@ -13,9 +13,7 @@ pub struct ConfigTabState {
 
 impl ConfigTabState {
     pub fn new() -> Self {
-        Self {
-            katrender: false,
-        }
+        Self { katrender: false }
     }
 
     pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
@@ -23,10 +21,7 @@ impl ConfigTabState {
             self.katrender = settings.enable_katrender;
         };
         ui.text("You can control-click on a slider element, or such, to be able to directly input data to it.");
-        if ui.checkbox(
-            "Experimental KatRender",
-            &mut self.katrender,
-        ) {
+        if ui.checkbox("Experimental KatRender", &mut self.katrender) {
             let sender = TS_SENDER.get().unwrap();
             let event_send = sender.try_send(ControllerEvent::ToggleKatRender);
             drop(event_send);

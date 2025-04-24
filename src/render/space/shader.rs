@@ -1,32 +1,37 @@
 use {
-    super::model::Vertex, anyhow::anyhow, core::ffi::c_char, serde::{
-        Deserialize,
-        Serialize,
-    }, std::{
-        ffi::{CStr, CString}, fs::read_to_string, mem::offset_of, path::{Path, PathBuf}, slice::from_raw_parts
-    }, strum_macros::Display, windows::Win32::Graphics::{
+    super::model::Vertex,
+    anyhow::anyhow,
+    core::ffi::c_char,
+    serde::{Deserialize, Serialize},
+    std::{
+        ffi::{CStr, CString},
+        fs::read_to_string,
+        mem::offset_of,
+        path::{Path, PathBuf},
+        slice::from_raw_parts,
+    },
+    strum_macros::Display,
+    windows::Win32::Graphics::{
         Direct3D::{
-            Fxc::{
-                D3DCompileFromFile,
-                D3DCOMPILE_DEBUG,
-            },
+            Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
             ID3DBlob,
         },
         Direct3D11::{
-            ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_VERTEX_DATA
+            ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader,
+            ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_ELEMENT_DESC,
+            D3D11_INPUT_PER_VERTEX_DATA,
         },
         Dxgi::Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT},
-    }, windows_strings::{
-        s, HSTRING, PCSTR
-    }
+    },
+    windows_strings::{s, HSTRING, PCSTR},
 };
 
-#[derive(Debug,Serialize,Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct ShaderDescription {
     pub identifier: String,
     pub kind: ShaderKind,
     pub path: PathBuf,
-    pub entrypoint: String
+    pub entrypoint: String,
 }
 
 impl ShaderDescription {
@@ -49,8 +54,7 @@ impl ShaderDescription {
     }
 }
 
-
-#[derive(Display,Debug,Serialize,Deserialize)]
+#[derive(Display, Debug, Serialize, Deserialize)]
 pub enum ShaderKind {
     Vertex,
     Pixel,
@@ -76,22 +80,22 @@ pub struct PixelShader {
 impl Shader {
     pub fn set(&self, context: &ID3D11DeviceContext) {
         match self {
-            Self::Vertex(s) => {
-                unsafe {
-                    context.IASetInputLayout(&s.layout);
-                    context.VSSetShader(&s.shader, None);
-                }
+            Self::Vertex(s) => unsafe {
+                context.IASetInputLayout(&s.layout);
+                context.VSSetShader(&s.shader, None);
             },
-            Self::Pixel(s) => {
-                unsafe {
-                    context.PSSetShader(&s.shader, None);
-                }
+            Self::Pixel(s) => unsafe {
+                context.PSSetShader(&s.shader, None);
             },
         }
     }
-    pub fn compile(shader_folder: &Path, desc: &ShaderDescription) -> anyhow::Result<(ID3DBlob, CString)> {
+    pub fn compile(
+        shader_folder: &Path,
+        desc: &ShaderDescription,
+    ) -> anyhow::Result<(ID3DBlob, CString)> {
         let (filename, target, entrypoint_cstring) = desc.get(shader_folder)?;
-        log::info!("Beginning compile from {:?} of {} shader, entrypoint {:?}", 
+        log::info!(
+            "Beginning compile from {:?} of {} shader, entrypoint {:?}",
             &desc.path,
             &desc.kind,
             entrypoint_cstring
@@ -109,7 +113,7 @@ impl Shader {
                 D3DCOMPILE_DEBUG,
                 0,
                 &mut blob_ptr,
-                Some(&mut error_blob)
+                Some(&mut error_blob),
             )
         }
         .map_err(anyhow::Error::from)
@@ -124,33 +128,38 @@ impl Shader {
             None => e,
         })?;
 
-        log::info!("Compile successful from {:?} of {} shader, entrypoint {:?}", &desc.path, &desc.kind, entrypoint);
+        log::info!(
+            "Compile successful from {:?} of {} shader, entrypoint {:?}",
+            &desc.path,
+            &desc.kind,
+            entrypoint
+        );
         Ok((blob, entrypoint_cstring))
     }
 
-    pub fn create(shader_folder: &Path, device: &ID3D11Device, desc: &ShaderDescription) -> anyhow::Result<Self> {
+    pub fn create(
+        shader_folder: &Path,
+        device: &ID3D11Device,
+        desc: &ShaderDescription,
+    ) -> anyhow::Result<Self> {
         let (blob, entrypoint_cstring) = Self::compile(shader_folder, desc)?;
 
         let entrypoint = PCSTR::from_raw(entrypoint_cstring.as_ptr() as *const u8);
-        let blob_bytes = unsafe {
-            from_raw_parts(
-                blob.GetBufferPointer() as *const u8,
-                blob.GetBufferSize(),
-            )
-        };
-        log::info!("Creating {:?} of {} shader, entrypoint {:?}", &desc.path, &desc.kind, &desc.entrypoint);
+        let blob_bytes =
+            unsafe { from_raw_parts(blob.GetBufferPointer() as *const u8, blob.GetBufferSize()) };
+        log::info!(
+            "Creating {:?} of {} shader, entrypoint {:?}",
+            &desc.path,
+            &desc.kind,
+            &desc.entrypoint
+        );
         match &desc.kind {
             ShaderKind::Vertex => {
                 let mut shader_ptr: Option<ID3D11VertexShader> = None;
-                let shader = unsafe {
-                    device.CreateVertexShader(
-                        blob_bytes,
-                        None,
-                        Some(&mut shader_ptr),
-                    )
-                }
-                .map_err(anyhow::Error::from)
-                .and_then(|()| shader_ptr.ok_or_else(|| anyhow!("no vertex shader")))?;
+                let shader =
+                    unsafe { device.CreateVertexShader(blob_bytes, None, Some(&mut shader_ptr)) }
+                        .map_err(anyhow::Error::from)
+                        .and_then(|()| shader_ptr.ok_or_else(|| anyhow!("no vertex shader")))?;
                 let input_layout_description: &[D3D11_INPUT_ELEMENT_DESC] = &[
                     D3D11_INPUT_ELEMENT_DESC {
                         SemanticName: s!("POSITION"),
@@ -189,7 +198,12 @@ impl Shader {
                         InstanceDataStepRate: 0,
                     },
                 ];
-                log::info!("Creating input layout for {:?} of {} shader, entrypoint {:?}", &desc.path, &desc.kind, &desc.entrypoint);
+                log::info!(
+                    "Creating input layout for {:?} of {} shader, entrypoint {:?}",
+                    &desc.path,
+                    &desc.kind,
+                    &desc.entrypoint
+                );
                 let mut layout_ptr: Option<ID3D11InputLayout> = None;
                 let layout = unsafe {
                     device.CreateInputLayout(
@@ -202,33 +216,26 @@ impl Shader {
                 .and_then(|()| layout_ptr.ok_or_else(|| anyhow!("no input layout")))?;
 
                 let wrapped_shader = VertexShader {
-
                     path: desc.path.to_path_buf(),
                     layout,
                     entrypoint,
                     shader,
                 };
                 Ok(Shader::Vertex(wrapped_shader))
-            },
+            }
             ShaderKind::Pixel => {
                 let mut shader_ptr: Option<ID3D11PixelShader> = None;
-                let shader = unsafe {
-                    device.CreatePixelShader(
-                        blob_bytes,
-                        None,
-                        Some(&mut shader_ptr),
-                    )
-                }
-                .map_err(anyhow::Error::from)
-                .and_then(|()| shader_ptr.ok_or_else(|| anyhow!("no pixel shader")))?;
+                let shader =
+                    unsafe { device.CreatePixelShader(blob_bytes, None, Some(&mut shader_ptr)) }
+                        .map_err(anyhow::Error::from)
+                        .and_then(|()| shader_ptr.ok_or_else(|| anyhow!("no pixel shader")))?;
                 let wrapped_shader = PixelShader {
                     path: desc.path.to_path_buf(),
                     entrypoint,
                     shader,
                 };
                 Ok(Shader::Pixel(wrapped_shader))
-            },
+            }
         }
-    
     }
 }

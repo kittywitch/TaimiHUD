@@ -124,9 +124,7 @@ impl Controller {
     }
 
     async fn get_paths(&self, path: &Path) -> anyhow::Result<Paths> {
-        let timer_paths: Paths = glob(path
-            .to_str()
-            .expect("Timers load pattern is unparseable"))?;
+        let timer_paths: Paths = glob(path.to_str().expect("Timers load pattern is unparseable"))?;
         Ok(timer_paths)
     }
 

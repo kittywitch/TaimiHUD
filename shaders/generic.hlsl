@@ -3,6 +3,7 @@ struct VSInput
     float3 position: POSITION;
     float3 normal: NORMAL;
     float3 color: COLOR0;
+    uint        instId  : SV_InstanceID;
 };
 
 cbuffer ConstantBuffer : register(b0)
@@ -11,9 +12,16 @@ cbuffer ConstantBuffer : register(b0)
   column_major matrix Projection;
 }
 
-cbuffer InstanceBuffer : register(b1)
-{
+/*
+struct InstanceBufferData {
   column_major matrix Model;
+};
+
+ConstantBuffer<InstanceBufferData> Models[] : register(b1, space0)
+*/
+cbuffer InstanceBuffer : register(b1, space0)
+{
+ column_major matrix Model[1000];
 }
 
 struct VSOutput
@@ -27,8 +35,9 @@ VSOutput VSMain(VSInput input)
 {
     VSOutput output = (VSOutput)0;
     float4 VertPos = float4(input.position, 1.0);
+    matrix Moddy = Model[input.instId];
 
-    float4 Transform = mul(Projection, mul(View, mul(Model, VertPos)));
+    float4 Transform = mul(Projection, mul(View, mul(Moddy, VertPos)));
     output.position = Transform;
     output.color = input.color;
     output.normal = input.normal;

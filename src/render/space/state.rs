@@ -1,7 +1,24 @@
 use {
-    super::{model::{Entity, EntityController, Model, Vertex, VertexBuffer}, shader::{Shader, ShaderDescription, ShaderKind}}, crate::SETTINGS, anyhow::anyhow, glam::{Mat4, Vec3}, glob::Paths, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{
-        collections::HashMap, ffi::{c_char, CStr}, mem::offset_of, path::{Path, PathBuf}, slice::from_raw_parts, rc::Rc
-    }, tokio::sync::mpsc::Receiver, windows::Win32::Graphics::{
+    super::{
+        model::{Entity, EntityController, Model, Vertex, VertexBuffer},
+        shader::{Shader, ShaderDescription, ShaderKind},
+    },
+    crate::SETTINGS,
+    anyhow::anyhow,
+    glam::{Affine3A, Mat4, Vec3},
+    glob::Paths,
+    itertools::Itertools,
+    nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
+    std::{
+        collections::HashMap,
+        ffi::{c_char, CStr},
+        mem::offset_of,
+        path::{Path, PathBuf},
+        rc::Rc,
+        slice::from_raw_parts,
+    },
+    tokio::sync::mpsc::Receiver,
+    windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
             ID3DBlob, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
@@ -21,8 +38,8 @@ use {
             Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT},
             IDXGISwapChain,
         },
-    }, windows_strings::*,
-    itertools::Itertools,
+    },
+    windows_strings::*,
 };
 
 #[derive(Debug)]
@@ -58,45 +75,58 @@ pub struct InstanceBufferData {
     pub model: Mat4,
 }
 
+impl InstanceBufferData {
+    pub fn rotate(&mut self, dt: f32) {
+        self.model = self.model * Affine3A::from_rotation_z(dt);
+    }
+}
+
 #[repr(C)]
 struct ConstantBufferData {
     view: Mat4,
     projection: Mat4,
 }
 
-impl ConstantBufferData {
-}
+impl ConstantBufferData {}
 
 pub enum SpaceEvent {
     Update(DrawData),
 }
 
 impl DrawState {
-
-    pub fn setup_shaders(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<HashMap<String, Rc<Shader>>> {
+    pub fn setup_shaders(
+        addon_dir: &Path,
+        device: &ID3D11Device,
+    ) -> anyhow::Result<HashMap<String, Rc<Shader>>> {
         log::info!("Beginning shader setup!");
         let shader_folder = addon_dir.join("shaders");
         let mut shader_descriptions: Vec<ShaderDescription> = Vec::new();
         let mut shaders: HashMap<String, Rc<Shader>> = HashMap::new();
         if shader_folder.exists() {
-            let shader_description_paths: Paths = glob::glob(shader_folder
-                .join("*.shaderdesc")
-                .to_str()
-                .expect("Shader load pattern is unparseable"))?;
+            let shader_description_paths: Paths = glob::glob(
+                shader_folder
+                    .join("*.shaderdesc")
+                    .to_str()
+                    .expect("Shader load pattern is unparseable"),
+            )?;
             for shader_description_path in shader_description_paths {
-                let shader_description = ShaderDescription::load(&shader_folder.join(shader_description_path?))?;
+                let shader_description =
+                    ShaderDescription::load(&shader_folder.join(shader_description_path?))?;
                 shader_descriptions.extend(shader_description);
             }
             for shader_description in shader_descriptions {
                 let shader = Rc::new(Shader::create(&shader_folder, device, &shader_description)?);
                 shaders.insert(shader_description.identifier, shader);
-            };
+            }
         }
         log::info!("Finished shader setup. {} shaders loaded!", shaders.len());
         Ok(shaders)
     }
 
-    pub fn setup_entities(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Vec<Rc<Entity>>> {
+    pub fn setup_entities(
+        addon_dir: &Path,
+        device: &ID3D11Device,
+    ) -> anyhow::Result<Vec<Rc<Entity>>> {
         log::info!("Beginning entity setup!");
         let entity_controller = EntityController::load_desc(addon_dir)?;
         let entities = entity_controller.load(device)?;
@@ -104,25 +134,37 @@ impl DrawState {
         Ok(entities)
     }
 
-    pub fn setup_shader_entity_map(shaders: &HashMap<String, Rc<Shader>>, entities: &[Rc<Entity>]) -> ShaderEntityMap {
+    pub fn setup_shader_entity_map(
+        shaders: &HashMap<String, Rc<Shader>>,
+        entities: &[Rc<Entity>],
+    ) -> ShaderEntityMap {
         log::info!("Beginning shader entity map setup!");
         let mut shader_entity_map = Vec::new();
         let entity_shader_combinations = entities
             .iter()
-            .map(
-                |e|
-                (e.vertex_shader.clone(), e.pixel_shader.clone())
-            ).unique();
-        log::info!("There are {:?} unique shader combinations across your currently loaded entities!", entity_shader_combinations.size_hint());
+            .map(|e| (e.vertex_shader.clone(), e.pixel_shader.clone()))
+            .unique();
+        log::info!(
+            "There are {:?} unique shader combinations across your currently loaded entities!",
+            entity_shader_combinations.size_hint()
+        );
         for combination in entity_shader_combinations {
             let entities_for_combination: Vec<Rc<Entity>> = entities
                 .iter()
-                .filter(
-                    |e|
-                    (e.vertex_shader.clone(), e.pixel_shader.clone()) == combination).cloned()
+                .filter(|e| (e.vertex_shader.clone(), e.pixel_shader.clone()) == combination)
+                .cloned()
                 .collect();
-            log::info!("For the shader combination ({},{}) there are {} entities.", combination.0, combination.1, entities_for_combination.len());
-            shader_entity_map.push((shaders[&combination.0].clone(), shaders[&combination.1].clone(), entities_for_combination));
+            log::info!(
+                "For the shader combination ({},{}) there are {} entities.",
+                combination.0,
+                combination.1,
+                entities_for_combination.len()
+            );
+            shader_entity_map.push((
+                shaders[&combination.0].clone(),
+                shaders[&combination.1].clone(),
+                entities_for_combination,
+            ));
         }
         log::info!("Finished shader entity map setup!");
         shader_entity_map
@@ -291,8 +333,11 @@ impl DrawState {
                                 //log::info!("{:?}", data);
                                 if let Some(aspect_ratio) = self.aspect_ratio {
                                     let up = Vec3::new(0.0, 1.0, 0.0);
-                                    self.constant_buffer_data.view =
-                                        Mat4::look_to_lh(data.camera_position, data.camera_front, up);
+                                    self.constant_buffer_data.view = Mat4::look_to_lh(
+                                        data.camera_position,
+                                        data.camera_front,
+                                        up,
+                                    );
                                     self.constant_buffer_data.projection = Mat4::perspective_lh(
                                         70.0f32.to_radians(),
                                         aspect_ratio,
@@ -308,7 +353,6 @@ impl DrawState {
                     Err(_error) => (),
                 }
 
-
                 //self.constant_buffer_data.rotate_model(io.delta_time);
                 unsafe {
                     let device_context = self
@@ -321,14 +365,15 @@ impl DrawState {
                             &entity.constant_buffer,
                             0,
                             None,
-                            &entity.get_world_matrix() as *const _ as *const _,
+                            entity.model_matrix.borrow().as_ptr() as *const _ as *const _,
                             0,
                             0,
                         );
                     }
 
                     device_context.RSSetState(&self.rasterizer_state);
-                    device_context.VSSetConstantBuffers(0, Some(&[Some(self.constant_buffer.clone())]));
+                    device_context
+                        .VSSetConstantBuffers(0, Some(&[Some(self.constant_buffer.clone())]));
                     device_context.UpdateSubresource(
                         &self.constant_buffer,
                         0,
@@ -343,11 +388,31 @@ impl DrawState {
                     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                     for entity in &self.entities {
-                        if let (Some(vs), Some(ps)) = (&self.shaders.get(&entity.vertex_shader), self.shaders.get(&entity.pixel_shader)) {
-                            device_context.VSSetConstantBuffers(1, Some(&[Some(entity.constant_buffer.clone())]));
+                        if let (Some(vs), Some(ps)) = (
+                            &self.shaders.get(&entity.vertex_shader),
+                            self.shaders.get(&entity.pixel_shader),
+                        ) {
+                            device_context.VSSetConstantBuffers(
+                                1,
+                                Some(&[Some(entity.constant_buffer.clone())]),
+                            );
                             vs.set(&device_context);
                             ps.set(&device_context);
-                            VertexBuffer::set_and_draw(&[entity.vertex_buffer.to_owned()], &device_context);
+                            break;
+                        }
+                    }
+                    for entity in &self.entities {
+                        if let (Some(vs), Some(ps)) = (
+                            &self.shaders.get(&entity.vertex_shader),
+                            self.shaders.get(&entity.pixel_shader),
+                        ) {
+                            device_context.VSSetConstantBuffers(
+                                1,
+                                Some(&[Some(entity.constant_buffer.clone())]),
+                            );
+                            /*vs.set(&device_context);
+                            ps.set(&device_context);*/
+                            entity.set_and_draw(&device_context);
                         }
                     }
 
@@ -362,8 +427,6 @@ impl DrawState {
                             ).collect();
                         VertexBuffer::set_and_draw(vertex_buffers.as_slice(), &device_context);
                     }*/
-
-
                 }
             }
         }
