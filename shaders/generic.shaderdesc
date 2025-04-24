@@ -1,14 +1,14 @@
 [
-{
-  "identifier": "generic-vs",
-  "kind": "Vertex",
-  "path": "generic.hlsl",
-  "entrypoint": "VSMain",
-},
-{
-  "identifier": "generic-ps",
-  "kind": "Pixel",
-  "path": "generic.hlsl",
-  "entrypoint": "PSMain",
-},
+  {
+    "identifier": "generic_vs",
+    "kind": "Vertex",
+    "path": "generic.hlsl",
+    "entrypoint": "VSMain",
+  },
+  {
+    "identifier": "generic_ps",
+    "kind": "Pixel",
+    "path": "generic.hlsl",
+    "entrypoint": "PSMain",
+  },
 ]

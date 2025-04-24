@@ -288,7 +288,7 @@ impl DrawState {
                     //device_context.OMSetRenderTargets(Some(&self.render_target_view), None);
                     device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
                     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-                    if let (Some(vs), Some(ps)) = (self.shaders.get("generic-vs"), self.shaders.get("generic-ps")) {
+                    if let (Some(vs), Some(ps)) = (self.shaders.get("generic_vs"), self.shaders.get("generic_ps")) {
                         vs.set(&device_context);
                         ps.set(&device_context);
                         VertexBuffer::set_and_draw(&self.vertex_buffers, &device_context);
