@@ -1,9 +1,8 @@
 use {
     super::{
-        model::Model,
-        vertexbuffer::{Vertex, VertexBuffer},
-        entity::{Entity, EntityController},
-        shader::{Shader, ShaderDescription, ShaderKind},
+        entity::Entity,
+        entitycontroller::EntityController,
+        shader::{Shader, ShaderDescription},
     },
     crate::SETTINGS,
     anyhow::anyhow,
@@ -11,37 +10,21 @@ use {
     glob::Paths,
     itertools::Itertools,
     nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
-    std::{
-        collections::HashMap,
-        ffi::{c_char, CStr},
-        mem::offset_of,
-        path::{Path, PathBuf},
-        rc::Rc,
-        slice::from_raw_parts,
-    },
+    std::{collections::HashMap, path::Path, rc::Rc},
     tokio::sync::mpsc::Receiver,
     windows::Win32::Graphics::{
-        Direct3D::{
-            Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
-            ID3DBlob, D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
-        },
+        Direct3D::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
         Direct3D11::{
-            ID3D11Buffer, ID3D11DepthStencilState, ID3D11Device, ID3D11InputLayout,
-            ID3D11PixelShader, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11Texture2D,
-            ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_BIND_CONSTANT_BUFFER,
-            D3D11_BUFFER_DESC, D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_LESS, D3D11_CULL_BACK,
+            ID3D11Buffer, ID3D11DepthStencilState, ID3D11Device, ID3D11RasterizerState,
+            ID3D11RenderTargetView, ID3D11Texture2D, D3D11_BIND_CONSTANT_BUFFER, D3D11_BUFFER_DESC,
+            D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_LESS, D3D11_CULL_BACK,
             D3D11_DEFAULT_STENCIL_READ_MASK, D3D11_DEFAULT_STENCIL_WRITE_MASK,
             D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC, D3D11_DEPTH_WRITE_MASK_ALL,
-            D3D11_FILL_SOLID, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_VERTEX_DATA,
-            D3D11_RASTERIZER_DESC, D3D11_STENCIL_OP_DECR, D3D11_STENCIL_OP_INCR,
+            D3D11_FILL_SOLID, D3D11_RASTERIZER_DESC, D3D11_STENCIL_OP_DECR, D3D11_STENCIL_OP_INCR,
             D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT,
         },
-        Dxgi::{
-            Common::{DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT},
-            IDXGISwapChain,
-        },
+        Dxgi::IDXGISwapChain,
     },
-    windows_strings::*,
 };
 
 #[derive(Debug)]

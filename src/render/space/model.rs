@@ -1,26 +1,16 @@
 use {
     super::vertexbuffer::VertexBuffer,
-    super::state::InstanceBufferData,
     anyhow::anyhow,
-    glam::{Affine3A, Mat4, Vec2, Vec3},
-    glob::Paths,
+    glam::{Vec2, Vec3},
     itertools::Itertools,
-    rand::Rng,
-    relative_path::RelativePathBuf,
     serde::{Deserialize, Serialize},
     std::{
-        cell::RefCell,
-        collections::HashMap,
-        fs::read_to_string,
-        iter,
         path::{Path, PathBuf},
         rc::Rc,
-        slice::from_ref,
     },
-    tobj::{Material, Mesh},
     windows::Win32::Graphics::Direct3D11::{
-        ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_CONSTANT_BUFFER,
-        D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
+        ID3D11Buffer, ID3D11Device, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC,
+        D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
     },
 };
 #[derive(Copy, Clone)]
@@ -34,8 +24,8 @@ pub struct Vertex {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ModelLocation {
-    file: PathBuf,
-    index: usize,
+    pub file: PathBuf,
+    pub index: usize,
 }
 #[derive(Clone)]
 pub struct Model {

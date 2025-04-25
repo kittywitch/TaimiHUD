@@ -1,20 +1,31 @@
 use {
-    super::model::Vertex, crate::render::space::state::InstanceBufferData, anyhow::anyhow, core::ffi::c_char, serde::{Deserialize, Serialize}, std::{
+    super::model::Vertex,
+    anyhow::anyhow,
+    core::ffi::c_char,
+    serde::{Deserialize, Serialize},
+    std::{
         ffi::{CStr, CString},
         fs::read_to_string,
         mem::offset_of,
         path::{Path, PathBuf},
         slice::from_raw_parts,
-    }, strum_macros::Display, windows::Win32::Graphics::{
+    },
+    strum_macros::Display,
+    windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
             ID3DBlob,
         },
         Direct3D11::{
-            ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader, ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_ELEMENT_DESC, D3D11_INPUT_PER_INSTANCE_DATA, D3D11_INPUT_PER_VERTEX_DATA
+            ID3D11Device, ID3D11DeviceContext, ID3D11InputLayout, ID3D11PixelShader,
+            ID3D11VertexShader, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_ELEMENT_DESC,
+            D3D11_INPUT_PER_INSTANCE_DATA, D3D11_INPUT_PER_VERTEX_DATA,
         },
-        Dxgi::Common::{DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT, DXGI_FORMAT_UNKNOWN},
-    }, windows_strings::{s, HSTRING, PCSTR}
+        Dxgi::Common::{
+            DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT,
+        },
+    },
+    windows_strings::{s, HSTRING, PCSTR},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -238,10 +249,7 @@ impl Shader {
                 .map_err(anyhow::Error::from)
                 .and_then(|()| layout_ptr.ok_or_else(|| anyhow!("no input layout")))?;
 
-                let wrapped_shader = VertexShader {
-                    layout,
-                    shader,
-                };
+                let wrapped_shader = VertexShader { layout, shader };
                 Ok(Shader::Vertex(wrapped_shader))
             }
             ShaderKind::Pixel => {
@@ -250,9 +258,7 @@ impl Shader {
                     unsafe { device.CreatePixelShader(blob_bytes, None, Some(&mut shader_ptr)) }
                         .map_err(anyhow::Error::from)
                         .and_then(|()| shader_ptr.ok_or_else(|| anyhow!("no pixel shader")))?;
-                let wrapped_shader = PixelShader {
-                    shader,
-                };
+                let wrapped_shader = PixelShader { shader };
                 Ok(Shader::Pixel(wrapped_shader))
             }
         }
