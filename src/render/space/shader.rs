@@ -230,6 +230,15 @@ impl Shader {
                         InputSlotClass: D3D11_INPUT_PER_INSTANCE_DATA,
                         InstanceDataStepRate: 1,
                     },
+                    D3D11_INPUT_ELEMENT_DESC {
+                        SemanticName: s!("COLOUR"),
+                        SemanticIndex: 0,
+                        InputSlot: 1,
+                        Format: DXGI_FORMAT_R32G32B32_FLOAT,
+                        AlignedByteOffset: D3D11_APPEND_ALIGNED_ELEMENT,
+                        InputSlotClass: D3D11_INPUT_PER_INSTANCE_DATA,
+                        InstanceDataStepRate: 1,
+                    },
                 ];
                 log::info!(
                     "Creating input layout for {:?} of {} shader, entrypoint {:?}",

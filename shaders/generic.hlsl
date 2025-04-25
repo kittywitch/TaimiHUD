@@ -4,6 +4,8 @@ struct VSInput
     float3 normal: NORMAL;
     float3 color: COLOR0;
     column_major matrix Model: MODEL;
+    float3 colour: COLOUR;
+     uint        instId  : SV_InstanceID;
 };
 
 cbuffer ConstantBuffer : register(b0)
@@ -26,7 +28,7 @@ VSOutput VSMain(VSInput input)
 
     float4 Transform = mul(Projection, mul(View, mul(input.Model, VertPos)));
     output.position = Transform;
-    output.color = input.color;
+    output.color = input.color * input.colour;
     output.normal = input.normal;
     return output;
 }

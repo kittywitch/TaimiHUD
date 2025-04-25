@@ -64,6 +64,7 @@ impl EntityController {
                 }
                 let vertex_buffer = model.to_buffer(device)?;
                 let mut rng = rand::rng();
+                let mut rng2 = rand::rng();
                 let model_matrix: Vec<_> = (0..1000 * 3)
                     .map(|_| rng.random::<f32>() * 1000.0)
                     .chunks(3)
@@ -71,6 +72,7 @@ impl EntityController {
                     .map(|xyz| Vec3::from_slice(&xyz.into_iter().collect::<Vec<_>>()))
                     .map(Mat4::from_translation)
                     .map(|trans| InstanceBufferData {
+                        colour: Vec3::new(rng2.random::<f32>(), rng2.random::<f32>(), rng2.random::<f32>()),
                         model: desc.model_matrix * trans,
                     })
                     .collect();

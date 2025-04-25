@@ -83,7 +83,8 @@ fn load() {
         if !DRAWSTATE_INITIALIZED.get() {
             let (space_sender, space_receiver) = channel::<SpaceEvent>(1);
             let _ = SPACE_SENDER.set(space_sender);
-            let drawstate_inner = DrawState::setup(space_receiver);
+            let display_size = ui.io().display_size;
+            let drawstate_inner = DrawState::setup(space_receiver, display_size);
             if let Err(error) = &drawstate_inner {
                 log::error!("DrawState setup failed: {}", error);
             };
