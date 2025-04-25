@@ -1,8 +1,6 @@
 use {
     super::{
-        model::{Model, ModelLocation},
-        state::InstanceBufferData,
-        vertexbuffer::VertexBuffer,
+        model::{Model, ModelLocation}, shader::Shader, state::InstanceBufferData, vertexbuffer::VertexBuffer
     },
     anyhow::anyhow,
     glam::{Vec2, Vec3},
@@ -25,10 +23,10 @@ pub struct Entity {
     pub name: String,
     pub model_matrix: RefCell<Vec<InstanceBufferData>>,
     pub location: ModelLocation,
-    pub model: Rc<Model>,
-    pub vertex_buffer: Rc<VertexBuffer>,
-    pub vertex_shader: String,
-    pub pixel_shader: String,
+    pub model: Model,
+    pub vertex_buffer: VertexBuffer,
+    pub vertex_shader: Rc<Shader>,
+    pub pixel_shader: Rc<Shader>,
     pub instance_buffer: ID3D11Buffer,
 }
 
@@ -46,7 +44,7 @@ impl Entity {
             device_context.IASetVertexBuffers(
                 slot,
                 2,
-                Some(buffers.as_ptr() as *const _),
+                Some(buffers.as_ptr().cast()),
                 Some(strides.as_ptr()),
                 Some(offsets.as_ptr()),
             );
@@ -61,7 +59,6 @@ impl Entity {
 
     pub fn set_and_draw(&self, device_context: &ID3D11DeviceContext) {
         self.set(0_u32, device_context);
-        //Self::set_many(bufs, 0, device_context);
         self.draw(0, device_context);
     }
 
@@ -76,10 +73,6 @@ impl Entity {
         model_matrix: &[InstanceBufferData],
         device: &ID3D11Device,
     ) -> anyhow::Result<ID3D11Buffer> {
-        /*let stride: u32 = size_of::<InstanceBufferData>() as u32;
-        let offset: u32 = 0;
-        let count: u32 = instance_data_array.len() as u32;*/
-
         let instance_buffer_desc = D3D11_BUFFER_DESC {
             ByteWidth: size_of_val(model_matrix) as u32,
             Usage: D3D11_USAGE_DEFAULT,

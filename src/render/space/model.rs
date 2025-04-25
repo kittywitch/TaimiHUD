@@ -1,7 +1,7 @@
 use {
     super::vertexbuffer::VertexBuffer,
     anyhow::anyhow,
-    glam::{Vec2, Vec3},
+    glam::{Vec2, Vec3, Vec3Swizzles},
     itertools::Itertools,
     serde::{Deserialize, Serialize},
     std::{
@@ -27,17 +27,18 @@ pub struct ModelLocation {
     pub file: PathBuf,
     pub index: usize,
 }
-#[derive(Clone)]
-pub struct Model {
-    // todo! figure out how to store a relative path here o:
-    pub name: String,
-    pub file: PathBuf,
-    pub index: usize,
-    pub vertices: Vec<Vertex>,
-}
+
+#[derive(Default)]
+pub struct Model(pub Vec<Vertex>);
 
 impl Model {
-    pub fn load(obj_file: &Path) -> anyhow::Result<Vec<Rc<Self>>> {
+    pub fn swizzle(&mut self) {
+        for v in &mut self.0 {
+            v.position = v.position.xzy();
+        }
+    }
+
+    pub fn load(obj_file: &Path) -> anyhow::Result<Vec<Self>> {
         let (models, _materials) = tobj::load_obj(
             obj_file,
             &tobj::LoadOptions {
@@ -106,18 +107,13 @@ impl Model {
                 })
             }
 
-            kat_models.push(Rc::new(Self {
-                name: m.name.clone(),
-                file: obj_file.to_path_buf(),
-                index: i,
-                vertices,
-            }));
+            kat_models.push(Self(vertices));
         }
         Ok(kat_models)
     }
 
     pub fn to_buffer(&self, device: &ID3D11Device) -> anyhow::Result<VertexBuffer> {
-        let vertex_data_array: &[Vertex] = self.vertices.as_slice();
+        let vertex_data_array: &[Vertex] = self.0.as_slice();
 
         let stride: u32 = size_of::<Vertex>() as u32;
         let offset: u32 = 0;
@@ -159,7 +155,7 @@ impl Model {
 
     pub fn to_buffers(
         device: &ID3D11Device,
-        models: Vec<Rc<Self>>,
+        models: Vec<Self>,
     ) -> anyhow::Result<Vec<VertexBuffer>> {
         let mut vertex_buffers = Vec::new();
         for model in models {

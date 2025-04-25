@@ -21,6 +21,8 @@ pub struct EntityDescription {
     pub pixel_shader: String,
     #[serde(default)]
     pub model_matrix: Mat4,
+    #[serde(default)]
+    pub xzy: bool
 }
 
 impl EntityDescription {

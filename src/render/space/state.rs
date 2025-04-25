@@ -43,12 +43,11 @@ pub struct DrawState {
     render_target_view: [Option<ID3D11RenderTargetView>; 1],
     shaders: HashMap<String, Rc<Shader>>,
     rasterizer_state: ID3D11RasterizerState,
-    entities: Vec<Rc<Entity>>,
+    entities: Vec<Entity>,
     shader_entity_map: ShaderEntityMap,
     depth_stencil_state: ID3D11DepthStencilState,
     constant_buffer: ID3D11Buffer,
     constant_buffer_data: ConstantBufferData,
-    viewport: D3D11_VIEWPORT,
     device: ID3D11Device,
     swap_chain: IDXGISwapChain,
     aspect_ratio: Option<f32>,
@@ -78,15 +77,17 @@ pub enum SpaceEvent {
     Update(DrawData),
 }
 
+pub type Shaders = HashMap<String, Rc<Shader>>;
+
 impl DrawState {
     pub fn setup_shaders(
         addon_dir: &Path,
         device: &ID3D11Device,
-    ) -> anyhow::Result<HashMap<String, Rc<Shader>>> {
+    ) -> anyhow::Result<Shaders> {
         log::info!("Beginning shader setup!");
         let shader_folder = addon_dir.join("shaders");
         let mut shader_descriptions: Vec<ShaderDescription> = Vec::new();
-        let mut shaders: HashMap<String, Rc<Shader>> = HashMap::new();
+        let mut shaders: Shaders = HashMap::new();
         if shader_folder.exists() {
             let shader_description_paths: Paths = glob::glob(
                 shader_folder
@@ -111,48 +112,13 @@ impl DrawState {
     pub fn setup_entities(
         addon_dir: &Path,
         device: &ID3D11Device,
-    ) -> anyhow::Result<Vec<Rc<Entity>>> {
+        shaders: &Shaders,
+    ) -> anyhow::Result<Vec<Entity>> {
         log::info!("Beginning entity setup!");
         let entity_controller = EntityController::load_desc(addon_dir)?;
-        let entities = entity_controller.load(device)?;
+        let entities = entity_controller.load(device, shaders)?;
         log::info!("Finished entity setup. {} entities loaded!", entities.len());
         Ok(entities)
-    }
-
-    pub fn setup_shader_entity_map(
-        shaders: &HashMap<String, Rc<Shader>>,
-        entities: &[Rc<Entity>],
-    ) -> ShaderEntityMap {
-        log::info!("Beginning shader entity map setup!");
-        let mut shader_entity_map = Vec::new();
-        let entity_shader_combinations = entities
-            .iter()
-            .map(|e| (e.vertex_shader.clone(), e.pixel_shader.clone()))
-            .unique();
-        log::info!(
-            "There are {:?} unique shader combinations across your currently loaded entities!",
-            entity_shader_combinations.size_hint()
-        );
-        for combination in entity_shader_combinations {
-            let entities_for_combination: Vec<Rc<Entity>> = entities
-                .iter()
-                .filter(|e| (e.vertex_shader.clone(), e.pixel_shader.clone()) == combination)
-                .cloned()
-                .collect();
-            log::info!(
-                "For the shader combination ({},{}) there are {} entities.",
-                combination.0,
-                combination.1,
-                entities_for_combination.len()
-            );
-            shader_entity_map.push((
-                shaders[&combination.0].clone(),
-                shaders[&combination.1].clone(),
-                entities_for_combination,
-            ));
-        }
-        log::info!("Finished shader entity map setup!");
-        shader_entity_map
     }
 
     pub fn setup_constant_buffer(device: &ID3D11Device) -> anyhow::Result<ID3D11Buffer> {
@@ -180,52 +146,47 @@ impl DrawState {
 
         Ok(constant_buffer)
     }
-    pub fn setup(receiver: Receiver<SpaceEvent>) -> anyhow::Result<Self> {
-        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
-        let addon_api = AddonApi::get();
-        log::info!("Getting d3d11 device");
-        let d3d11_device = addon_api
-            .get_d3d11_device()
-            .ok_or_else(|| anyhow!("you will not reach heaven today, how are you here?"))?;
-        log::info!("Getting d3d11 device swap chain");
-        let d3d11_swap_chain = &addon_api.swap_chain;
 
-        let shaders = Self::setup_shaders(&addon_dir, &d3d11_device)?;
-        let entities = Self::setup_entities(&addon_dir, &d3d11_device)?;
-        //let shader_entity_map = Self::setup_shader_entity_map(&shaders, &entities);
-        let shader_entity_map = Vec::new();
-        let constant_buffer = Self::setup_constant_buffer(&d3d11_device)?;
-
+    pub fn setup_viewport(io: &Io) -> D3D11_VIEWPORT {
+        let display_size = io.display_size;
+        log::debug!("Setting up viewport with dimensions ({},{})", display_size[0], display_size[1]);
         let viewport = D3D11_VIEWPORT {
-            TopLeftX: 1000.0,
+            TopLeftX: 0.0,
             TopLeftY: 0.0,
-            Width: 512.0,
-            Height: 512.0,
+            Width: display_size[0],
+            Height: display_size[1],
             MinDepth: 0.0,
             MaxDepth: 10.0,
         };
+        viewport
+    }
 
+    pub fn setup_framebuffer(swap_chain: &IDXGISwapChain) -> anyhow::Result<ID3D11Texture2D> {
         log::info!("Setting up framebuffer");
         let framebuffer: ID3D11Texture2D =
-            unsafe { d3d11_swap_chain.GetBuffer(0) }.map_err(anyhow::Error::from)?;
+            unsafe { swap_chain.GetBuffer(0) }.map_err(anyhow::Error::from)?;
+        log::info!("Set up framebuffer");
+        Ok(framebuffer)
+    }
 
-        log::info!("Setting up render target view");
+    pub fn setup_render_target_view(device: &ID3D11Device, framebuffer: &ID3D11Texture2D) -> anyhow::Result<ID3D11RenderTargetView> {
+        log::debug!("Setting up render target view");
         let mut render_target_view_ptr: Option<ID3D11RenderTargetView> = None;
-        /*let render_target_view_desc = D3D11_RENDER_TARGET_VIEW_DESC {
-            Format: DXGI_FORMAT_UNKNOWN,
-            ViewDimension: D3D11_RTV_DIMENSION_UNKNOWN,
-            Anonymous: windows::Win32::Graphics::Direct3D11::D3D11_RENDER_TARGET_VIEW_DESC_0::default(),
-        };*/
         let render_target_view = unsafe {
-            d3d11_device.CreateRenderTargetView(
-                &framebuffer,
+            device.CreateRenderTargetView(
+                framebuffer,
                 None,
                 Some(&mut render_target_view_ptr),
             )
         }
         .map_err(anyhow::Error::from)
         .and_then(|()| render_target_view_ptr.ok_or_else(|| anyhow!("no render target view")))?;
+        log::debug!("Set up render target view");
+        Ok(render_target_view)
+    }
 
+    pub fn setup_depth_stencil_state(device: &ID3D11Device) -> anyhow::Result<ID3D11DepthStencilState> {
+        log::info!("Setting up depth stencil state");
         let depth_stencil_frontface_desc = D3D11_DEPTH_STENCILOP_DESC {
             StencilFunc: D3D11_COMPARISON_ALWAYS,
             StencilDepthFailOp: D3D11_STENCIL_OP_INCR,
@@ -238,7 +199,6 @@ impl DrawState {
             StencilFailOp: D3D11_STENCIL_OP_KEEP,
             StencilPassOp: D3D11_STENCIL_OP_KEEP,
         };
-        log::info!("Setting up depth stencil");
         let depth_stencil_state_desc = D3D11_DEPTH_STENCIL_DESC {
             DepthEnable: true.into(),
             DepthWriteMask: D3D11_DEPTH_WRITE_MASK_ALL,
@@ -251,14 +211,18 @@ impl DrawState {
         };
         let mut depth_stencil_state_ptr: Option<ID3D11DepthStencilState> = None;
         let depth_stencil_state = unsafe {
-            d3d11_device.CreateDepthStencilState(
+            device.CreateDepthStencilState(
                 &depth_stencil_state_desc,
                 Some(&mut depth_stencil_state_ptr),
             )
         }
         .map_err(anyhow::Error::from)
         .and_then(|()| depth_stencil_state_ptr.ok_or_else(|| anyhow!("no depth stencil state")))?;
+        log::info!("Set up depth stencil state");
+        Ok(depth_stencil_state)
+    }
 
+    pub fn setup_rasterizer_state(device: &ID3D11Device) -> anyhow::Result<ID3D11RasterizerState> {
         log::info!("Setting up rasterizer state");
         let rasterizer_state_desc = D3D11_RASTERIZER_DESC {
             FillMode: D3D11_FILL_SOLID,
@@ -274,11 +238,34 @@ impl DrawState {
         };
         let mut rasterizer_state_ptr: Option<ID3D11RasterizerState> = None;
         let rasterizer_state = unsafe {
-            d3d11_device
+            device
                 .CreateRasterizerState(&rasterizer_state_desc, Some(&mut rasterizer_state_ptr))
         }
         .map_err(anyhow::Error::from)
         .and_then(|()| rasterizer_state_ptr.ok_or_else(|| anyhow!("no rasterizer state")))?;
+        log::info!("Set up rasterizer state");
+        Ok(rasterizer_state)
+    }
+
+    pub fn setup(receiver: Receiver<SpaceEvent>) -> anyhow::Result<Self> {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let addon_api = AddonApi::get();
+        log::info!("Getting d3d11 device");
+        let d3d11_device = addon_api
+            .get_d3d11_device()
+            .ok_or_else(|| anyhow!("you will not reach heaven today, how are you here?"))?;
+        log::info!("Getting d3d11 device swap chain");
+        let d3d11_swap_chain = &addon_api.swap_chain;
+
+        let shaders = Self::setup_shaders(&addon_dir, &d3d11_device)?;
+        let entities = Self::setup_entities(&addon_dir, &d3d11_device, &shaders)?;
+        //let shader_entity_map = Self::setup_shader_entity_map(&shaders, &entities);
+        let shader_entity_map = Vec::new();
+        let constant_buffer = Self::setup_constant_buffer(&d3d11_device)?;
+        let framebuffer = Self::setup_framebuffer(d3d11_swap_chain)?;
+        let render_target_view = Self::setup_render_target_view(&d3d11_device, &framebuffer)?;
+        let depth_stencil_state = Self::setup_depth_stencil_state(&d3d11_device)?;
+        let rasterizer_state = Self::setup_rasterizer_state(&d3d11_device)?;
 
         log::info!("Setting up device context");
         Ok(DrawState {
@@ -291,7 +278,6 @@ impl DrawState {
             rasterizer_state,
             shaders,
             depth_stencil_state,
-            viewport,
             constant_buffer,
             draw_data: None,
             aspect_ratio: None,
@@ -373,14 +359,9 @@ impl DrawState {
                     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
                     for entity in &self.entities {
-                        if let (Some(vs), Some(ps)) = (
-                            &self.shaders.get(&entity.vertex_shader),
-                            self.shaders.get(&entity.pixel_shader),
-                        ) {
-                            vs.set(&device_context);
-                            ps.set(&device_context);
-                            entity.set_and_draw(&device_context);
-                        }
+                        entity.vertex_shader.set(&device_context);
+                        entity.pixel_shader.set(&device_context);
+                        entity.set_and_draw(&device_context);
                     }
 
                     /*for (vs, ps, entities) in self.shader_entity_map.iter() {

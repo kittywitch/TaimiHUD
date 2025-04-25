@@ -90,7 +90,7 @@ impl Shader {
     pub fn compile(
         shader_folder: &Path,
         desc: &ShaderDescription,
-    ) -> anyhow::Result<(ID3DBlob, CString)> {
+    ) -> anyhow::Result<ID3DBlob> {
         let (filename, target, entrypoint_cstring) = desc.get(shader_folder)?;
         log::info!(
             "Beginning compile from {:?} of {} shader, entrypoint {:?}",
@@ -132,7 +132,7 @@ impl Shader {
             &desc.kind,
             entrypoint
         );
-        Ok((blob, entrypoint_cstring))
+        Ok(blob)
     }
 
     pub fn create(
@@ -140,9 +140,8 @@ impl Shader {
         device: &ID3D11Device,
         desc: &ShaderDescription,
     ) -> anyhow::Result<Self> {
-        let (blob, entrypoint_cstring) = Self::compile(shader_folder, desc)?;
+        let blob = Self::compile(shader_folder, desc)?;
 
-        let entrypoint = PCSTR::from_raw(entrypoint_cstring.as_ptr() as *const u8);
         let blob_bytes =
             unsafe { from_raw_parts(blob.GetBufferPointer() as *const u8, blob.GetBufferSize()) };
         log::info!(

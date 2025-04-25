@@ -1,7 +1,7 @@
 use {
     super::{
         entity::Entity, entitydescription::EntityDescription, model::Model,
-        state::InstanceBufferData,
+        state::{Shaders, InstanceBufferData},
     },
     anyhow::anyhow,
     glam::{Mat4, Vec3},
@@ -17,10 +17,8 @@ use {
     windows::Win32::Graphics::Direct3D11::ID3D11Device,
 };
 
-type Eda = Rc<EntityDescription>;
-
 #[derive(Default)]
-pub struct EntityController(HashMap<PathBuf, Vec<Eda>>);
+pub struct EntityController(HashMap<PathBuf, Vec<EntityDescription>>);
 
 impl EntityController {
     pub fn load_desc(addon_dir: &Path) -> anyhow::Result<Self> {
@@ -41,35 +39,30 @@ impl EntityController {
                 for entity_desc in entity_descs.into_iter() {
                     let full_path = model_folder.join(&entity_desc.location.file);
                     let entry = entity_controller.0.entry(full_path).or_default();
-                    let entity_desc_arc = Rc::new(entity_desc);
-                    entry.push(entity_desc_arc);
+                    entry.push(entity_desc);
                 }
             }
         }
         Ok(entity_controller)
     }
 
-    pub fn load(self, device: &ID3D11Device) -> anyhow::Result<Vec<Rc<Entity>>> {
+    pub fn load(self, device: &ID3D11Device, shaders: &Shaders) -> anyhow::Result<Vec<Entity>> {
         let mut entities = Vec::new();
         for (file, descs) in &self.0 {
-            let file_models = Model::load(file)?;
+            let mut file_models = Model::load(file)?;
             for desc in descs {
                 let model_idx = desc.location.index;
-                let model = file_models.get(model_idx).ok_or_else(|| {
-                    anyhow!(
-                        "model index {} does not exist in file {:?}",
-                        model_idx,
-                        file
-                    )
-                })?;
                 log::info!(
                     "Loading entity \"{}\" from \"{:?}\"@{}",
                     desc.name,
                     desc.location.file,
-                    desc.location.index
+                    model_idx
                 );
+                let mut model = std::mem::replace(&mut file_models[model_idx], Model::default());
+                if desc.xzy {
+                    model.swizzle();
+                }
                 let vertex_buffer = model.to_buffer(device)?;
-                let vertex_buffer_rc = Rc::new(vertex_buffer);
                 let mut rng = rand::rng();
                 let model_matrix: Vec<_> = (0..1000 * 3)
                     .map(|_| rng.random::<f32>() * 1000.0)
@@ -83,17 +76,25 @@ impl EntityController {
                     .collect();
 
                 let instance_buffer = Entity::setup_instance_buffer(&model_matrix, device)?;
+
+                let vertex_shader = shaders
+                    .get(&desc.vertex_shader).ok_or_else(||
+                        anyhow!("Vertex shader {} is missing, required for entity {}!", &desc.pixel_shader, &desc.name))?
+                    .clone();
+                let pixel_shader = shaders
+                    .get(&desc.pixel_shader).ok_or_else(||
+                        anyhow!("Pixel shader {} is missing, required for entity {}!", &desc.pixel_shader, &desc.name))?
+                    .clone();
                 let entity = Entity {
                     name: desc.name.clone(),
-                    model: model.clone(),
                     model_matrix: RefCell::new(model_matrix),
                     location: desc.location.clone(),
-                    pixel_shader: desc.pixel_shader.clone(),
-                    vertex_shader: desc.vertex_shader.clone(),
-                    vertex_buffer: vertex_buffer_rc.clone(),
+                    pixel_shader,
+                    vertex_shader,
+                    model,
+                    vertex_buffer,
                     instance_buffer,
                 };
-                let entity = Rc::new(entity);
                 entities.push(entity);
             }
         }
