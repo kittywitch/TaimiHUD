@@ -1,6 +1,8 @@
 use {
     super::{
-        model::{Entity, EntityController, Model, Vertex, VertexBuffer},
+        model::Model,
+        vertexbuffer::{Vertex, VertexBuffer},
+        entity::{Entity, EntityController},
         shader::{Shader, ShaderDescription, ShaderKind},
     },
     crate::SETTINGS,
@@ -70,7 +72,7 @@ pub struct DrawState {
     display_size: Option<[f32; 2]>,
 }
 
-#[repr(C)]
+#[repr(C, align(16))]
 pub struct InstanceBufferData {
     pub model: Mat4,
 }
@@ -362,7 +364,7 @@ impl DrawState {
                     for entity in &self.entities {
                         entity.rotate(io.delta_time);
                         device_context.UpdateSubresource(
-                            &entity.constant_buffer,
+                            &entity.instance_buffer,
                             0,
                             None,
                             entity.model_matrix.borrow().as_ptr() as *const _ as *const _,
@@ -392,26 +394,8 @@ impl DrawState {
                             &self.shaders.get(&entity.vertex_shader),
                             self.shaders.get(&entity.pixel_shader),
                         ) {
-                            device_context.VSSetConstantBuffers(
-                                1,
-                                Some(&[Some(entity.constant_buffer.clone())]),
-                            );
                             vs.set(&device_context);
                             ps.set(&device_context);
-                            break;
-                        }
-                    }
-                    for entity in &self.entities {
-                        if let (Some(vs), Some(ps)) = (
-                            &self.shaders.get(&entity.vertex_shader),
-                            self.shaders.get(&entity.pixel_shader),
-                        ) {
-                            device_context.VSSetConstantBuffers(
-                                1,
-                                Some(&[Some(entity.constant_buffer.clone())]),
-                            );
-                            /*vs.set(&device_context);
-                            ps.set(&device_context);*/
                             entity.set_and_draw(&device_context);
                         }
                     }
