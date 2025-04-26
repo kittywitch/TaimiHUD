@@ -155,6 +155,7 @@ impl DrawState {
             MinDepth: 0.0,
             MaxDepth: 1000.0,
         };
+        log::debug!("Set up viewport with dimensions ({},{})", display_size[0], display_size[1]);
         viewport
     }
 
@@ -304,29 +305,29 @@ impl DrawState {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let addon_api = AddonApi::get();
         log::info!("Getting d3d11 device");
-        let d3d11_device = addon_api
+        let device = addon_api
             .get_d3d11_device()
             .ok_or_else(|| anyhow!("you will not reach heaven today, how are you here?"))?;
         log::info!("Getting d3d11 device swap chain");
         let d3d11_swap_chain = &addon_api.swap_chain;
 
-        let shaders = Self::setup_shaders(&addon_dir, &d3d11_device)?;
-        let entities = Self::setup_entities(&addon_dir, &d3d11_device, &shaders)?;
+        let shaders = Self::setup_shaders(&addon_dir, &device)?;
+        let entities = Self::setup_entities(&addon_dir, &device, &shaders)?;
         //let shader_entity_map = Self::setup_shader_entity_map(&shaders, &entities);
         let shader_entity_map = Vec::new();
-        let constant_buffer = Self::setup_constant_buffer(&d3d11_device)?;
+        let constant_buffer = Self::setup_constant_buffer(&device)?;
         let framebuffer = Self::setup_framebuffer(d3d11_swap_chain)?;
-        let render_target_view = Self::setup_render_target_view(&d3d11_device, &framebuffer)?;
-        let depth_stencil_state = Self::setup_depth_stencil_state(&d3d11_device)?;
-        let depth_stencil_buffer = Self::setup_depth_stencil_buffer(&d3d11_device, &display_size)?;
-        let depth_stencil_view = Self::setup_depth_stencil_view(&d3d11_device, &depth_stencil_buffer)?;
-        let rasterizer_state = Self::setup_rasterizer_state(&d3d11_device)?;
+        let render_target_view = Self::setup_render_target_view(&device, &framebuffer)?;
+        let depth_stencil_state = Self::setup_depth_stencil_state(&device)?;
+        let depth_stencil_buffer = Self::setup_depth_stencil_buffer(&device, &display_size)?;
+        let depth_stencil_view = Self::setup_depth_stencil_view(&device, &depth_stencil_buffer)?;
+        let rasterizer_state = Self::setup_rasterizer_state(&device)?;
         let viewport = Self::setup_viewport(&display_size);
 
         log::info!("Setting up device context");
         Ok(DrawState {
             receiver,
-            device: d3d11_device,
+            device,
             swap_chain: d3d11_swap_chain.clone(),
             render_target_view: [Some(render_target_view)],
             entities,
