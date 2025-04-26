@@ -3,7 +3,8 @@ use {
         entity::Entity,
         entitydescription::EntityDescription,
         model::Model,
-        state::{InstanceBufferData, Shaders},
+        state::InstanceBufferData,
+        shader::Shaders,
     },
     anyhow::anyhow,
     glam::{Mat4, Vec3},
@@ -66,8 +67,8 @@ impl EntityController {
                 let vertex_buffer = model.to_buffer(device)?;
                 let mut rng = rand::rng();
                 let mut rng2 = rand::rng();
-                let model_matrix: Vec<_> = (0..10 * 3)
-                    .map(|_| rng.random::<f32>() * 100.0)
+                let model_matrix: Vec<_> = (0..3)
+                    .map(|_| rng.random::<f32>() * 10.0)
                     .chunks(3)
                     .into_iter()
                     .map(|xyz| Vec3::from_slice(&xyz.into_iter().collect::<Vec<_>>()))
@@ -79,14 +80,14 @@ impl EntityController {
                             rng2.random::<f32>(),
                         ),
                         model: desc.model_matrix
-                            * Mat4::from_scale(Vec3::new(10.0, 10.0, 10.0))
+                            * Mat4::from_scale(Vec3::new(5.0, 5.0, 5.0))
                             * trans,
                     })
                     .collect();
 
                 let instance_buffer = Entity::setup_instance_buffer(&model_matrix, device)?;
 
-                let vertex_shader = shaders
+                let vertex_shader = shaders.0
                     .get(&desc.vertex_shader)
                     .ok_or_else(|| {
                         anyhow!(
@@ -96,7 +97,7 @@ impl EntityController {
                         )
                     })?
                     .clone();
-                let pixel_shader = shaders
+                let pixel_shader = shaders.0
                     .get(&desc.pixel_shader)
                     .ok_or_else(|| {
                         anyhow!(

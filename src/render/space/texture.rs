@@ -165,4 +165,10 @@ impl Texture {
             }
         }
     }
+    
+    pub fn set(&self, device_context: &ID3D11DeviceContext, slot: u32) {
+        unsafe {
+            device_context.PSSetShaderResources(slot, Some(self.view.as_slice()));
+        }
+    }
 }

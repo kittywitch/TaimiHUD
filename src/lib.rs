@@ -6,7 +6,7 @@ mod timer;
 use {
     crate::{
         controller::{Controller, ControllerEvent},
-        render::{DrawState, RenderEvent, RenderState, SpaceEvent},
+        render::{DrawState, RenderEvent, RenderState},
         settings::SettingsLock,
     },
     arcdps::AgentOwned,
@@ -34,7 +34,6 @@ pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-static SPACE_SENDER: OnceLock<Sender<SpaceEvent>> = OnceLock::new();
 static TS_SENDER: OnceLock<Sender<controller::ControllerEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
 
@@ -81,10 +80,8 @@ fn load() {
         state.draw(ui);
         drop(state);
         if !DRAWSTATE_INITIALIZED.get() {
-            let (space_sender, space_receiver) = channel::<SpaceEvent>(1);
-            let _ = SPACE_SENDER.set(space_sender);
             let display_size = ui.io().display_size;
-            let drawstate_inner = DrawState::setup(space_receiver, display_size);
+            let drawstate_inner = DrawState::setup(display_size);
             if let Err(error) = &drawstate_inner {
                 log::error!("DrawState setup failed: {}", error);
             };

@@ -1,0 +1,14 @@
+[
+  {
+    "identifier": "debug_vs",
+    "kind": "Vertex",
+    "path": "debug.hlsl",
+    "entrypoint": "VSMain",
+  },
+  {
+    "identifier": "debug_ps",
+    "kind": "Pixel",
+    "path": "debug.hlsl",
+    "entrypoint": "PSMain",
+  },
+]

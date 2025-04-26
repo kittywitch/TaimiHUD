@@ -1,9 +1,9 @@
 use {
     crate::{
-        render::{space::DrawData, SpaceEvent, TextFont},
+        render::{space::state::PerspectiveInputData, TextFont},
         settings::{RemoteSource, Settings, SettingsLock},
         timer::{CombatState, Position, TimerFile, TimerMachine},
-        MumbleIdentityUpdate, RenderEvent, SETTINGS, SPACE_SENDER,
+        MumbleIdentityUpdate, RenderEvent, SETTINGS,
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -46,6 +46,7 @@ pub struct Controller {
     pub current_timers: Vec<TimerMachine>,
     pub map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>>,
     settings: SettingsLock,
+    last_fov: f32,
 }
 
 impl Controller {
@@ -61,6 +62,7 @@ impl Controller {
         let evt_loop = async move {
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
+                last_fov: 0.0,
                 previous_combat_state: Default::default(),
                 rt_sender,
                 settings,
@@ -195,15 +197,9 @@ impl Controller {
         if let Some(mumble_link_data) = read_mumble_link() {
             self.player_position = Some(Vec3::from_array(mumble_link_data.avatar.position));
             let camera = &mumble_link_data.camera;
-            let draw_data = DrawData {
-                player_position: self.player_position,
-                camera_front: Vec3::from_array(camera.front),
-                camera_up: Vec3::from_array(camera.top),
-                camera_position: Vec3::from_array(camera.position),
-            };
-            if let Some(sender) = SPACE_SENDER.get() {
-                let _ = sender.try_send(SpaceEvent::Update(draw_data));
-            }
+            let front = Vec3::from_array(camera.front);
+            let pos = Vec3::from_array(camera.position);
+            PerspectiveInputData::swap_camera(front, pos);
             let combat_state = mumble_link_data
                 .context
                 .ui_state
@@ -233,6 +229,10 @@ impl Controller {
     }
 
     async fn handle_mumble(&mut self, identity: MumbleIdentityUpdate) {
+        if self.last_fov != identity.fov {
+            PerspectiveInputData::swap_fov(identity.fov);
+            self.last_fov = identity.fov;
+        }
         let new_map_id = identity.map_id;
         if Some(new_map_id) != self.map_id {
             for timer in &mut self.current_timers {

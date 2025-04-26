@@ -13,7 +13,7 @@ pub use {
     data_source_tab::DataSourceTabState,
     info_tab::InfoTabState,
     primary_window::PrimaryWindowState,
-    space::{DrawState, SpaceEvent},
+    space::DrawState,
     state::{Alignment, RenderEvent, RenderState, TextFont},
     timer_tab::TimerTabState,
     timer_window::TimerWindowState,

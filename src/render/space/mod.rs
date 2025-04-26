@@ -6,5 +6,6 @@ pub mod shader;
 pub mod state;
 pub mod texture;
 pub mod vertexbuffer;
+pub mod depthhandler;
 
-pub use state::{DrawData, DrawState, SpaceEvent};
+pub use state::DrawState;

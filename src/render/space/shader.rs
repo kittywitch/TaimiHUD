@@ -1,17 +1,7 @@
 use {
-    super::model::Vertex,
-    anyhow::anyhow,
-    core::ffi::c_char,
-    serde::{Deserialize, Serialize},
-    std::{
-        ffi::{CStr, CString},
-        fs::read_to_string,
-        mem::offset_of,
-        path::{Path, PathBuf},
-        slice::from_raw_parts,
-    },
-    strum_macros::Display,
-    windows::Win32::Graphics::{
+    super::model::Vertex, anyhow::anyhow, core::ffi::c_char, glob::Paths, serde::{Deserialize, Serialize}, std::{
+        collections::HashMap, ffi::{CStr, CString}, fs::read_to_string, mem::offset_of, path::{Path, PathBuf}, rc::Rc, slice::from_raw_parts
+    }, strum_macros::Display, windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
             ID3DBlob,
@@ -24,8 +14,7 @@ use {
         Dxgi::Common::{
             DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT,
         },
-    },
-    windows_strings::{s, HSTRING, PCSTR},
+    }, windows_strings::{s, HSTRING, PCSTR}
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -73,6 +62,37 @@ pub struct VertexShader {
 
 pub struct PixelShader {
     shader: ID3D11PixelShader,
+}
+
+pub struct Shaders(pub HashMap<String, Rc<Shader>>);
+
+impl Shaders  {
+    pub fn setup(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Self> {
+        log::info!("Beginning shader setup!");
+        let shader_folder = addon_dir.join("shaders");
+        let mut shader_descriptions: Vec<ShaderDescription> = Vec::new();
+        let mut shaders: Shaders = Self(HashMap::new());
+        if shader_folder.exists() {
+            let shader_description_paths: Paths = glob::glob(
+                shader_folder
+                    .join("*.shaderdesc")
+                    .to_str()
+                    .expect("Shader load pattern is unparseable"),
+            )?;
+            for shader_description_path in shader_description_paths {
+                let shader_description =
+                    ShaderDescription::load(&shader_folder.join(shader_description_path?))?;
+                shader_descriptions.extend(shader_description);
+            }
+            for shader_description in shader_descriptions {
+                let shader = Rc::new(Shader::create(&shader_folder, device, &shader_description)?);
+                shaders.0.insert(shader_description.identifier, shader);
+            }
+        }
+        log::info!("Finished shader setup. {} shaders loaded!", shaders.0.len());
+        Ok(shaders)
+    }
+
 }
 
 impl Shader {
