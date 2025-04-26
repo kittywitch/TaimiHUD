@@ -1,85 +1,21 @@
 use {
-    super::{entity::Entity, shader::Shader},
     anyhow::anyhow,
-    glam::{Affine3A, Mat4, Vec3},
     image::ImageReader,
     itertools::Itertools,
-    std::{collections::HashMap, path::Path, rc::Rc},
-    tokio::sync::mpsc::Receiver,
+    std::path::Path,
     windows::Win32::Graphics::{
         Direct3D::D3D11_SRV_DIMENSION_TEXTURE2D,
         Direct3D11::{
-            ID3D11Buffer, ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device,
-            ID3D11DeviceContext, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11SamplerState,
+            ID3D11Device,
+            ID3D11DeviceContext,
             ID3D11ShaderResourceView, ID3D11Texture2D, D3D11_BIND_RENDER_TARGET,
             D3D11_BIND_SHADER_RESOURCE, D3D11_RESOURCE_MISC_GENERATE_MIPS,
             D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC_0,
             D3D11_SUBRESOURCE_DATA, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT,
-            D3D11_VIEWPORT,
         },
-        Dxgi::{
-            Common::{DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC},
-            IDXGISwapChain,
-        },
+        Dxgi::Common::{DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC},
     },
 };
-
-#[derive(Debug)]
-pub struct DrawData {
-    pub player_position: Option<Vec3>,
-    pub camera_front: Vec3,
-    pub camera_up: Vec3,
-    pub camera_position: Vec3,
-}
-
-type ShaderEntityMap = Vec<(Rc<Shader>, Rc<Shader>, Vec<Rc<Entity>>)>;
-
-pub struct DrawState {
-    receiver: Receiver<SpaceEvent>,
-    draw_data: Option<DrawData>,
-    render_target_view: [Option<ID3D11RenderTargetView>; 1],
-    shaders: HashMap<String, Rc<Shader>>,
-    rasterizer_state: ID3D11RasterizerState,
-    viewport: D3D11_VIEWPORT,
-    entities: Vec<Entity>,
-    shader_entity_map: ShaderEntityMap,
-    depth_stencil_state: ID3D11DepthStencilState,
-    depth_stencil_buffer: ID3D11Texture2D,
-    depth_stencil_view: ID3D11DepthStencilView,
-    sampler_state: Vec<Option<ID3D11SamplerState>>,
-    constant_buffer: ID3D11Buffer,
-    constant_buffer_data: ConstantBufferData,
-    device: ID3D11Device,
-    swap_chain: IDXGISwapChain,
-    aspect_ratio: Option<f32>,
-    display_size: Option<[f32; 2]>,
-}
-
-#[repr(C, align(16))]
-pub struct InstanceBufferData {
-    pub model: Mat4,
-    pub colour: Vec3,
-}
-
-impl InstanceBufferData {
-    pub fn rotate(&mut self, dt: f32) {
-        self.model = self.model * Affine3A::from_rotation_y(dt);
-    }
-}
-
-#[repr(C)]
-struct ConstantBufferData {
-    view: Mat4,
-    projection: Mat4,
-}
-
-impl ConstantBufferData {}
-
-pub enum SpaceEvent {
-    Update(DrawData),
-}
-
-pub type Shaders = HashMap<String, Rc<Shader>>;
 
 pub struct Texture {
     pub texture: ID3D11Texture2D,

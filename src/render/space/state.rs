@@ -1,10 +1,7 @@
 use {
     super::{
-        depthhandler::DepthHandler,
-        entity::Entity,
-        entitycontroller::EntityController,
-        perspectivehandler::PerspectiveHandler,
-        shader::Shaders,
+        depthhandler::DepthHandler, entity::Entity, entitycontroller::EntityController,
+        perspectivehandler::PerspectiveHandler, shader::Shaders,
     },
     crate::{render::space::perspectiveinputdata::PerspectiveInputData, SETTINGS},
     anyhow::anyhow,
