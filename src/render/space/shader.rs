@@ -87,10 +87,7 @@ impl Shader {
             },
         }
     }
-    pub fn compile(
-        shader_folder: &Path,
-        desc: &ShaderDescription,
-    ) -> anyhow::Result<ID3DBlob> {
+    pub fn compile(shader_folder: &Path, desc: &ShaderDescription) -> anyhow::Result<ID3DBlob> {
         let (filename, target, entrypoint_cstring) = desc.get(shader_folder)?;
         log::info!(
             "Beginning compile from {:?} of {} shader, entrypoint {:?}",

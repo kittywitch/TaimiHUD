@@ -1,15 +1,10 @@
 use {
-    super::{
-        state::Texture, vertexbuffer::VertexBuffer
-    },
+    super::{texture::Texture, vertexbuffer::VertexBuffer},
     anyhow::anyhow,
     glam::{Vec2, Vec3, Vec3Swizzles},
     itertools::Itertools,
     serde::{Deserialize, Serialize},
-    std::{
-        path::{Path, PathBuf},
-        rc::Rc,
-    },
+    std::path::{Path, PathBuf},
     windows::Win32::Graphics::Direct3D11::{
         ID3D11Buffer, ID3D11Device, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC,
         D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
@@ -59,12 +54,19 @@ impl Model {
 
         match &materials {
             Ok(mats) => {
-                log::info!("Model file \"{:?}\" contains {} materials!", obj_file, mats.len());
+                log::info!(
+                    "Model file \"{:?}\" contains {} materials!",
+                    obj_file,
+                    mats.len()
+                );
                 for mat in mats {
                     log::info!("Material {}, diffuse: {:?}", mat.name, mat.diffuse_texture);
-                };
-            },
-            Err(err) => log::info!("{err}: Model file \"{:?}\" contains no materials!", obj_file),
+                }
+            }
+            Err(err) => log::info!(
+                "{err}: Model file \"{:?}\" contains no materials!",
+                obj_file
+            ),
         }
 
         log::info!("File {:?} contains {} models", obj_file, models.len());
@@ -89,18 +91,23 @@ impl Model {
 
             log::info!("model[{}].normals        = {}", i, mesh.normals.len() / 3);
 
-            log::info!("model[{}].texcoords        = {}", i, mesh.texcoords.len() / 2);
+            log::info!(
+                "model[{}].texcoords        = {}",
+                i,
+                mesh.texcoords.len() / 2
+            );
 
             let texture = match (&materials, mesh.material_id) {
                 (Ok(mats), Some(mat_id)) => {
-                    if let (Some(folder), Some(texture_path)) = (folder, &mats[mat_id].diffuse_texture) {
-
+                    if let (Some(folder), Some(texture_path)) =
+                        (folder, &mats[mat_id].diffuse_texture)
+                    {
                         let texture = Texture::load(device, &folder.join(texture_path))?;
                         Some(texture)
                     } else {
                         None
                     }
-                },
+                }
                 _ => None,
             };
 

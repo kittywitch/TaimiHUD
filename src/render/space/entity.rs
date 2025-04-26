@@ -1,6 +1,9 @@
 use {
     super::{
-        model::{Model, ModelLocation}, shader::Shader, state::InstanceBufferData, vertexbuffer::VertexBuffer
+        model::{Model, ModelLocation},
+        shader::Shader,
+        state::InstanceBufferData,
+        vertexbuffer::VertexBuffer,
     },
     anyhow::anyhow,
     glam::{Vec2, Vec3},

@@ -4,6 +4,7 @@ pub mod entitydescription;
 pub mod model;
 pub mod shader;
 pub mod state;
+pub mod texture;
 pub mod vertexbuffer;
 
 pub use state::{DrawData, DrawState, SpaceEvent};

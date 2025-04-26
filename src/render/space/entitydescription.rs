@@ -22,7 +22,7 @@ pub struct EntityDescription {
     #[serde(default)]
     pub model_matrix: Mat4,
     #[serde(default)]
-    pub xzy: bool
+    pub xzy: bool,
 }
 
 impl EntityDescription {

@@ -1,7 +1,9 @@
 use {
     super::{
-        entity::Entity, entitydescription::EntityDescription, model::Model,
-        state::{Shaders, InstanceBufferData},
+        entity::Entity,
+        entitydescription::EntityDescription,
+        model::Model,
+        state::{InstanceBufferData, Shaders},
     },
     anyhow::anyhow,
     glam::{Mat4, Vec3},
@@ -12,7 +14,6 @@ use {
         cell::RefCell,
         collections::HashMap,
         path::{Path, PathBuf},
-        rc::Rc,
     },
     windows::Win32::Graphics::Direct3D11::ID3D11Device,
 };
@@ -72,20 +73,38 @@ impl EntityController {
                     .map(|xyz| Vec3::from_slice(&xyz.into_iter().collect::<Vec<_>>()))
                     .map(Mat4::from_translation)
                     .map(|trans| InstanceBufferData {
-                        colour: Vec3::new(rng2.random::<f32>(), rng2.random::<f32>(), rng2.random::<f32>()),
-                        model: desc.model_matrix * Mat4::from_scale(Vec3::new(10.0, 10.0, 10.0)) * trans,
+                        colour: Vec3::new(
+                            rng2.random::<f32>(),
+                            rng2.random::<f32>(),
+                            rng2.random::<f32>(),
+                        ),
+                        model: desc.model_matrix
+                            * Mat4::from_scale(Vec3::new(10.0, 10.0, 10.0))
+                            * trans,
                     })
                     .collect();
 
                 let instance_buffer = Entity::setup_instance_buffer(&model_matrix, device)?;
 
                 let vertex_shader = shaders
-                    .get(&desc.vertex_shader).ok_or_else(||
-                        anyhow!("Vertex shader {} is missing, required for entity {}!", &desc.pixel_shader, &desc.name))?
+                    .get(&desc.vertex_shader)
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "Vertex shader {} is missing, required for entity {}!",
+                            &desc.pixel_shader,
+                            &desc.name
+                        )
+                    })?
                     .clone();
                 let pixel_shader = shaders
-                    .get(&desc.pixel_shader).ok_or_else(||
-                        anyhow!("Pixel shader {} is missing, required for entity {}!", &desc.pixel_shader, &desc.name))?
+                    .get(&desc.pixel_shader)
+                    .ok_or_else(|| {
+                        anyhow!(
+                            "Pixel shader {} is missing, required for entity {}!",
+                            &desc.pixel_shader,
+                            &desc.name
+                        )
+                    })?
                     .clone();
                 let entity = Entity {
                     name: desc.name.clone(),
