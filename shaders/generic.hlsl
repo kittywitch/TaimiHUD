@@ -19,6 +19,7 @@ struct VSOutput
     float4 position: SV_Position;
     float3 normal: NORMAL;
     float3 color: COLOR0;
+    float3 colour: COLOUR;
 };
 
 VSOutput VSMain(VSInput input)
@@ -26,10 +27,16 @@ VSOutput VSMain(VSInput input)
     VSOutput output = (VSOutput)0;
     float4 VertPos = float4(input.position, 1.0);
 
-    float4 Transform = mul(Projection, mul(View, mul(input.Model, VertPos)));
-    output.position = Transform;
-    output.color = input.color * input.colour;
+    output.position = mul(input.Model, VertPos);
+    output.position = mul(View, output.position);
+    output.position = mul(Projection, output.position);
+
+    //float4 Transform = mul(Projection, mul(View, mul(input.Model, VertPos)));
+    //output.position = Transform;
     output.normal = input.normal;
+    output.color = input.color;
+    output.colour = input.colour;
+
     return output;
 }
 
@@ -39,6 +46,7 @@ struct PSInput
     float4 position: SV_Position;
     float3 normal: NORMAL;
     float3 color: COLOR0;
+    float3 colour: COLOUR;
 };
 
 struct PSOutput
@@ -49,6 +57,6 @@ struct PSOutput
 PSOutput PSMain(PSInput input)
 {
     PSOutput output = (PSOutput)0;
-    output.color = float4(input.color, 1.0);
+    output.color = float4(input.color * input.colour, 1.0);
     return output;
 }
