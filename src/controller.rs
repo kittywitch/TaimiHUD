@@ -1,6 +1,6 @@
 use {
     crate::{
-        render::{space::state::PerspectiveInputData, TextFont},
+        render::{space::perspectiveinputdata::PerspectiveInputData, TextFont},
         settings::{RemoteSource, Settings, SettingsLock},
         timer::{CombatState, Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, SETTINGS,

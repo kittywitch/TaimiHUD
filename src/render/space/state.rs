@@ -3,79 +3,24 @@ use {
         depthhandler::DepthHandler,
         entity::Entity,
         entitycontroller::EntityController,
-        shader::{Shader, ShaderDescription, Shaders},
-    }, crate::SETTINGS, anyhow::anyhow, arc_atomic::AtomicArc, glam::{Affine3A, Mat4, Vec3, Vec4}, glob::Paths, image::ImageReader, itertools::Itertools, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{collections::HashMap, path::Path, rc::Rc, sync::{Arc, OnceLock}}, tokio::sync::mpsc::Receiver, windows::Win32::Graphics::{
-        Direct3D::{D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, D3D11_SRV_DIMENSION_TEXTURE2D},
+        perspectivehandler::PerspectiveHandler,
+        shader::Shaders,
+    },
+    crate::{render::space::perspectiveinputdata::PerspectiveInputData, SETTINGS},
+    anyhow::anyhow,
+    glam::{Affine3A, Mat4, Vec3, Vec4},
+    itertools::Itertools,
+    nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
+    std::path::Path,
+    windows::Win32::Graphics::{
+        Direct3D::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
         Direct3D11::{
-            ID3D11Buffer, ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device,
-            ID3D11DeviceContext, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11SamplerState,
-            ID3D11ShaderResourceView, ID3D11Texture2D, D3D11_BIND_CONSTANT_BUFFER,
-            D3D11_BIND_DEPTH_STENCIL, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE,
-            D3D11_BUFFER_DESC, D3D11_CLEAR_DEPTH, D3D11_CLEAR_STENCIL, D3D11_COMPARISON_ALWAYS,
-            D3D11_COMPARISON_LESS,
-            D3D11_CULL_BACK, D3D11_DEFAULT_STENCIL_READ_MASK,
-            D3D11_DEFAULT_STENCIL_WRITE_MASK, D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC,
-            D3D11_DEPTH_STENCIL_VIEW_DESC, D3D11_DEPTH_STENCIL_VIEW_DESC_0,
-            D3D11_DEPTH_WRITE_MASK_ALL, D3D11_DSV_DIMENSION_TEXTURE2D,
-            D3D11_FILL_SOLID, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_RASTERIZER_DESC, D3D11_RESOURCE_MISC_GENERATE_MIPS, D3D11_SAMPLER_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC,
-            D3D11_SHADER_RESOURCE_VIEW_DESC_0,
-            D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA,
-            D3D11_TEX2D_DSV, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC,
-            D3D11_TEXTURE_ADDRESS_WRAP, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT,
+            ID3D11Device, ID3D11SamplerState, D3D11_COMPARISON_ALWAYS,
+            D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_SAMPLER_DESC, D3D11_TEXTURE_ADDRESS_WRAP,
         },
-        Dxgi::{
-            Common::{
-                DXGI_FORMAT_D24_UNORM_S8_UINT,
-                DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC,
-            },
-            IDXGISwapChain,
-        },
-    }
+        Dxgi::IDXGISwapChain,
+    },
 };
-
-static PERSPECTIVEINPUTDATA: OnceLock<Arc<AtomicArc<PerspectiveInputData>>> = OnceLock::new();
-
-#[derive(Debug, Default, PartialEq, Clone)]
-pub struct PerspectiveInputData {
-    pub front: Vec3,
-    pub pos: Vec3,
-    pub fov: f32,
-}
-
-impl PerspectiveInputData {
-    pub fn create() {
-        let aarc = Arc::new(AtomicArc::new(Arc::new(Self::default())));
-        let _ = PERSPECTIVEINPUTDATA.set(aarc);
-    }
-
-    pub fn read() -> Option<Arc<Self>> {
-        Some(PERSPECTIVEINPUTDATA.get()?.load())
-    }
-
-    pub fn swap_camera(front: Vec3, pos: Vec3) {
-        if let Some(data) = PERSPECTIVEINPUTDATA.get() {
-            let pdata = data.load();
-            data.store(Arc::new(PerspectiveInputData {
-                fov: pdata.fov,
-                front,
-                pos
-            }))
-
-        }
-    }
-
-    pub fn swap_fov(fov: f32) {
-        if let Some(data) = PERSPECTIVEINPUTDATA.get() {
-            let pdata = data.load();
-            data.store(Arc::new(PerspectiveInputData {
-                fov,
-                front: pdata.front,
-                pos: pdata.pos,
-            }))
-
-        }
-    }
-}
 
 pub struct DrawState {
     depth_handler: DepthHandler,
@@ -102,114 +47,6 @@ impl InstanceBufferData {
     }
 }
 
-#[repr(C)]
-#[derive(Debug)]
-struct PerspectiveData {
-    view: Mat4,
-    projection: Mat4,
-}
-
-struct PerspectiveHandler {
-    constant_buffer: ID3D11Buffer,
-    constant_buffer_data: PerspectiveData,
-    aspect_ratio: f32,
-    up: Vec3,
-    near: f32,
-    far: f32,
-    last_display_size: [f32; 2],
-}
-
-impl PerspectiveHandler {
-    pub fn setup(device: &ID3D11Device, display_size: &[f32; 2]) -> anyhow::Result<Self> {
-        let aspect_ratio = display_size[0] / display_size[1];
-        let constant_buffer = Self::create_constant_buffer(device)?;
-        let constant_buffer_data = PerspectiveData {
-            view: Mat4::IDENTITY,
-            projection: Mat4::IDENTITY,
-        };
-        Ok(Self {
-            up: Vec3::new(0.0, 1.0, 0.0),
-            aspect_ratio,
-            last_display_size: *display_size,
-            constant_buffer,
-            constant_buffer_data,
-            near: 0.1,
-            far: 1000.0,
-        })
-    }
-
-    pub fn update_perspective(&mut self, display_size: &[f32; 2]) {
-        if let Some(data ) = PerspectiveInputData::read() {
-            if *display_size != self.last_display_size {
-                self.aspect_ratio = display_size[0] / display_size[1];
-                self.last_display_size = *display_size;
-            }
-
-            self.constant_buffer_data.view = Mat4::look_to_lh(
-                data.pos,
-                data.front,
-                self.up,
-            );
-            self.constant_buffer_data.projection = Mat4::perspective_lh(
-                data.fov,
-                self.aspect_ratio,
-                self.near,
-                self.far,
-            );
-
-        }
-    }
-
-    pub fn create_constant_buffer(device: &ID3D11Device) -> anyhow::Result<ID3D11Buffer> {
-        let constant_buffer_desc = D3D11_BUFFER_DESC {
-            ByteWidth: size_of::<PerspectiveData>() as u32,
-            Usage: D3D11_USAGE_DEFAULT,
-            BindFlags: D3D11_BIND_CONSTANT_BUFFER.0 as u32,
-            CPUAccessFlags: 0,
-            MiscFlags: 0,
-            StructureByteStride: 0,
-        };
-
-        let constant_subresource_data = D3D11_SUBRESOURCE_DATA::default();
-
-        let mut constant_buffer_ptr: Option<ID3D11Buffer> = None;
-        let constant_buffer = unsafe {
-            device.CreateBuffer(
-                &constant_buffer_desc,
-                Some(&constant_subresource_data),
-                Some(&mut constant_buffer_ptr),
-            )
-        }
-        .map_err(anyhow::Error::from)
-        .and_then(|()| constant_buffer_ptr.ok_or_else(|| anyhow!("no constant buffer")))?;
-
-        Ok(constant_buffer)
-    }
-
-    fn update_cb(&mut self, device_context: &ID3D11DeviceContext) {
-        unsafe {
-            device_context.UpdateSubresource(
-                &self.constant_buffer,
-                0,
-                None,
-                &self.constant_buffer_data as *const _ as *const _,
-                0,
-                0,
-            );
-        }
-    }
-    fn set_cb(&self, device_context: &ID3D11DeviceContext, slot: u32) {
-        unsafe {
-            device_context
-                .VSSetConstantBuffers(slot, Some(&[Some(self.constant_buffer.clone())]));
-        }
-    }
-    pub fn set(&mut self, device_context: &ID3D11DeviceContext, slot: u32) {
-        self.set_cb(device_context, slot);
-        self.update_cb(device_context);
-    }
-}
-
 impl DrawState {
     pub fn setup_entities(
         addon_dir: &Path,
@@ -222,7 +59,6 @@ impl DrawState {
         log::info!("Finished entity setup. {} entities loaded!", entities.len());
         Ok(entities)
     }
-
 
     pub fn setup_sampler(device: &ID3D11Device) -> anyhow::Result<ID3D11SamplerState> {
         let sampler_desc = D3D11_SAMPLER_DESC {

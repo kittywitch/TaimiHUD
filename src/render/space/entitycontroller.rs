@@ -1,10 +1,7 @@
 use {
     super::{
-        entity::Entity,
-        entitydescription::EntityDescription,
-        model::Model,
+        entity::Entity, entitydescription::EntityDescription, model::Model, shader::Shaders,
         state::InstanceBufferData,
-        shader::Shaders,
     },
     anyhow::anyhow,
     glam::{Mat4, Vec3},
@@ -80,14 +77,15 @@ impl EntityController {
                             rng2.random::<f32>(),
                         ),
                         model: desc.model_matrix
-                            * Mat4::from_scale(Vec3::new(5.0, 5.0, 5.0))
+                            * Mat4::from_scale(Vec3::new(2.0, 2.0, 2.0))
                             * trans,
                     })
                     .collect();
 
                 let instance_buffer = Entity::setup_instance_buffer(&model_matrix, device)?;
 
-                let vertex_shader = shaders.0
+                let vertex_shader = shaders
+                    .0
                     .get(&desc.vertex_shader)
                     .ok_or_else(|| {
                         anyhow!(
@@ -97,7 +95,8 @@ impl EntityController {
                         )
                     })?
                     .clone();
-                let pixel_shader = shaders.0
+                let pixel_shader = shaders
+                    .0
                     .get(&desc.pixel_shader)
                     .ok_or_else(|| {
                         anyhow!(

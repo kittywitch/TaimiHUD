@@ -1,8 +1,5 @@
 use {
-    super::{
-        entity::Entity,
-        shader::Shader,
-    },
+    super::{entity::Entity, shader::Shader},
     anyhow::anyhow,
     glam::{Affine3A, Mat4, Vec3},
     image::ImageReader,
@@ -14,13 +11,14 @@ use {
         Direct3D11::{
             ID3D11Buffer, ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device,
             ID3D11DeviceContext, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11SamplerState,
-            ID3D11ShaderResourceView, ID3D11Texture2D, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_RESOURCE_MISC_GENERATE_MIPS, D3D11_SHADER_RESOURCE_VIEW_DESC,
-            D3D11_SHADER_RESOURCE_VIEW_DESC_0, D3D11_SUBRESOURCE_DATA, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT,
+            ID3D11ShaderResourceView, ID3D11Texture2D, D3D11_BIND_RENDER_TARGET,
+            D3D11_BIND_SHADER_RESOURCE, D3D11_RESOURCE_MISC_GENERATE_MIPS,
+            D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC_0,
+            D3D11_SUBRESOURCE_DATA, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT,
+            D3D11_VIEWPORT,
         },
         Dxgi::{
-            Common::{
-                DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC,
-            },
+            Common::{DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC},
             IDXGISwapChain,
         },
     },
@@ -165,7 +163,7 @@ impl Texture {
             }
         }
     }
-    
+
     pub fn set(&self, device_context: &ID3D11DeviceContext, slot: u32) {
         unsafe {
             device_context.PSSetShaderResources(slot, Some(self.view.as_slice()));

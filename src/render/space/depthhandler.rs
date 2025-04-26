@@ -1,41 +1,20 @@
 use {
-    super::{
-        entity::Entity,
-        entitycontroller::EntityController,
-        shader::{Shader, ShaderDescription},
-    },
-    crate::SETTINGS,
     anyhow::anyhow,
-    glam::{Affine3A, Mat4, Vec3, Vec4},
-    glob::Paths,
-    image::ImageReader,
-    itertools::Itertools,
-    nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
-    std::{collections::HashMap, path::Path, rc::Rc},
-    tokio::sync::mpsc::Receiver,
     windows::Win32::Graphics::{
-        Direct3D::{D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, D3D11_SRV_DIMENSION_TEXTURE2D},
         Direct3D11::{
-            ID3D11Buffer, ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device,
-            ID3D11DeviceContext, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11SamplerState,
-            ID3D11ShaderResourceView, ID3D11Texture2D, D3D11_BIND_CONSTANT_BUFFER,
-            D3D11_BIND_DEPTH_STENCIL, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE,
-            D3D11_BUFFER_DESC, D3D11_CLEAR_DEPTH, D3D11_CLEAR_STENCIL, D3D11_COMPARISON_ALWAYS,
-            D3D11_COMPARISON_LESS,
-            D3D11_CULL_BACK, D3D11_DEFAULT_STENCIL_READ_MASK,
+            ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device,
+            ID3D11DeviceContext, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11Texture2D,
+            D3D11_BIND_DEPTH_STENCIL, D3D11_CLEAR_DEPTH, D3D11_CLEAR_STENCIL, D3D11_COMPARISON_ALWAYS,
+            D3D11_COMPARISON_LESS, D3D11_CULL_BACK, D3D11_DEFAULT_STENCIL_READ_MASK,
             D3D11_DEFAULT_STENCIL_WRITE_MASK, D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC,
             D3D11_DEPTH_STENCIL_VIEW_DESC, D3D11_DEPTH_STENCIL_VIEW_DESC_0,
-            D3D11_DEPTH_WRITE_MASK_ALL, D3D11_DSV_DIMENSION_TEXTURE2D,
-            D3D11_FILL_SOLID, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_RASTERIZER_DESC, D3D11_RESOURCE_MISC_GENERATE_MIPS, D3D11_SAMPLER_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC,
-            D3D11_SHADER_RESOURCE_VIEW_DESC_0,
-            D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA,
-            D3D11_TEX2D_DSV, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC,
-            D3D11_TEXTURE_ADDRESS_WRAP, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT,
+            D3D11_DEPTH_WRITE_MASK_ALL, D3D11_DSV_DIMENSION_TEXTURE2D, D3D11_FILL_SOLID, D3D11_RASTERIZER_DESC, D3D11_STENCIL_OP_KEEP,
+            D3D11_TEX2D_DSV, D3D11_TEXTURE2D_DESC,
+            D3D11_USAGE_DEFAULT, D3D11_VIEWPORT,
         },
         Dxgi::{
             Common::{
-                DXGI_FORMAT_D24_UNORM_S8_UINT,
-                DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC,
+                DXGI_FORMAT_D24_UNORM_S8_UINT, DXGI_SAMPLE_DESC,
             },
             IDXGISwapChain,
         },
@@ -53,7 +32,11 @@ pub struct DepthHandler {
 }
 
 impl DepthHandler {
-    pub fn create(display_size: &[f32; 2], device: &ID3D11Device, swap_chain: &IDXGISwapChain) -> anyhow::Result<Self> {
+    pub fn create(
+        display_size: &[f32; 2],
+        device: &ID3D11Device,
+        swap_chain: &IDXGISwapChain,
+    ) -> anyhow::Result<Self> {
         let framebuffer = Self::get_framebuffer(swap_chain)?;
         let viewport = Self::create_viewport(display_size);
         let render_target_view = vec![Self::create_render_target_view(device, &framebuffer).ok()];
@@ -61,7 +44,7 @@ impl DepthHandler {
         let depth_stencil_buffer = Self::create_depth_stencil_buffer(device, display_size)?;
         let depth_stencil_view = Self::create_depth_stencil_view(device, &depth_stencil_buffer)?;
         let rasterizer_state = Self::create_rasterizer_state(device)?;
-        Ok(Self{
+        Ok(Self {
             framebuffer,
             viewport,
             render_target_view,
@@ -134,7 +117,7 @@ impl DepthHandler {
         log::debug!("Set up render target view");
         Ok(render_target_view)
     }
-    
+
     pub fn create_depth_stencil_state(
         device: &ID3D11Device,
     ) -> anyhow::Result<ID3D11DepthStencilState> {
@@ -263,7 +246,4 @@ impl DepthHandler {
         log::info!("Set up rasterizer state");
         Ok(rasterizer_state)
     }
-
-
 }
-

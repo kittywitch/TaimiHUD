@@ -1,7 +1,20 @@
 use {
-    super::model::Vertex, anyhow::anyhow, core::ffi::c_char, glob::Paths, serde::{Deserialize, Serialize}, std::{
-        collections::HashMap, ffi::{CStr, CString}, fs::read_to_string, mem::offset_of, path::{Path, PathBuf}, rc::Rc, slice::from_raw_parts
-    }, strum_macros::Display, windows::Win32::Graphics::{
+    super::model::Vertex,
+    anyhow::anyhow,
+    core::ffi::c_char,
+    glob::Paths,
+    serde::{Deserialize, Serialize},
+    std::{
+        collections::HashMap,
+        ffi::{CStr, CString},
+        fs::read_to_string,
+        mem::offset_of,
+        path::{Path, PathBuf},
+        rc::Rc,
+        slice::from_raw_parts,
+    },
+    strum_macros::Display,
+    windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
             ID3DBlob,
@@ -14,7 +27,8 @@ use {
         Dxgi::Common::{
             DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R32G32B32_FLOAT, DXGI_FORMAT_R32G32_FLOAT,
         },
-    }, windows_strings::{s, HSTRING, PCSTR}
+    },
+    windows_strings::{s, HSTRING, PCSTR},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -66,7 +80,7 @@ pub struct PixelShader {
 
 pub struct Shaders(pub HashMap<String, Rc<Shader>>);
 
-impl Shaders  {
+impl Shaders {
     pub fn setup(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Self> {
         log::info!("Beginning shader setup!");
         let shader_folder = addon_dir.join("shaders");
@@ -92,7 +106,6 @@ impl Shaders  {
         log::info!("Finished shader setup. {} shaders loaded!", shaders.0.len());
         Ok(shaders)
     }
-
 }
 
 impl Shader {
