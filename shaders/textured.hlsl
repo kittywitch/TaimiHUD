@@ -3,15 +3,17 @@ struct VSInput
     float3 position: POSITION;
     float3 normal: NORMAL;
     float3 color: COLOR0;
-    float2 texture: TEXCOORD0,
+    float2 tex: TEXCOORD0;
+    column_major matrix Model: MODEL;
+    float3 colour: COLOUR;
+     uint        instId  : SV_InstanceID;
 };
 
-Texture2D meshTexture: register(t0);
-SamplerState samLinear : register(s0);
+Texture2D shaderTexture : register(t0);
+SamplerState SampleType : register(s0);
 
 cbuffer ConstantBuffer : register(b0)
 {
-  column_major matrix Model;
   column_major matrix View;
   column_major matrix Projection;
 }
@@ -21,7 +23,8 @@ struct VSOutput
     float4 position: SV_Position;
     float3 normal: NORMAL;
     float3 color: COLOR0;
-    float2 texture: TEXCOORD0,
+    float3 colour: COLOUR;
+    float2 tex: TEXCOORD0;
 };
 
 VSOutput VSMain(VSInput input)
@@ -29,11 +32,15 @@ VSOutput VSMain(VSInput input)
     VSOutput output = (VSOutput)0;
     float4 VertPos = float4(input.position, 1.0);
 
-    float4 Transform = mul(Projection, mul(View, mul(Model, VertPos)));
-    output.position = Transform;
-    output.color = input.color;
+    output.position = mul(input.Model, VertPos);
+    output.position = mul(View, output.position);
+    output.position = mul(Projection, output.position);
+
+    output.tex = input.tex;
     output.normal = input.normal;
-    output.texture = input.texture;
+    output.color = input.color;
+    output.colour = input.colour;
+
     return output;
 }
 
@@ -43,7 +50,8 @@ struct PSInput
     float4 position: SV_Position;
     float3 normal: NORMAL;
     float3 color: COLOR0;
-    float2 texture: TEXCOORD0,
+    float3 colour: COLOUR;
+    float2 tex: TEXCOORD0;
 };
 
 struct PSOutput
@@ -54,8 +62,8 @@ struct PSOutput
 PSOutput PSMain(PSInput input)
 {
     PSOutput output = (PSOutput)0;
-    float4 Multiplier = float4(input.color, 1.0);
-    float4 vDiffuse = meshTexture.Sample(samLinear, input.texture);
-    output.color = vDiffuse * Multiplier;
+    float2 newtex = float2(input.tex.x, 1 - input.tex.y);
+    float4 textureColour = shaderTexture.Sample(SampleType, newtex);
+    output.color = float4(input.color, 1.0) * textureColour;
     return output;
 }

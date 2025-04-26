@@ -3,22 +3,13 @@ use {
         entity::Entity,
         entitycontroller::EntityController,
         shader::{Shader, ShaderDescription},
-    },
-    crate::SETTINGS,
-    anyhow::anyhow,
-    glam::{Affine3A, Mat4, Vec3, Vec4},
-    glob::Paths,
-    itertools::Itertools,
-    nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
-    std::{collections::HashMap, path::Path, rc::Rc},
-    tokio::sync::mpsc::Receiver,
-    windows::Win32::Graphics::{
-        Direct3D::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
+    }, crate::SETTINGS, anyhow::anyhow, glam::{Affine3A, Mat4, Vec3, Vec4}, glob::Paths, image::ImageReader, itertools::Itertools, nexus::{imgui::Io, paths::get_addon_dir, AddonApi}, std::{collections::HashMap, path::Path, rc::Rc}, tokio::sync::mpsc::Receiver, windows::Win32::Graphics::{
+        Direct3D::{D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST, D3D11_SRV_DIMENSION_TEXTURE2D},
         Direct3D11::{
-            ID3D11Buffer, ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11Texture2D, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_DEPTH_STENCIL, D3D11_BUFFER_DESC, D3D11_CLEAR_DEPTH, D3D11_CLEAR_STENCIL, D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_EQUAL, D3D11_COMPARISON_GREATER, D3D11_COMPARISON_GREATER_EQUAL, D3D11_COMPARISON_LESS, D3D11_COMPARISON_LESS_EQUAL, D3D11_CULL_BACK, D3D11_CULL_FRONT, D3D11_CULL_NONE, D3D11_DEFAULT_STENCIL_READ_MASK, D3D11_DEFAULT_STENCIL_WRITE_MASK, D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC, D3D11_DEPTH_STENCIL_VIEW_DESC, D3D11_DEPTH_STENCIL_VIEW_DESC_0, D3D11_DEPTH_WRITE_MASK_ALL, D3D11_DSV_DIMENSION_TEXTURE2D, D3D11_DSV_READ_ONLY_DEPTH, D3D11_FILL_SOLID, D3D11_RASTERIZER_DESC, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RTV_DIMENSION_TEXTURE2D, D3D11_STENCIL_OP_DECR, D3D11_STENCIL_OP_INCR, D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA, D3D11_TEX2DMS_ARRAY_DSV, D3D11_TEX2D_DSV, D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT
+            ID3D11Buffer, ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device, ID3D11DeviceContext, ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11SamplerState, ID3D11ShaderResourceView, ID3D11Texture2D, D3D11_BIND_CONSTANT_BUFFER, D3D11_BIND_DEPTH_STENCIL, D3D11_BIND_RENDER_TARGET, D3D11_BIND_SHADER_RESOURCE, D3D11_BUFFER_DESC, D3D11_CLEAR_DEPTH, D3D11_CLEAR_STENCIL, D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_EQUAL, D3D11_COMPARISON_GREATER, D3D11_COMPARISON_GREATER_EQUAL, D3D11_COMPARISON_LESS, D3D11_COMPARISON_LESS_EQUAL, D3D11_COMPARISON_NEVER, D3D11_CULL_BACK, D3D11_CULL_FRONT, D3D11_CULL_NONE, D3D11_DEFAULT_STENCIL_READ_MASK, D3D11_DEFAULT_STENCIL_WRITE_MASK, D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC, D3D11_DEPTH_STENCIL_VIEW_DESC, D3D11_DEPTH_STENCIL_VIEW_DESC_0, D3D11_DEPTH_WRITE_MASK_ALL, D3D11_DSV_DIMENSION_TEXTURE2D, D3D11_DSV_READ_ONLY_DEPTH, D3D11_FILL_SOLID, D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_RASTERIZER_DESC, D3D11_RENDER_TARGET_VIEW_DESC, D3D11_RESOURCE_MISC_GENERATE_MIPS, D3D11_RTV_DIMENSION_TEXTURE2D, D3D11_SAMPLER_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC, D3D11_SHADER_RESOURCE_VIEW_DESC_0, D3D11_STENCIL_OP_DECR, D3D11_STENCIL_OP_INCR, D3D11_STENCIL_OP_KEEP, D3D11_SUBRESOURCE_DATA, D3D11_TEX2DMS_ARRAY_DSV, D3D11_TEX2D_DSV, D3D11_TEX2D_SRV, D3D11_TEXTURE2D_DESC, D3D11_TEXTURE_ADDRESS_CLAMP, D3D11_TEXTURE_ADDRESS_WRAP, D3D11_USAGE_DEFAULT, D3D11_VIEWPORT
         },
-        Dxgi::{Common::{DXGI_FORMAT_D24_UNORM_S8_UINT, DXGI_FORMAT_D32_FLOAT_S8X24_UINT, DXGI_SAMPLE_DESC}, IDXGISwapChain},
-    },
+        Dxgi::{Common::{DXGI_FORMAT_D24_UNORM_S8_UINT, DXGI_FORMAT_D32_FLOAT_S8X24_UINT, DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC}, IDXGISwapChain},
+    }
 };
 
 #[derive(Debug)]
@@ -43,6 +34,7 @@ pub struct DrawState {
     depth_stencil_state: ID3D11DepthStencilState,
     depth_stencil_buffer: ID3D11Texture2D,
     depth_stencil_view: ID3D11DepthStencilView,
+    sampler_state: Vec<Option<ID3D11SamplerState>>,
     constant_buffer: ID3D11Buffer,
     constant_buffer_data: ConstantBufferData,
     device: ID3D11Device,
@@ -76,6 +68,88 @@ pub enum SpaceEvent {
 }
 
 pub type Shaders = HashMap<String, Rc<Shader>>;
+
+
+pub struct Texture {
+    texture: ID3D11Texture2D,
+    dimensions: [u32; 2],
+    view: Vec<Option<ID3D11ShaderResourceView>>,
+}
+
+impl Texture {
+    pub fn load(device: &ID3D11Device, path: &Path) -> anyhow::Result<Self> {
+        let image_reader = ImageReader::open(path)?;
+        let format = image_reader.format();
+        log::info!("Loading {:?} texture from {path:?}!", format);
+        let image = image_reader.with_guessed_format()?.decode()?;
+        let rgba_image = image.to_rgba32f();
+        let dimensions = rgba_image.dimensions();
+        let raw_rgba_image = rgba_image.into_raw();
+        let texture_sample_desc = DXGI_SAMPLE_DESC {
+            Count:  1,
+            Quality: 0,
+        };
+        let texture_desc = D3D11_TEXTURE2D_DESC {
+            Width: dimensions.0,
+            Height: dimensions.1,
+            MipLevels: 1,
+            ArraySize: 1,
+            Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
+            SampleDesc: texture_sample_desc,
+            Usage: D3D11_USAGE_DEFAULT,
+            BindFlags: (D3D11_BIND_SHADER_RESOURCE.0 | D3D11_BIND_RENDER_TARGET.0) as u32,
+            CPUAccessFlags: 0,
+            MiscFlags: D3D11_RESOURCE_MISC_GENERATE_MIPS.0 as u32,
+        };
+        let texture_subresource_data = D3D11_SUBRESOURCE_DATA {
+            pSysMem: raw_rgba_image.as_ptr().cast(),
+            SysMemPitch: (size_of::<f32>() as u32 * dimensions.0 * 4),
+            SysMemSlicePitch: 0,
+        };
+        let mut texture_ptr: Option<ID3D11Texture2D> = None;
+        let texture = unsafe {
+            device.CreateTexture2D(&texture_desc, Some(&texture_subresource_data), Some(&mut texture_ptr))
+        }
+        .map_err(anyhow::Error::from)
+        .and_then(|()| texture_ptr.ok_or_else(|| anyhow!("no texture for {path:?}")))?;
+        log::info!("Creating a shader resource view for {:?}!", path);
+        let tex2d_srv = D3D11_TEX2D_SRV {
+            MostDetailedMip: 0,
+            MipLevels: u32::MAX,
+        };
+        let view_anonymous = D3D11_SHADER_RESOURCE_VIEW_DESC_0 {
+            Texture2D: tex2d_srv,
+        };
+        let view_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
+            Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
+            ViewDimension: D3D11_SRV_DIMENSION_TEXTURE2D,
+            Anonymous: view_anonymous,
+        };
+        let mut view_ptr: Option<ID3D11ShaderResourceView> = None;
+        let view = unsafe {
+            device.CreateShaderResourceView(&texture, Some(&view_desc), Some(&mut view_ptr))
+        }
+        .map_err(anyhow::Error::from)
+        .and_then(|()| view_ptr.ok_or_else(|| anyhow!("no shader resource view")))?;
+        let view = vec![Some(view)];
+        log::info!("Loaded {:?} texture from {path:?}!", format);
+        Ok(Self {
+            texture,
+            view,
+            dimensions: dimensions.into(),
+        })
+    }
+
+    pub fn generate_mips(&self, device_context: &ID3D11DeviceContext) {
+        unsafe {
+            let mut itty = self.view.iter();
+            while let Some(Some(view)) = itty.next() {
+                device_context.GenerateMips(view);
+            }
+        }
+    }
+
+}
 
 impl DrawState {
     pub fn setup_shaders(
@@ -218,15 +292,12 @@ impl DrawState {
         };
         let depth_stencil_view_anonymous = D3D11_DEPTH_STENCIL_VIEW_DESC_0 {
             Texture2D: dsv_tex2d,
-
         };
-
         let depth_stencil_view_desc = D3D11_DEPTH_STENCIL_VIEW_DESC {
             Format: DXGI_FORMAT_D24_UNORM_S8_UINT,
             ViewDimension: D3D11_DSV_DIMENSION_TEXTURE2D,
             Flags: 0,
             Anonymous: depth_stencil_view_anonymous,
-        
         };
         log::info!("Setting up depth stencil view");
         let mut depth_stencil_view_ptr: Option<ID3D11DepthStencilView> = None;
@@ -281,7 +352,7 @@ impl DrawState {
         let rasterizer_state_desc = D3D11_RASTERIZER_DESC {
             FillMode: D3D11_FILL_SOLID,
             CullMode: D3D11_CULL_BACK,
-            FrontCounterClockwise: false.into(),
+            FrontCounterClockwise: true.into(),
             DepthBias: 0,
             DepthBiasClamp: 0.0,
             SlopeScaledDepthBias: 0.0,
@@ -300,6 +371,32 @@ impl DrawState {
         log::info!("Set up rasterizer state");
         Ok(rasterizer_state)
     }
+
+    pub fn setup_sampler(device: &ID3D11Device) -> anyhow::Result<ID3D11SamplerState> {
+        let sampler_desc = D3D11_SAMPLER_DESC {
+            Filter: D3D11_FILTER_MIN_MAG_MIP_LINEAR,
+            AddressU: D3D11_TEXTURE_ADDRESS_WRAP,
+            AddressV: D3D11_TEXTURE_ADDRESS_WRAP,
+            AddressW: D3D11_TEXTURE_ADDRESS_WRAP,
+            MipLODBias: 0.0,
+            MinLOD: 0.0,
+            MaxLOD: f32::MAX,
+            MaxAnisotropy: 1,
+            ComparisonFunc: D3D11_COMPARISON_ALWAYS,
+            BorderColor: Vec4::new(0.0, 0.0, 0.0, 0.0).into(),
+        };
+        let mut sampler_state_ptr: Option<ID3D11SamplerState> = None;
+        let sampler_state = unsafe {
+            device.CreateSamplerState(
+                &sampler_desc,
+                Some(&mut sampler_state_ptr)
+            )
+        }
+        .map_err(anyhow::Error::from)
+        .and_then(|()| sampler_state_ptr.ok_or_else(|| anyhow!("no sampler state")))?;
+        Ok(sampler_state)
+    }
+
 
     pub fn setup(receiver: Receiver<SpaceEvent>, display_size: [f32; 2]) -> anyhow::Result<Self> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
@@ -323,8 +420,19 @@ impl DrawState {
         let depth_stencil_view = Self::setup_depth_stencil_view(&device, &depth_stencil_buffer)?;
         let rasterizer_state = Self::setup_rasterizer_state(&device)?;
         let viewport = Self::setup_viewport(&display_size);
+        let sampler_state = vec![Self::setup_sampler(&device).ok()];
 
         log::info!("Setting up device context");
+        let device_context = unsafe { device
+            .GetImmediateContext()
+            .expect("I lost my context!")
+        };
+
+        for entity in entities.iter() {
+            if let Some(texture) = &entity.model.texture {
+                texture.generate_mips(&device_context);
+            }
+        }
         Ok(DrawState {
             receiver,
             device,
@@ -338,6 +446,7 @@ impl DrawState {
             depth_stencil_state,
             depth_stencil_buffer,
             depth_stencil_view,
+            sampler_state,
             constant_buffer,
             draw_data: None,
             aspect_ratio: None,
@@ -419,8 +528,12 @@ impl DrawState {
                     //device_context.OMSetRenderTargets(None, Some(&self.depth_stencil_view));
                     device_context.OMSetDepthStencilState(&self.depth_stencil_state, 1);
                     device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-
+                    device_context.PSSetSamplers(0, Some(&self.sampler_state));
                     for entity in &self.entities {
+                        if let Some(texture) = &entity.model.texture {
+                            device_context.PSSetShaderResources(0, Some(texture.view.as_slice()));
+
+                        }
                         entity.vertex_shader.set(&device_context);
                         entity.pixel_shader.set(&device_context);
                         entity.set_and_draw(&device_context);

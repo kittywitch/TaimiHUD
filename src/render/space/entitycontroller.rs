@@ -49,7 +49,7 @@ impl EntityController {
     pub fn load(self, device: &ID3D11Device, shaders: &Shaders) -> anyhow::Result<Vec<Entity>> {
         let mut entities = Vec::new();
         for (file, descs) in &self.0 {
-            let mut file_models = Model::load(file)?;
+            let mut file_models = Model::load(device, file)?;
             for desc in descs {
                 let model_idx = desc.location.index;
                 log::info!(
@@ -58,22 +58,22 @@ impl EntityController {
                     desc.location.file,
                     model_idx
                 );
-                let mut model = std::mem::replace(&mut file_models[model_idx], Model::default());
+                let mut model = std::mem::take(&mut file_models[model_idx]);
                 if desc.xzy {
                     model.swizzle();
                 }
                 let vertex_buffer = model.to_buffer(device)?;
                 let mut rng = rand::rng();
                 let mut rng2 = rand::rng();
-                let model_matrix: Vec<_> = (0..1000 * 3)
-                    .map(|_| rng.random::<f32>() * 1000.0)
+                let model_matrix: Vec<_> = (0..10 * 3)
+                    .map(|_| rng.random::<f32>() * 100.0)
                     .chunks(3)
                     .into_iter()
                     .map(|xyz| Vec3::from_slice(&xyz.into_iter().collect::<Vec<_>>()))
                     .map(Mat4::from_translation)
                     .map(|trans| InstanceBufferData {
                         colour: Vec3::new(rng2.random::<f32>(), rng2.random::<f32>(), rng2.random::<f32>()),
-                        model: desc.model_matrix * trans,
+                        model: desc.model_matrix * Mat4::from_scale(Vec3::new(10.0, 10.0, 10.0)) * trans,
                     })
                     .collect();
 

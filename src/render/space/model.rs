@@ -1,5 +1,7 @@
 use {
-    super::vertexbuffer::VertexBuffer,
+    super::{
+        state::Texture, vertexbuffer::VertexBuffer
+    },
     anyhow::anyhow,
     glam::{Vec2, Vec3, Vec3Swizzles},
     itertools::Itertools,
@@ -29,17 +31,21 @@ pub struct ModelLocation {
 }
 
 #[derive(Default)]
-pub struct Model(pub Vec<Vertex>);
+pub struct Model {
+    pub vertices: Vec<Vertex>,
+    pub texture: Option<Texture>,
+}
 
 impl Model {
     pub fn swizzle(&mut self) {
-        for v in &mut self.0 {
+        for v in &mut self.vertices {
             v.position = v.position.xzy();
         }
     }
 
-    pub fn load(obj_file: &Path) -> anyhow::Result<Vec<Self>> {
-        let (models, _materials) = tobj::load_obj(
+    pub fn load(device: &ID3D11Device, obj_file: &Path) -> anyhow::Result<Vec<Self>> {
+        let folder = obj_file.parent();
+        let (models, materials) = tobj::load_obj(
             obj_file,
             &tobj::LoadOptions {
                 merge_identical_points: false,
@@ -50,6 +56,16 @@ impl Model {
                 ignore_lines: true,
             },
         )?;
+
+        match &materials {
+            Ok(mats) => {
+                log::info!("Model file \"{:?}\" contains {} materials!", obj_file, mats.len());
+                for mat in mats {
+                    log::info!("Material {}, diffuse: {:?}", mat.name, mat.diffuse_texture);
+                };
+            },
+            Err(err) => log::info!("{err}: Model file \"{:?}\" contains no materials!", obj_file),
+        }
 
         log::info!("File {:?} contains {} models", obj_file, models.len());
         let mut kat_models = Vec::new();
@@ -72,6 +88,21 @@ impl Model {
             assert!(mesh.positions.len() % 3 == 0);
 
             log::info!("model[{}].normals        = {}", i, mesh.normals.len() / 3);
+
+            log::info!("model[{}].texcoords        = {}", i, mesh.texcoords.len() / 2);
+
+            let texture = match (&materials, mesh.material_id) {
+                (Ok(mats), Some(mat_id)) => {
+                    if let (Some(folder), Some(texture_path)) = (folder, &mats[mat_id].diffuse_texture) {
+
+                        let texture = Texture::load(device, &folder.join(texture_path))?;
+                        Some(texture)
+                    } else {
+                        None
+                    }
+                },
+                _ => None,
+            };
 
             let mut vertices = Vec::new();
             for index in mesh.indices.iter() {
@@ -107,13 +138,13 @@ impl Model {
                 })
             }
 
-            kat_models.push(Self(vertices));
+            kat_models.push(Self { vertices, texture });
         }
         Ok(kat_models)
     }
 
     pub fn to_buffer(&self, device: &ID3D11Device) -> anyhow::Result<VertexBuffer> {
-        let vertex_data_array: &[Vertex] = self.0.as_slice();
+        let vertex_data_array: &[Vertex] = self.vertices.as_slice();
 
         let stride: u32 = size_of::<Vertex>() as u32;
         let offset: u32 = 0;
@@ -151,25 +182,5 @@ impl Model {
             count,
         };
         Ok(vertex_buffer)
-    }
-
-    pub fn to_buffers(
-        device: &ID3D11Device,
-        models: Vec<Self>,
-    ) -> anyhow::Result<Vec<VertexBuffer>> {
-        let mut vertex_buffers = Vec::new();
-        for model in models {
-            let vertex_buffer = model.to_buffer(device)?;
-            vertex_buffers.push(vertex_buffer);
-        }
-        Ok(vertex_buffers)
-    }
-
-    pub fn load_to_buffers(
-        device: &ID3D11Device,
-        obj_file: &Path,
-    ) -> anyhow::Result<Vec<VertexBuffer>> {
-        let models = Self::load(obj_file)?;
-        Ok(Self::to_buffers(device, models)?)
     }
 }

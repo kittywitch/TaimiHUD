@@ -47,6 +47,7 @@ mint = "0.5.9"
 tobj = { version = "4.0.3", features = [ "merging", "reordering" ] }
 itertools = "0.14.0"
 rand = "0.9.1"
+image = "0.25.6"
 
 [lib]
 crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)

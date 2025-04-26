@@ -1,0 +1,12 @@
+[
+  {
+    "name": "Cat",
+    "location": {
+      "file": "12221_Cat_v1_l3.obj",
+      "index": 0,
+    },
+    "xzy": true,
+    "vertex_shader": "textured_vs",
+    "pixel_shader": "textured_ps",
+  },
+]

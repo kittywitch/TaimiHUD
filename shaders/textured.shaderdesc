@@ -1,0 +1,14 @@
+[
+  {
+    "identifier": "textured_vs",
+    "kind": "Vertex",
+    "path": "textured.hlsl",
+    "entrypoint": "VSMain",
+  },
+  {
+    "identifier": "textured_ps",
+    "kind": "Pixel",
+    "path": "textured.hlsl",
+    "entrypoint": "PSMain",
+  },
+]

@@ -31,8 +31,6 @@ VSOutput VSMain(VSInput input)
     output.position = mul(View, output.position);
     output.position = mul(Projection, output.position);
 
-    //float4 Transform = mul(Projection, mul(View, mul(input.Model, VertPos)));
-    //output.position = Transform;
     output.normal = input.normal;
     output.color = input.color;
     output.colour = input.colour;
@@ -57,6 +55,6 @@ struct PSOutput
 PSOutput PSMain(PSInput input)
 {
     PSOutput output = (PSOutput)0;
-    output.color = float4(input.color * input.colour, 1.0);
+    //output.color = float4(input.color * input.colour, 1.0);
     return output;
 }
