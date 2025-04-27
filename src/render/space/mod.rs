@@ -9,5 +9,6 @@ pub mod shader;
 pub mod state;
 pub mod texture;
 pub mod vertexbuffer;
+pub mod primitivetopology;
 
 pub use state::DrawState;

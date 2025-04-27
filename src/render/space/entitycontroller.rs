@@ -107,9 +107,10 @@ impl EntityController {
                     })?
                     .clone();
                 let entity = Entity {
+                    topology: desc.topology,
                     name: desc.name.clone(),
                     model_matrix: RefCell::new(model_matrix),
-                    location: desc.location.clone(),
+                    location: Some(desc.location.clone()),
                     pixel_shader,
                     vertex_shader,
                     model,

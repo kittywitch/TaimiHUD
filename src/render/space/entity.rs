@@ -1,13 +1,10 @@
 use {
     super::{
-        model::{Model, ModelLocation},
-        shader::Shader,
-        state::InstanceBufferData,
-        vertexbuffer::VertexBuffer,
+        model::{Model, ModelLocation}, primitivetopology::PrimitiveTopology, shader::{Shader, Shaders}, state::InstanceBufferData, vertexbuffer::VertexBuffer
     },
     anyhow::anyhow,
-    glam::{Vec2, Vec3},
-    std::{cell::RefCell, rc::Rc},
+    glam::{Mat4, Vec2, Vec3},
+    std::{cell::RefCell, path::Path, rc::Rc},
     windows::Win32::Graphics::Direct3D11::{
         ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_VERTEX_BUFFER,
         D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
@@ -25,15 +22,35 @@ pub struct Vertex {
 pub struct Entity {
     pub name: String,
     pub model_matrix: RefCell<Vec<InstanceBufferData>>,
-    pub location: ModelLocation,
+    pub location: Option<ModelLocation>,
     pub model: Model,
     pub vertex_buffer: VertexBuffer,
     pub vertex_shader: Rc<Shader>,
     pub pixel_shader: Rc<Shader>,
     pub instance_buffer: ID3D11Buffer,
+    pub topology: PrimitiveTopology,
 }
 
 impl Entity {
+
+    pub fn quad(device: &ID3D11Device, shaders: &Shaders, path: Option<&Path>) -> anyhow::Result<Self> {
+        let model = Model::quad(device, path)?;
+        let model_matrix = vec![InstanceBufferData {
+            model: Mat4::from_translation(Vec3::new(0.0, 150.0, 0.0)) * Mat4::from_scale(Vec3::new(10.0, 10.0, 10.0)),
+            colour: Vec3::new(1.0,0.0,1.0),
+        }];
+        Ok(Self {
+            topology: PrimitiveTopology::TriangleList,
+            instance_buffer: Self::setup_instance_buffer(&model_matrix, device)?,
+            vertex_buffer: model.to_buffer(device)?,
+            name: "Quad".to_string(),
+            vertex_shader: shaders.0["textured_vs"].clone(),
+            pixel_shader: shaders.0["textured_ps"].clone(),
+            location: None,
+            model_matrix: RefCell::new(model_matrix),
+            model,
+        })
+    }
     pub fn set(&self, slot: u32, device_context: &ID3D11DeviceContext) {
         let instance_buffer_stride = size_of::<InstanceBufferData>() as u32;
         let instance_buffer_offset = 0_u32;
@@ -57,7 +74,10 @@ impl Entity {
     pub fn draw(&self, start: u32, device_context: &ID3D11DeviceContext) {
         let total = self.vertex_buffer.count + self.model_matrix.borrow().len() as u32;
         let instances = self.model_matrix.borrow().len();
-        unsafe { device_context.DrawInstanced(total, instances as u32, start, 0) }
+        unsafe {
+            device_context.IASetPrimitiveTopology(self.topology.dx11());
+            device_context.DrawInstanced(total, instances as u32, start, 0)
+        }
     }
 
     pub fn set_and_draw(&self, device_context: &ID3D11DeviceContext) {

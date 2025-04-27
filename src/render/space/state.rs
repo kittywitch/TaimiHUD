@@ -92,7 +92,7 @@ impl DrawState {
         PerspectiveInputData::create();
 
         let shaders = Shaders::setup(&addon_dir, &device)?;
-        let entities = Self::setup_entities(&addon_dir, &device, &shaders)?;
+        let mut entities = Self::setup_entities(&addon_dir, &device, &shaders)?;
         let perspective_handler = PerspectiveHandler::setup(&device, &display_size)?;
 
         let depth_handler = DepthHandler::create(&display_size, &device, swap_chain)?;
@@ -101,6 +101,10 @@ impl DrawState {
         log::info!("Setting up device context");
         let device_context = unsafe { device.GetImmediateContext().expect("I lost my context!") };
 
+        let path = addon_dir.join("QuitarHero_Hero-Timers/timers/Assets/Raids/Deimos.png");
+        if let Ok(quad) = Entity::quad(&device, &shaders, Some(&path)) {
+            entities.push(quad);
+        }
         for entity in entities.iter() {
             if let Some(texture) = &entity.model.texture {
                 texture.generate_mips(&device_context);
@@ -147,7 +151,6 @@ impl DrawState {
                     }
 
                     self.depth_handler.setup(&device_context);
-                    device_context.IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
                     device_context.PSSetSamplers(slot, Some(&self.sampler_state));
                     for entity in &self.entities {
                         if let Some(texture) = &entity.model.texture {

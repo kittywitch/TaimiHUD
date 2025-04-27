@@ -1,14 +1,17 @@
 use {
-    super::{texture::Texture, vertexbuffer::VertexBuffer},
+    super::{
+        texture::Texture, vertexbuffer::VertexBuffer,
+        primitivetopology::PrimitiveTopology,
+    },
     anyhow::anyhow,
     glam::{Vec2, Vec3, Vec3Swizzles},
     itertools::Itertools,
     serde::{Deserialize, Serialize},
     std::path::{Path, PathBuf},
-    windows::Win32::Graphics::Direct3D11::{
+    windows::Win32::Graphics::{Direct3D::D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED, Direct3D11::{
         ID3D11Buffer, ID3D11Device, D3D11_BIND_VERTEX_BUFFER, D3D11_BUFFER_DESC,
         D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,
-    },
+    }},
 };
 #[derive(Copy, Clone)]
 #[repr(C)]
@@ -36,6 +39,48 @@ impl Model {
         for v in &mut self.vertices {
             v.position = v.position.xzy();
         }
+    }
+    pub fn quad(device: &ID3D11Device, path: Option<&Path>) -> anyhow::Result<Self> {
+        let mut vertices = Vec::new();
+        let height = 1.0;
+        let width = 1.0;
+        let vertex_coordinates= [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(0.0, height, 0.0),
+            Vec3::new(width, height, 0.0),
+
+            Vec3::new(width, height, 0.0),
+            Vec3::new(width, 0.0, 0.0),
+            Vec3::new(0.0, 0.0, 0.0),
+        ];
+        let colour = Vec3::new(1.0, 1.0, 1.0);
+        let mut normal = Vec3::new(0.0, 0.0, 0.0);
+        for i in 0..vertex_coordinates.len() {
+            let current = vertex_coordinates[i];
+            let next_idx = (i + 1) % vertex_coordinates.len();
+            let next = vertex_coordinates[next_idx];
+            normal += Vec3::new(
+            (current.y - next.y) * (current.z + next.z),
+                (current.z - next.z) * (current.x + next.x),
+                (current.x - next.x) * (current.y + next.y)
+            );
+            vertices.push(Vertex {
+                position: current - Vec3::new(width/2.0, height/2.0, 0.0),
+                normal,
+                texture: current.xy(),
+                colour,
+            });
+        }
+
+        let texture = match path {
+            Some(path) => Some(Texture::load(device, path)?),
+            None => None,
+        };
+
+        Ok(Self {
+            vertices,
+            texture,
+        })
     }
 
     pub fn load(device: &ID3D11Device, obj_file: &Path) -> anyhow::Result<Vec<Self>> {
@@ -145,7 +190,10 @@ impl Model {
                 })
             }
 
-            kat_models.push(Self { vertices, texture });
+            kat_models.push(Self {
+                vertices,
+                texture
+            });
         }
         Ok(kat_models)
     }

@@ -1,5 +1,5 @@
 use {
-    super::model::ModelLocation,
+    super::{model::ModelLocation, primitivetopology::PrimitiveTopology},
     glam::Mat4,
     serde::{Deserialize, Serialize},
     std::{fs::read_to_string, path::PathBuf},
@@ -23,6 +23,8 @@ pub struct EntityDescription {
     pub model_matrix: Mat4,
     #[serde(default)]
     pub xzy: bool,
+    #[serde(default)]
+    pub topology: PrimitiveTopology,
 }
 
 impl EntityDescription {
