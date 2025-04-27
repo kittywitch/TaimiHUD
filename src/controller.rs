@@ -9,7 +9,7 @@ use {
     glam::f32::Vec3,
     glob::{glob, Paths},
     nexus::{
-        data_link::{mumble::UiState, read_mumble_link, MumbleLink},
+        data_link::{get_mumble_link_ptr, mumble::{MumblePtr, UiState}, read_mumble_link, MumbleLink},
         texture::{load_texture_from_file, RawTextureReceiveCallback},
         texture_receive,
     },
@@ -38,7 +38,7 @@ pub struct Controller {
     pub previous_combat_state: bool,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
-    pub cached_link: Option<MumbleLink>,
+    pub mumble_pointer: Option<MumblePtr>,
     pub map_id: Option<u32>,
     pub player_position: Option<Vec3>,
     alert_sem: Arc<Mutex<()>>,
@@ -59,6 +59,10 @@ impl Controller {
         rt_sender: Sender<crate::RenderEvent>,
         addon_dir: PathBuf,
     ) {
+        let mumble_ptr= get_mumble_link_ptr() as *mut MumbleLink;
+        let mumble_link = unsafe {
+            MumblePtr::new(mumble_ptr)
+        };
         let evt_loop = async move {
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
@@ -68,7 +72,7 @@ impl Controller {
                 settings,
                 agent: Default::default(),
                 cached_identity: Default::default(),
-                cached_link: Default::default(),
+                mumble_pointer: mumble_link,
                 map_id: Default::default(),
                 player_position: Default::default(),
                 alert_sem: Default::default(),
@@ -194,14 +198,13 @@ impl Controller {
     }
 
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
-        if let Some(mumble_link_data) = read_mumble_link() {
-            self.player_position = Some(Vec3::from_array(mumble_link_data.avatar.position));
-            let camera = &mumble_link_data.camera;
+        if let Some(mumble) = self.mumble_pointer {
+            self.player_position = Some(Vec3::from_array(mumble.read_avatar().position));
+            let camera = mumble.read_camera();
             let front = Vec3::from_array(camera.front);
             let pos = Vec3::from_array(camera.position);
             PerspectiveInputData::swap_camera(front, pos);
-            let combat_state = mumble_link_data
-                .context
+            let combat_state = mumble.read_context()
                 .ui_state
                 .contains(UiState::IS_IN_COMBAT);
             if combat_state != self.previous_combat_state {
@@ -223,7 +226,6 @@ impl Controller {
                     machine.tick(pos).await
                 }
             }
-            self.cached_link = Some(mumble_link_data);
         }
         Ok(())
     }
