@@ -1,9 +1,12 @@
 use {
     super::{
-        entitycontroller::ObjectLoader,
+        object::{
+            ObjectBacking,
+            ObjectLoader,
+        },
         model::{MaterialTextures, Model, ObjModelFile},
         primitivetopology::PrimitiveTopology,
-        shader::{PixelShader, VertexShader},
+        shader::ShaderPair,
         state::{InstanceBufferData, RenderBackend},
         vertexbuffer::VertexBuffer,
         instancebuffer::InstanceBuffer,
@@ -22,76 +25,6 @@ use {
 };
 
 
-pub struct ObjectBacking {
-    pub name: String,
-    pub render: ObjectRenderBacking,
-}
-
-impl ObjectBacking {}
-
-pub struct ObjectRenderMetadata {
-    pub model: Model,
-    pub material: MaterialTextures,
-    pub model_matrix: Mat4,
-    pub topology: PrimitiveTopology,
-}
-
-impl ObjectRenderBacking {
-    pub fn set(&self, slot: u32, device_context: &ID3D11DeviceContext) {
-        let instance_buffer_stride = size_of::<InstanceBufferData>() as u32;
-        let instance_buffer_offset = 0_u32;
-        let lock = self.instance_buffer.read().unwrap();
-        let buffers = [
-            Some(self.vertex_buffer.buffer.clone()),
-            Some(lock.get_buffer()),
-        ];
-        drop(lock);
-        let strides = [self.vertex_buffer.stride, instance_buffer_stride];
-        let offsets = [self.vertex_buffer.offset, instance_buffer_offset];
-        unsafe {
-            device_context.IASetVertexBuffers(
-                slot,
-                2,
-                Some(buffers.as_ptr().cast()),
-                Some(strides.as_ptr()),
-                Some(offsets.as_ptr()),
-            );
-        }
-    }
-
-    pub fn draw(&self, start: u32, device_context: &ID3D11DeviceContext) {
-        let lock = self.instance_buffer.read().unwrap();
-        let instances = lock.get_count();
-        drop(lock);
-        let total = self.vertex_buffer.count + instances as u32;
-        unsafe {
-            device_context.IASetPrimitiveTopology(self.metadata.topology.dx11());
-            device_context.DrawInstanced(total, instances as u32, start, 0)
-        }
-    }
-    pub fn set_and_draw(&self, device_context: &ID3D11DeviceContext) {
-        self.set(0_u32, device_context);
-        self.draw(0, device_context);
-    }
-}
-
-pub struct ShaderPair(pub Arc<VertexShader>, pub Arc<PixelShader>);
-
-impl ShaderPair {
-    pub fn set(&self, device_context: &ID3D11DeviceContext) {
-        self.0.set(device_context);
-        self.1.set(device_context);
-    }
-}
-
-pub struct ObjectRenderBacking {
-    pub metadata: ObjectRenderMetadata,
-    pub instance_buffer: RwLock<InstanceBuffer>,
-    pub vertex_buffer: VertexBuffer,
-    pub shaders: ShaderPair,
-}
-
-impl ObjectRenderBacking {}
 
 #[derive(Component)]
 struct Render {
@@ -192,9 +125,7 @@ impl Engine {
                     backing: backing.clone(),
                 },
             ));
-        } else {
         }
-
         Ok(engine)
     }
 
@@ -227,14 +158,7 @@ impl Engine {
                     }
                 })
                 .collect();
-            let mut lock = r.backing.render.instance_buffer.write().unwrap();
-            lock.update(&backend.device, &device_context, &ibd)?;
-            drop(lock);
-            r.backing.render.shaders.set(&device_context);
-            if let Some(diffuse) = &r.backing.render.metadata.material.diffuse {
-                diffuse.texture.set(&device_context, slot);
-            }
-            r.backing.render.set_and_draw(&device_context);
+            r.backing.render.set_and_draw(slot, &backend.device, &device_context, &ibd);
         }
         Ok(())
     }

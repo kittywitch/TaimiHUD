@@ -17,14 +17,14 @@ use {
 pub type VertexShaders = HashMap<String, Arc<VertexShader>>;
 pub type PixelShaders = HashMap<String, Arc<PixelShader>>;
 
-pub struct Shaders(pub VertexShaders, pub PixelShaders);
+pub struct ShaderLoader(pub VertexShaders, pub PixelShaders);
 
-impl Shaders {
-    pub fn setup(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Self> {
+impl ShaderLoader {
+    pub fn load(addon_dir: &Path, device: &ID3D11Device) -> anyhow::Result<Self> {
         log::info!("Beginning shader setup!");
         let shader_folder = addon_dir.join("shaders");
         let mut shader_descriptions: Vec<ShaderDescription> = Vec::new();
-        let mut shaders: Shaders = Self(HashMap::new(), HashMap::new());
+        let mut shaders: ShaderLoader = Self(HashMap::new(), HashMap::new());
         if shader_folder.exists() {
             let shader_description_paths: Paths = glob::glob(
                 shader_folder

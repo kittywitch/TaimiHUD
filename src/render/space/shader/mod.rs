@@ -10,10 +10,11 @@ pub use {
         ShaderKind,
     },
     loader::{
-        Shaders,
+        ShaderLoader,
         VertexShaders,
         PixelShaders,
     },
+    pair::ShaderPair,
     pixel::PixelShader,
     vertex::VertexShader,
 };

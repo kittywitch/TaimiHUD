@@ -1,6 +1,6 @@
 use {
-    super::{depthhandler::DepthHandler, perspectivehandler::PerspectiveHandler, shader::Shaders},
-    crate::render::space::perspectiveinputdata::PerspectiveInputData,
+    super::{depthhandler::DepthHandler, perspectivehandler::PerspectiveHandler},
+    crate::render::space::{perspectiveinputdata::PerspectiveInputData, shader::ShaderLoader},
     anyhow::anyhow,
     glam::{Mat4, Vec3, Vec4},
     itertools::Itertools,
@@ -19,7 +19,7 @@ pub struct RenderBackend {
     pub depth_handler: DepthHandler,
     pub perspective_handler: PerspectiveHandler,
 
-    pub shaders: Shaders,
+    pub shaders: ShaderLoader,
     pub sampler_state: Vec<Option<ID3D11SamplerState>>,
     pub device: ID3D11Device,
     pub swap_chain: IDXGISwapChain,
@@ -69,7 +69,7 @@ impl RenderBackend {
 
         PerspectiveInputData::create();
 
-        let shaders = Shaders::setup(addon_dir, &device)?;
+        let shaders = ShaderLoader::load(addon_dir, &device)?;
         let perspective_handler = PerspectiveHandler::setup(&device, &display_size)?;
 
         let depth_handler = DepthHandler::create(&display_size, &device, swap_chain)?;
