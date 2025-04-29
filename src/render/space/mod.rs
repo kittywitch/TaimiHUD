@@ -11,5 +11,6 @@ pub mod shader;
 pub mod state;
 pub mod texture;
 pub mod vertexbuffer;
+pub mod instancebuffer;
 
 pub use ecs::Engine;

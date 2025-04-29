@@ -51,8 +51,8 @@ nexus::export! {
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
 static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
 thread_local! {
-    static DRAWSTATE_INITIALIZED: Cell<bool> = const { Cell::new(false) };
-    static DRAWSTATE: RefCell<Option<Engine>> = panic!("!");
+    static ENGINE_INITIALIZED: Cell<bool> = const { Cell::new(false) };
+    static ENGINE: RefCell<Option<Engine>> = panic!("!");
 }
 
 fn load() {
@@ -81,15 +81,15 @@ fn load() {
         drop(state);
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender {
-                if !DRAWSTATE_INITIALIZED.get() {
+                if !ENGINE_INITIALIZED.get() {
                     let drawstate_inner = Engine::initialise(ui);
                     if let Err(error) = &drawstate_inner {
                         log::error!("DrawState setup failed: {}", error);
                     };
-                    DRAWSTATE.set(drawstate_inner.ok());
-                    DRAWSTATE_INITIALIZED.set(true);
+                    ENGINE.set(drawstate_inner.ok());
+                    ENGINE_INITIALIZED.set(true);
                 }
-                DRAWSTATE.with_borrow_mut(|ds_op| {
+                ENGINE.with_borrow_mut(|ds_op| {
                     if let Some(ds) = ds_op {
                         if let Err(error) = ds.render(ui) {
                             log::error!("Engine error: {error}");

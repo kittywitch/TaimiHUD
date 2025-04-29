@@ -1,8 +1,9 @@
 use {
     super::{
         ecs::{
-            InstanceBuffer, ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, ShaderPair,
+            ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, ShaderPair,
         },
+        instancebuffer::InstanceBuffer,
         model::{ModelLocationDescription, ObjModelData, ObjModelFile},
         primitivetopology::PrimitiveTopology,
         shader::{PixelShader, PixelShaders, VertexShader, VertexShaders},
