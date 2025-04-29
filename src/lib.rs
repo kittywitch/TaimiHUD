@@ -8,7 +8,9 @@ use {
         controller::{Controller, ControllerEvent},
         render::{Engine, RenderEvent, RenderState},
         settings::SettingsLock,
-    }, arcdps::AgentOwned, nexus::{
+    },
+    arcdps::AgentOwned,
+    nexus::{
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
@@ -18,12 +20,14 @@ use {
         paths::get_addon_dir,
         quick_access::add_quick_access,
         AddonFlags, UpdateProvider,
-    }, std::{
+    },
+    std::{
         cell::{Cell, RefCell},
         ptr,
         sync::{Mutex, OnceLock},
         thread::{self, JoinHandle},
-    }, tokio::sync::mpsc::{channel, Sender}
+    },
+    tokio::sync::mpsc::{channel, Sender},
 };
 
 pub mod built_info {
@@ -87,7 +91,6 @@ fn load() {
                 }
                 DRAWSTATE.with_borrow_mut(|ds_op| {
                     if let Some(ds) = ds_op {
-
                         if let Err(error) = ds.render(ui) {
                             log::error!("Engine error: {error}");
                         }

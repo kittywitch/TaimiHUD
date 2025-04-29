@@ -9,7 +9,11 @@ use {
     glam::f32::Vec3,
     glob::{glob, Paths},
     nexus::{
-        data_link::{get_mumble_link_ptr, mumble::{MumblePtr, UiState}, read_mumble_link, MumbleLink},
+        data_link::{
+            get_mumble_link_ptr,
+            mumble::{MumblePtr, UiState},
+            MumbleLink,
+        },
         texture::{load_texture_from_file, RawTextureReceiveCallback},
         texture_receive,
     },
@@ -59,10 +63,8 @@ impl Controller {
         rt_sender: Sender<crate::RenderEvent>,
         addon_dir: PathBuf,
     ) {
-        let mumble_ptr= get_mumble_link_ptr() as *mut MumbleLink;
-        let mumble_link = unsafe {
-            MumblePtr::new(mumble_ptr)
-        };
+        let mumble_ptr = get_mumble_link_ptr() as *mut MumbleLink;
+        let mumble_link = unsafe { MumblePtr::new(mumble_ptr) };
         let evt_loop = async move {
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
@@ -204,7 +206,8 @@ impl Controller {
             let front = Vec3::from_array(camera.front);
             let pos = Vec3::from_array(camera.position);
             PerspectiveInputData::swap_camera(front, pos);
-            let combat_state = mumble.read_context()
+            let combat_state = mumble
+                .read_context()
                 .ui_state
                 .contains(UiState::IS_IN_COMBAT);
             if combat_state != self.previous_combat_state {

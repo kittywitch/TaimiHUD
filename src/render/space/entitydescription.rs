@@ -1,5 +1,23 @@
 use {
-    super::{ecs::{InstanceBuffer, ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, ShaderPair}, model::{ModelLocationDescription, ObjModelData, ObjModelFile}, primitivetopology::PrimitiveTopology, shader::{PixelShader, PixelShaders, VertexShader, VertexShaders}, state::InstanceBufferData}, anyhow::anyhow, bevy_utils::synccell::SyncCell, glam::{Affine3A, Mat4}, itertools::Itertools, serde::{Deserialize, Serialize}, std::{cell::RefCell, collections::HashMap, fs::read_to_string, path::PathBuf, sync::{Arc, RwLock}}, windows::Win32::Graphics::Direct3D11::ID3D11Device
+    super::{
+        ecs::{
+            InstanceBuffer, ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, ShaderPair,
+        },
+        model::{ModelLocationDescription, ObjModelData, ObjModelFile},
+        primitivetopology::PrimitiveTopology,
+        shader::{PixelShader, PixelShaders, VertexShader, VertexShaders},
+    },
+    anyhow::anyhow,
+    glam::Mat4,
+    itertools::Itertools,
+    serde::{Deserialize, Serialize},
+    std::{
+        collections::HashMap,
+        fs::read_to_string,
+        path::PathBuf,
+        sync::{Arc, RwLock},
+    },
+    windows::Win32::Graphics::Direct3D11::ID3D11Device,
 };
 
 fn default_pixel_shader() -> String {
@@ -33,14 +51,25 @@ impl EntityDescription {
         Ok(entity_description_data)
     }
 
-    pub fn get_shaders(&self, vertex_shaders: &VertexShaders, pixel_shaders: &PixelShaders) -> ShaderPair {
-        let vertex_shader: Arc<VertexShader> = vertex_shaders.get(&self.vertex_shader).unwrap().clone();
+    pub fn get_shaders(
+        &self,
+        vertex_shaders: &VertexShaders,
+        pixel_shaders: &PixelShaders,
+    ) -> ShaderPair {
+        let vertex_shader: Arc<VertexShader> =
+            vertex_shaders.get(&self.vertex_shader).unwrap().clone();
         let pixel_shader: Arc<PixelShader> = pixel_shaders.get(&self.pixel_shader).unwrap().clone();
         ShaderPair(vertex_shader, pixel_shader)
     }
 
-    pub fn get_model_and_material(&self, device: &ID3D11Device, model_files: &HashMap<PathBuf, ObjModelFile>) -> anyhow::Result<ObjModelData> {
-        let model_file = model_files.get(&self.location.file).ok_or_else(|| anyhow!("Could not load model file!"))?;
+    pub fn get_model_and_material(
+        &self,
+        device: &ID3D11Device,
+        model_files: &HashMap<PathBuf, ObjModelFile>,
+    ) -> anyhow::Result<ObjModelData> {
+        let model_file = model_files
+            .get(&self.location.file)
+            .ok_or_else(|| anyhow!("Could not load model file!"))?;
         let obj_model_data = model_file.load_datum(device, self.location.index, self.xzy);
         Ok(obj_model_data)
     }
@@ -49,7 +78,8 @@ impl EntityDescription {
         &self,
         model_files: &HashMap<PathBuf, ObjModelFile>,
         device: &ID3D11Device,
-        vertex_shaders: &VertexShaders, pixel_shaders: &PixelShaders // Shaders
+        vertex_shaders: &VertexShaders,
+        pixel_shaders: &PixelShaders, // Shaders
     ) -> anyhow::Result<ObjectBacking> {
         log::info!("A conversion to ObjectBacking!");
         let shaders = self.get_shaders(vertex_shaders, pixel_shaders);

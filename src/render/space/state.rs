@@ -1,16 +1,12 @@
 use {
-    super::{
-        depthhandler::DepthHandler,
-        perspectivehandler::PerspectiveHandler, shader::Shaders,
-    },
-    crate::{render::space::{ecs::Engine, entitycontroller::ObjectLoader, perspectiveinputdata::PerspectiveInputData}, SETTINGS},
+    super::{depthhandler::DepthHandler, perspectivehandler::PerspectiveHandler, shader::Shaders},
+    crate::render::space::perspectiveinputdata::PerspectiveInputData,
     anyhow::anyhow,
-    glam::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4},
+    glam::{Mat4, Vec3, Vec4},
     itertools::Itertools,
-    nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
+    nexus::AddonApi,
     std::path::Path,
     windows::Win32::Graphics::{
-        Direct3D::D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST,
         Direct3D11::{
             ID3D11Device, ID3D11SamplerState, D3D11_COMPARISON_ALWAYS,
             D3D11_FILTER_MIN_MAG_MIP_LINEAR, D3D11_SAMPLER_DESC, D3D11_TEXTURE_ADDRESS_WRAP,
@@ -37,8 +33,7 @@ pub struct InstanceBufferData {
     pub colour: Vec3,
 }
 
-impl InstanceBufferData {
-}
+impl InstanceBufferData {}
 
 impl RenderBackend {
     pub fn setup_sampler(device: &ID3D11Device) -> anyhow::Result<ID3D11SamplerState> {
