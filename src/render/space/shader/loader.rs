@@ -1,16 +1,7 @@
 use {
-    super::{
-        ShaderKind,
-        PixelShader,
-        VertexShader,
-        ShaderDescription,
-    },
+    super::{PixelShader, ShaderDescription, ShaderKind, VertexShader},
     glob::Paths,
-    std::{
-        collections::HashMap,
-        path::Path,
-        sync::Arc,
-    },
+    std::{collections::HashMap, path::Path, sync::Arc},
     windows::Win32::Graphics::Direct3D11::ID3D11Device,
 };
 

@@ -1,18 +1,15 @@
 use {
-    super::ObjectLoader,
     super::super::{
-        instancebuffer::InstanceBuffer, model::{MaterialTextures, Model, ObjModelFile}, primitivetopology::PrimitiveTopology, shader::ShaderPair, state::{InstanceBufferData, RenderBackend}, vertexbuffer::VertexBuffer
+        instancebuffer::InstanceBuffer,
+        model::{MaterialTextures, Model},
+        primitivetopology::PrimitiveTopology,
+        shader::ShaderPair,
+        state::InstanceBufferData,
+        vertexbuffer::VertexBuffer,
     },
-    anyhow::anyhow,
-    bevy_ecs::prelude::*,
-    glam::{Mat4, Vec3},
+    glam::Mat4,
     itertools::Itertools,
-    nexus::{imgui::Ui, paths::get_addon_dir},
-    std::{
-        collections::HashMap,
-        path::{Path, PathBuf},
-        sync::{Arc, RwLock},
-    },
+    std::sync::RwLock,
     windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext},
 };
 
@@ -31,9 +28,12 @@ pub struct ObjectRenderMetadata {
 }
 
 impl ObjectRenderBacking {
-    pub fn update_instance_buffer(&self, device: &ID3D11Device,
-        device_context: &ID3D11DeviceContext, data: &[InstanceBufferData]) 
-        -> anyhow::Result<()> {
+    pub fn update_instance_buffer(
+        &self,
+        device: &ID3D11Device,
+        device_context: &ID3D11DeviceContext,
+        data: &[InstanceBufferData],
+    ) -> anyhow::Result<()> {
         // TODO: extract inner error somehow, arc's suggestion didn't work o:
         let mut lock = self.instance_buffer.write().unwrap();
         lock.update(device, device_context, data)?;
@@ -64,7 +64,7 @@ impl ObjectRenderBacking {
         let offsets = [self.vertex_buffer.offset, instance_buffer_offset];
         unsafe {
             device_context.IASetVertexBuffers(
-slot,
+                slot,
                 2,
                 Some(buffers.as_ptr().cast()),
                 Some(strides.as_ptr()),
@@ -83,8 +83,13 @@ slot,
             device_context.DrawInstanced(total, instances as u32, start, 0)
         }
     }
-    pub fn set_and_draw(&self, slot: u32, device: &ID3D11Device, device_context: &ID3D11DeviceContext,
-        data: &[InstanceBufferData]) -> anyhow::Result<()> {
+    pub fn set_and_draw(
+        &self,
+        slot: u32,
+        device: &ID3D11Device,
+        device_context: &ID3D11DeviceContext,
+        data: &[InstanceBufferData],
+    ) -> anyhow::Result<()> {
         self.update_instance_buffer(device, device_context, data)?;
         self.set_shaders(device_context);
         self.set_texture(slot, device_context);

@@ -1,14 +1,11 @@
-pub mod description;
 pub mod backing;
-pub mod render;
+pub mod description;
 pub mod loader;
+pub mod render;
 
 pub use {
     backing::ObjectBacking,
-    loader::ObjectLoader,
     description::ObjectDescription,
-    render::{
-        ObjectRenderBacking,
-        ObjectRenderMetadata
-    },
+    loader::ObjectLoader,
+    render::{ObjectRenderBacking, ObjectRenderMetadata},
 };

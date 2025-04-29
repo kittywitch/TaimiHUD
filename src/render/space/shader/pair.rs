@@ -1,8 +1,5 @@
 use {
-    super::{
-        PixelShader,
-        VertexShader,
-    },
+    super::{PixelShader, VertexShader},
     std::sync::Arc,
     windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
 };
@@ -15,4 +12,3 @@ impl ShaderPair {
         self.1.set(device_context);
     }
 }
-

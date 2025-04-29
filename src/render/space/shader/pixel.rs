@@ -2,19 +2,13 @@ use {
     super::ShaderDescription,
     anyhow::anyhow,
     core::ffi::c_char,
-    std::{
-        ffi::CStr,
-        path::Path,
-        slice::from_raw_parts,
-    },
+    std::{ffi::CStr, path::Path, slice::from_raw_parts},
     windows::Win32::Graphics::{
         Direct3D::{
             Fxc::{D3DCompileFromFile, D3DCOMPILE_DEBUG},
             ID3DBlob,
         },
-        Direct3D11::{
-            ID3D11Device, ID3D11DeviceContext, ID3D11PixelShader,
-        },
+        Direct3D11::{ID3D11Device, ID3D11DeviceContext, ID3D11PixelShader},
     },
     windows_strings::PCSTR,
 };

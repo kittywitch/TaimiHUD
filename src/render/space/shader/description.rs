@@ -42,4 +42,3 @@ impl ShaderDescription {
         Ok((filename, target, entrypoint_cstring))
     }
 }
-

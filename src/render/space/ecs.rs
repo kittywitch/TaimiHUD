@@ -1,15 +1,8 @@
 use {
     super::{
-        object::{
-            ObjectBacking,
-            ObjectLoader,
-        },
-        model::{MaterialTextures, Model, ObjModelFile},
-        primitivetopology::PrimitiveTopology,
-        shader::ShaderPair,
+        model::ObjModelFile,
+        object::{ObjectBacking, ObjectLoader},
         state::{InstanceBufferData, RenderBackend},
-        vertexbuffer::VertexBuffer,
-        instancebuffer::InstanceBuffer,
     },
     anyhow::anyhow,
     bevy_ecs::prelude::*,
@@ -19,12 +12,9 @@ use {
     std::{
         collections::HashMap,
         path::{Path, PathBuf},
-        sync::{Arc, RwLock},
+        sync::Arc,
     },
-    windows::Win32::Graphics::Direct3D11::ID3D11DeviceContext,
 };
-
-
 
 #[derive(Component)]
 struct Render {
@@ -158,7 +148,9 @@ impl Engine {
                     }
                 })
                 .collect();
-            r.backing.render.set_and_draw(slot, &backend.device, &device_context, &ibd);
+            r.backing
+                .render
+                .set_and_draw(slot, &backend.device, &device_context, &ibd);
         }
         Ok(())
     }

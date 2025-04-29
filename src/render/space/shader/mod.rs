@@ -1,19 +1,12 @@
 pub mod description;
-pub mod pair;
-pub mod vertex;
-pub mod pixel;
 pub mod loader;
+pub mod pair;
+pub mod pixel;
+pub mod vertex;
 
 pub use {
-    description::{
-        ShaderDescription,
-        ShaderKind,
-    },
-    loader::{
-        ShaderLoader,
-        VertexShaders,
-        PixelShaders,
-    },
+    description::{ShaderDescription, ShaderKind},
+    loader::{PixelShaders, ShaderLoader, VertexShaders},
     pair::ShaderPair,
     pixel::PixelShader,
     vertex::VertexShader,

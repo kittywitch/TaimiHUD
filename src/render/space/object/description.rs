@@ -1,12 +1,12 @@
 use {
     super::{
-        ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata,
         super::{
             instancebuffer::InstanceBuffer,
             model::{ModelLocationDescription, ObjModelData, ObjModelFile},
             primitivetopology::PrimitiveTopology,
             shader::{PixelShader, PixelShaders, ShaderPair, VertexShader, VertexShaders},
         },
+        ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata,
     },
     anyhow::anyhow,
     glam::Mat4,
