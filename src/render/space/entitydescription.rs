@@ -81,7 +81,6 @@ impl EntityDescription {
         vertex_shaders: &VertexShaders,
         pixel_shaders: &PixelShaders, // Shaders
     ) -> anyhow::Result<ObjectBacking> {
-        log::info!("A conversion to ObjectBacking!");
         let shaders = self.get_shaders(vertex_shaders, pixel_shaders);
         let obj_model_data = self.get_model_and_material(device, model_files)?;
         let model = obj_model_data.model;

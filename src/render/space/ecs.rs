@@ -256,12 +256,6 @@ impl Engine {
             world,
         };
 
-        log::info!("whee befwwow");
-        for (name, obj) in &engine.object_kinds {
-            log::info!("whee {name}");
-        }
-        log::info!("whee awfter");
-
         if let Some(backing) = engine.object_kinds.get("Cat") {
             engine.world.spawn((
                 Position(Vec3::new(0.0, 130.0, 0.0)),
@@ -270,7 +264,6 @@ impl Engine {
                 },
             ));
         } else {
-            log::info!("Couldn't find cat :(");
         }
 
         Ok(engine)
@@ -283,7 +276,6 @@ impl Engine {
         let device_context =
             unsafe { backend.device.GetImmediateContext() }.expect("I lost my context!");
         let slot = 0;
-        log::debug!("I AM RENDERING! WAEOW");
         backend.perspective_handler.set(&device_context, slot);
         backend.depth_handler.setup(&device_context);
         let mut query = self.world.query::<(&mut Render, &Position)>();
