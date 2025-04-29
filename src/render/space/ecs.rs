@@ -148,9 +148,7 @@ impl Engine {
                     }
                 })
                 .collect();
-            r.backing
-                .render
-                .set_and_draw(slot, &backend.device, &device_context, &ibd);
+            r.backing.set_and_draw(slot, &backend.device, &device_context, &ibd)?;
         }
         Ok(())
     }

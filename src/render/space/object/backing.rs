@@ -10,14 +10,8 @@ pub struct ObjectBacking {
 }
 
 impl ObjectBacking {
-    pub fn update_instance_buffer(
-        &self,
-        device: &ID3D11Device,
-        device_context: &ID3D11DeviceContext,
-        data: &[InstanceBufferData],
-    ) -> anyhow::Result<()> {
-        self.render
-            .update_instance_buffer(device, device_context, data)?;
-        Ok(())
+    pub fn set_and_draw(&self, slot: u32, device: &ID3D11Device, device_context: &ID3D11DeviceContext,
+        data: &[InstanceBufferData]) -> anyhow::Result<()> {
+        self.render.set_and_draw(slot, device, device_context, data)
     }
 }
