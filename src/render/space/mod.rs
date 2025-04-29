@@ -1,8 +1,6 @@
 pub mod depthhandler;
 pub mod ecs;
 pub mod entity;
-pub mod entitycontroller;
-pub mod entitydescription;
 pub mod model;
 pub mod perspectivehandler;
 pub mod perspectiveinputdata;
