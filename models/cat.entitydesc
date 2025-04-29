@@ -6,7 +6,7 @@
       "index": 0,
     },
     "xzy": true,
-    "vertex_shader": "textured_vs",
-    "pixel_shader": "textured_ps",
+    "vertex_shader": "textured",
+    "pixel_shader": "textured",
   },
 ]

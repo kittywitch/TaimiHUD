@@ -1,6 +1,6 @@
 use windows::Win32::Graphics::Direct3D11::ID3D11Buffer;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct VertexBuffer {
     pub buffer: ID3D11Buffer,
     pub stride: u32,

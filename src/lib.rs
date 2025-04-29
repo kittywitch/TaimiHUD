@@ -6,11 +6,9 @@ mod timer;
 use {
     crate::{
         controller::{Controller, ControllerEvent},
-        render::{DrawState, RenderEvent, RenderState},
+        render::{Engine, RenderEvent, RenderState},
         settings::SettingsLock,
-    },
-    arcdps::AgentOwned,
-    nexus::{
+    }, arcdps::AgentOwned, nexus::{
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
@@ -20,14 +18,12 @@ use {
         paths::get_addon_dir,
         quick_access::add_quick_access,
         AddonFlags, UpdateProvider,
-    },
-    std::{
+    }, std::{
         cell::{Cell, RefCell},
         ptr,
         sync::{Mutex, OnceLock},
         thread::{self, JoinHandle},
-    },
-    tokio::sync::mpsc::{channel, Sender},
+    }, tokio::sync::mpsc::{channel, Sender}
 };
 
 pub mod built_info {
@@ -51,8 +47,8 @@ nexus::export! {
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
 static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
 thread_local! {
-    static DRAWSTATE_INITIALIZED: Cell<bool> = Cell::new(false);
-    static DRAWSTATE: RefCell<Option<DrawState>> = panic!("!");
+    static DRAWSTATE_INITIALIZED: Cell<bool> = const { Cell::new(false) };
+    static DRAWSTATE: RefCell<Option<Engine>> = panic!("!");
 }
 
 fn load() {
@@ -79,22 +75,26 @@ fn load() {
         let mut state = RenderState::lock();
         state.draw(ui);
         drop(state);
-        if !DRAWSTATE_INITIALIZED.get() {
-            let display_size = ui.io().display_size;
-            let drawstate_inner = DrawState::setup(display_size);
-            if let Err(error) = &drawstate_inner {
-                log::error!("DrawState setup failed: {}", error);
-            };
-            DRAWSTATE.set(drawstate_inner.ok());
-            DRAWSTATE_INITIALIZED.set(true);
-        }
-        DRAWSTATE.with_borrow_mut(|ds_op| {
-            if let Some(ds) = ds_op {
-                let io = ui.io();
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            if settings.enable_katrender {
+                if !DRAWSTATE_INITIALIZED.get() {
+                    let drawstate_inner = Engine::initialise(ui);
+                    if let Err(error) = &drawstate_inner {
+                        log::error!("DrawState setup failed: {}", error);
+                    };
+                    DRAWSTATE.set(drawstate_inner.ok());
+                    DRAWSTATE_INITIALIZED.set(true);
+                }
+                DRAWSTATE.with_borrow_mut(|ds_op| {
+                    if let Some(ds) = ds_op {
 
-                ds.draw(io);
+                        if let Err(error) = ds.render(ui) {
+                            log::error!("Engine error: {error}");
+                        }
+                    }
+                });
             }
-        });
+        }
     });
     register_render(RenderType::Render, taimi_window).revert_on_unload();
 

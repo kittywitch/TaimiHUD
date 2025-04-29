@@ -49,6 +49,8 @@ itertools = "0.14.0"
 rand = "0.9.1"
 image = "0.25.6"
 arc-atomic = "0.1.0"
+bevy_ecs = "0.16.0"
+bevy_utils = "0.16.0"
 
 [lib]
 crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)

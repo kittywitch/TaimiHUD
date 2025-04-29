@@ -11,7 +11,7 @@ use {
     }},
 };
 
-#[derive(Default,Clone,Copy,Serialize,Deserialize)]
+#[derive(Debug,Default,Clone,Copy,Serialize,Deserialize,PartialEq)]
 pub enum PrimitiveTopology {
     Undefined,
     PointList,

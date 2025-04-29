@@ -17,6 +17,7 @@ use {
     },
 };
 
+#[derive(PartialEq)]
 pub struct Texture {
     pub texture: ID3D11Texture2D,
     pub dimensions: [u32; 2],

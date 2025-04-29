@@ -1,11 +1,11 @@
 use {
     super::{
-        depthhandler::DepthHandler, entity::Entity, entitycontroller::EntityController,
+        depthhandler::DepthHandler,
         perspectivehandler::PerspectiveHandler, shader::Shaders,
     },
-    crate::{render::space::perspectiveinputdata::PerspectiveInputData, SETTINGS},
+    crate::{render::space::{ecs::Engine, entitycontroller::ObjectLoader, perspectiveinputdata::PerspectiveInputData}, SETTINGS},
     anyhow::anyhow,
-    glam::{Affine3A, Mat4, Vec3, Vec4},
+    glam::{Affine3A, Mat3A, Mat4, Vec3, Vec3A, Vec4},
     itertools::Itertools,
     nexus::{imgui::Io, paths::get_addon_dir, AddonApi},
     std::path::Path,
@@ -19,44 +19,28 @@ use {
     },
 };
 
-pub struct DrawState {
-    depth_handler: DepthHandler,
-    perspective_handler: PerspectiveHandler,
+pub struct RenderBackend {
+    pub depth_handler: DepthHandler,
+    pub perspective_handler: PerspectiveHandler,
 
-    shaders: Shaders,
-    entities: Vec<Entity>,
-    sampler_state: Vec<Option<ID3D11SamplerState>>,
-    device: ID3D11Device,
-    swap_chain: IDXGISwapChain,
-    aspect_ratio: Option<f32>,
-    display_size: Option<[f32; 2]>,
+    pub shaders: Shaders,
+    pub sampler_state: Vec<Option<ID3D11SamplerState>>,
+    pub device: ID3D11Device,
+    pub swap_chain: IDXGISwapChain,
+    pub aspect_ratio: Option<f32>,
+    pub display_size: Option<[f32; 2]>,
 }
 
 #[repr(C, align(16))]
 pub struct InstanceBufferData {
-    pub model: Mat4,
+    pub world: Mat4,
     pub colour: Vec3,
 }
 
 impl InstanceBufferData {
-    pub fn rotate(&mut self, dt: f32) {
-        self.model = self.model * Affine3A::from_rotation_y(dt);
-    }
 }
 
-impl DrawState {
-    pub fn setup_entities(
-        addon_dir: &Path,
-        device: &ID3D11Device,
-        shaders: &Shaders,
-    ) -> anyhow::Result<Vec<Entity>> {
-        log::info!("Beginning entity setup!");
-        let entity_controller = EntityController::load_desc(addon_dir)?;
-        let entities = entity_controller.load(device, shaders)?;
-        log::info!("Finished entity setup. {} entities loaded!", entities.len());
-        Ok(entities)
-    }
-
+impl RenderBackend {
     pub fn setup_sampler(device: &ID3D11Device) -> anyhow::Result<ID3D11SamplerState> {
         let sampler_desc = D3D11_SAMPLER_DESC {
             Filter: D3D11_FILTER_MIN_MAG_MIP_LINEAR,
@@ -78,8 +62,7 @@ impl DrawState {
         Ok(sampler_state)
     }
 
-    pub fn setup(display_size: [f32; 2]) -> anyhow::Result<Self> {
-        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+    pub fn setup(addon_dir: &Path, display_size: [f32; 2]) -> anyhow::Result<RenderBackend> {
         let addon_api = AddonApi::get();
 
         log::info!("Getting d3d11 device");
@@ -91,16 +74,16 @@ impl DrawState {
 
         PerspectiveInputData::create();
 
-        let shaders = Shaders::setup(&addon_dir, &device)?;
-        let mut entities = Self::setup_entities(&addon_dir, &device, &shaders)?;
+        let shaders = Shaders::setup(addon_dir, &device)?;
         let perspective_handler = PerspectiveHandler::setup(&device, &display_size)?;
 
         let depth_handler = DepthHandler::create(&display_size, &device, swap_chain)?;
         let sampler_state = vec![Self::setup_sampler(&device).ok()];
 
-        log::info!("Setting up device context");
-        let device_context = unsafe { device.GetImmediateContext().expect("I lost my context!") };
+        //log::info!("Setting up device context");
+        //let device_context = unsafe { device.GetImmediateContext().expect("I lost my context!") };
 
+        /*
         let path = addon_dir.join("QuitarHero_Hero-Timers/timers/Assets/Raids/Deimos.png");
         if let Ok(quad) = Entity::quad(&device, &shaders, Some(&path)) {
             entities.push(quad);
@@ -109,20 +92,24 @@ impl DrawState {
             if let Some(texture) = &entity.model.texture {
                 texture.generate_mips(&device_context);
             }
-        }
-        Ok(DrawState {
+        }*/
+        Ok(RenderBackend {
             depth_handler,
             perspective_handler,
 
             device,
             swap_chain: swap_chain.clone(),
-            entities,
             shaders,
             sampler_state,
             aspect_ratio: None,
             display_size: None,
         })
     }
+
+    pub fn prepare(&mut self, display_size: &[f32; 2]) {
+        self.perspective_handler.update_perspective(display_size);
+    }
+    /*
     pub fn draw(&mut self, io: &Io) {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender {
@@ -163,5 +150,5 @@ impl DrawState {
                 }
             }
         }
-    }
+    }*/
 }

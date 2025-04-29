@@ -30,8 +30,8 @@ struct VSOutput
 VSOutput VSMain(VSInput input)
 {
     VSOutput output = (VSOutput)0;
-    float4 VertPos = float4(input.position, 1.0);
 
+    float4 VertPos = float4(input.position, 1.0);
     output.position = mul(input.Model, VertPos);
     output.position = mul(View, output.position);
     output.position = mul(Projection, output.position);
@@ -39,7 +39,7 @@ VSOutput VSMain(VSInput input)
     output.tex = input.tex;
     output.normal = input.normal;
     output.color = input.color;
-    output.colour = input.colour;
+    output.colour = input.colour.xyz;
 
     return output;
 }
