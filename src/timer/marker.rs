@@ -1,6 +1,6 @@
 use {
     crate::timer::BlishVec3,
-    serde::{Deserialize, Serialize},
+    serde::{Deserialize, Serialize}, std::path::PathBuf,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -11,7 +11,7 @@ pub struct TimerMarker {
     #[serde(default)]
     pub fade_center: bool,
     pub opacity: Option<f32>,
-    pub texture: String,
+    pub texture: PathBuf,
     pub duration: f32,
     pub timestamps: Option<Vec<f32>>,
 }

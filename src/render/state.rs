@@ -32,6 +32,7 @@ pub enum RenderEvent {
     AlertStart(TextAlert),
     AlertEnd(Arc<TimerFile>),
     CheckingForUpdates(bool),
+    RenderKeybindUpdate,
     ProgressBarUpdate(ProgressBarSettings),
 }
 
@@ -68,6 +69,9 @@ impl RenderState {
             Ok(event) => {
                 use RenderEvent::*;
                 match event {
+                    RenderKeybindUpdate => {
+                        self.primary_window.keybind_handler();
+                    }
                     ProgressBarUpdate(settings) => {
                         self.timer_window.progress_bar = settings;
                     }

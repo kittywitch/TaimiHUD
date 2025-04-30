@@ -62,14 +62,12 @@ impl PrimaryWindowState {
         }
     }
 
-    pub fn keybind_handler(&mut self, _id: &str, is_release: bool) {
-        if !is_release {
-            let sender = TS_SENDER.get().unwrap();
-            let event_send = sender.try_send(ControllerEvent::WindowState(
-                "primary".to_string(),
-                !self.open,
-            ));
-            drop(event_send);
-        }
+    pub fn keybind_handler(&mut self) {
+        let sender = TS_SENDER.get().unwrap();
+        let event_send = sender.try_send(ControllerEvent::WindowState(
+            "primary".to_string(),
+            !self.open,
+        ));
+        drop(event_send);
     }
 }

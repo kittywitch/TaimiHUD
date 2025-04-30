@@ -34,7 +34,8 @@ pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-static TS_SENDER: OnceLock<Sender<controller::ControllerEvent>> = OnceLock::new();
+static TS_SENDER: OnceLock<Sender<ControllerEvent>> = OnceLock::new();
+static RT_SENDER: OnceLock<Sender<RenderEvent>> = OnceLock::new();
 static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
 
 nexus::export! {
@@ -66,12 +67,15 @@ fn load() {
 
     let (ts_event_sender, ts_event_receiver) = channel::<ControllerEvent>(32);
     let (rt_event_sender, rt_event_receiver) = channel::<RenderEvent>(32);
+
+    let _ = TS_SENDER.set(ts_event_sender);
+    let _ = RT_SENDER.set(rt_event_sender.clone());
+
     let tm_handler =
         thread::spawn(|| Controller::load(ts_event_receiver, rt_event_sender, addon_dir));
 
     // muh queues
     let _ = TM_THREAD.set(tm_handler);
-    let _ = TS_SENDER.set(ts_event_sender);
     let _ = RENDER_STATE.set(Mutex::new(RenderState::new(rt_event_receiver)));
 
     // Rendering setup
@@ -102,9 +106,11 @@ fn load() {
     register_render(RenderType::Render, taimi_window).revert_on_unload();
 
     // Handle window toggling with keybind and button
-    let main_window_keybind_handler = keybind_handler!(|id, is_release| {
-        let mut state = RenderState::lock();
-        state.primary_window.keybind_handler(id, is_release)
+    let main_window_keybind_handler = keybind_handler!(|_id, is_release| {
+        if !is_release {
+            let sender = RT_SENDER.get().unwrap();
+            let _ = sender.try_send(RenderEvent::RenderKeybindUpdate);
+        }
     });
 
     register_keybind_with_string(
