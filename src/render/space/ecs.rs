@@ -1,19 +1,15 @@
 use {
     super::{
-        model::ObjModelFile,
         object::{ObjectBacking, ObjectLoader},
         state::{InstanceBufferData, RenderBackend},
     },
+    crate::render::space::resources::ObjFile,
     anyhow::anyhow,
     bevy_ecs::prelude::*,
     glam::{Mat4, Vec3},
     itertools::Itertools,
     nexus::{imgui::Ui, paths::get_addon_dir},
-    std::{
-        collections::HashMap,
-        path::{Path, PathBuf},
-        sync::Arc,
-    },
+    std::{collections::HashMap, path::PathBuf, sync::Arc},
 };
 
 #[derive(Component)]
@@ -47,25 +43,6 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn load_models(
-        models_dir: &Path,
-        object_descs: &ObjectLoader,
-    ) -> anyhow::Result<HashMap<PathBuf, ObjModelFile>> {
-        let mut model_files: HashMap<PathBuf, ObjModelFile> = Default::default();
-        let model_filenames: Vec<PathBuf> = object_descs
-            .0
-            .iter()
-            .flat_map(|(_f, o)| o)
-            .map(|o| o.location.file.clone())
-            .dedup()
-            .collect();
-        for model_filename in &model_filenames {
-            let model_file = ObjModelFile::load_file(&models_dir.join(model_filename))?;
-            model_files.insert(model_filename.to_path_buf(), model_file);
-        }
-        Ok(model_files)
-    }
-
     pub fn initialise(ui: &Ui) -> anyhow::Result<Engine> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
 
@@ -74,7 +51,7 @@ impl Engine {
         let models_dir = addon_dir.join("models");
         let object_descs = ObjectLoader::load_desc(&models_dir)?;
         log::debug!("{:?}", object_descs);
-        let model_files = Self::load_models(&models_dir, &object_descs)?;
+        let model_files = ObjFile::load(&models_dir, &object_descs)?;
 
         let object_kinds: HashMap<String, Arc<ObjectBacking>> = object_descs
             .0
@@ -148,7 +125,8 @@ impl Engine {
                     }
                 })
                 .collect();
-            r.backing.set_and_draw(slot, &backend.device, &device_context, &ibd)?;
+            r.backing
+                .set_and_draw(slot, &backend.device, &device_context, &ibd)?;
         }
         Ok(())
     }

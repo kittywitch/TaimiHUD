@@ -2,8 +2,8 @@ use {
     super::{
         super::{
             instancebuffer::InstanceBuffer,
-            model::{ModelLocationDescription, ObjModelData, ObjModelFile},
             primitivetopology::PrimitiveTopology,
+            resources::{ModelKind, ObjFile, ObjInstance},
             shader::{PixelShader, PixelShaders, ShaderPair, VertexShader, VertexShaders},
         },
         ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata,
@@ -21,6 +21,13 @@ use {
     windows::Win32::Graphics::Direct3D11::ID3D11Device,
 };
 
+// TODO: cut down on this
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub struct ModelLocationDescription {
+    pub kind: ModelKind,
+    pub file: PathBuf,
+    pub index: usize,
+}
 fn default_pixel_shader() -> String {
     "generic".to_string()
 }
@@ -63,21 +70,23 @@ impl ObjectDescription {
         ShaderPair(vertex_shader, pixel_shader)
     }
 
+    // TODO: make non-obj specific
     pub fn get_model_and_material(
         &self,
         device: &ID3D11Device,
-        model_files: &HashMap<PathBuf, ObjModelFile>,
-    ) -> anyhow::Result<ObjModelData> {
+        model_files: &HashMap<PathBuf, ObjFile>,
+    ) -> anyhow::Result<ObjInstance> {
         let model_file = model_files
             .get(&self.location.file)
             .ok_or_else(|| anyhow!("Could not load model file!"))?;
-        let obj_model_data = model_file.load_datum(device, self.location.index, self.xzy);
+        let obj_model_data = model_file.load_idx(device, self.location.index, self.xzy);
         Ok(obj_model_data)
     }
 
+    // TODO: make non-obj specific
     pub fn to_backing(
         &self,
-        model_files: &HashMap<PathBuf, ObjModelFile>,
+        model_files: &HashMap<PathBuf, ObjFile>,
         device: &ID3D11Device,
         vertex_shaders: &VertexShaders,
         pixel_shaders: &PixelShaders, // Shaders

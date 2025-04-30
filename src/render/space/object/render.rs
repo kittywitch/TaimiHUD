@@ -1,8 +1,8 @@
 use {
     super::super::{
         instancebuffer::InstanceBuffer,
-        model::{MaterialTextures, Model},
         primitivetopology::PrimitiveTopology,
+        resources::{obj_format::ObjMaterial, Model},
         shader::ShaderPair,
         state::InstanceBufferData,
         vertexbuffer::VertexBuffer,
@@ -22,7 +22,7 @@ pub struct ObjectRenderBacking {
 
 pub struct ObjectRenderMetadata {
     pub model: Model,
-    pub material: MaterialTextures,
+    pub material: ObjMaterial,
     pub model_matrix: Mat4,
     pub topology: PrimitiveTopology,
 }
