@@ -75,7 +75,7 @@ impl ObjFile {
                 ignore_lines: true,
             },
         )?;
-        let models: Vec<_> = models.into_iter().map(|m| ObjModel(m)).collect();
+        let models: Vec<_> = models.into_iter().map(ObjModel).collect();
         let folder = file.parent();
         let materials = match (materials, folder) {
             (Ok(mats), Some(folder)) => {
