@@ -89,7 +89,7 @@ impl ObjectDescription {
         model_files: &HashMap<PathBuf, ObjFile>,
         device: &ID3D11Device,
         vertex_shaders: &VertexShaders,
-        pixel_shaders: &PixelShaders, // Shaders
+        pixel_shaders: &PixelShaders,
     ) -> anyhow::Result<ObjectBacking> {
         let shaders = self.get_shaders(vertex_shaders, pixel_shaders);
         let obj_model_data = self.get_model_and_material(device, model_files)?;
