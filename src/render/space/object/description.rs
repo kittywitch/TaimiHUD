@@ -1,7 +1,7 @@
 use {
     super::{
         super::{
-            instancebuffer::InstanceBuffer,
+            dx11::instance_buffer::InstanceBuffer,
             resources::{PixelShader, PixelShaders, VertexShader, VertexShaders, ShaderPair, ModelKind, ObjFile, ObjInstance},
         },
         ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, PrimitiveTopology,

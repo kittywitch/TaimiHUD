@@ -1,7 +1,7 @@
 use {
     super::{
         object::{ObjectBacking, ObjectLoader},
-        state::{InstanceBufferData, RenderBackend},
+        dx11::{InstanceBufferData, RenderBackend},
     },
     crate::render::space::resources::ObjFile,
     anyhow::anyhow,

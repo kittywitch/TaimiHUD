@@ -1,5 +1,5 @@
 use {
-    super::state::InstanceBufferData,
+    super::InstanceBufferData,
     anyhow::anyhow,
     bevy_ecs::prelude::*,
     windows::Win32::Graphics::Direct3D11::{

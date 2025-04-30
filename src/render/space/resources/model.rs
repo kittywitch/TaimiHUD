@@ -1,5 +1,5 @@
 use {
-    super::{super::vertexbuffer::VertexBuffer, Vertex},
+    super::{super::dx11::VertexBuffer, Vertex},
     anyhow::anyhow,
     glam::{Vec3, Vec3Swizzles},
     serde::{Deserialize, Serialize},

@@ -1,6 +1,6 @@
 use {
-    super::{depthhandler::DepthHandler, perspectivehandler::PerspectiveHandler},
-    crate::render::space::{perspectiveinputdata::PerspectiveInputData, resources::ShaderLoader},
+    super::{DepthHandler, PerspectiveInputData, PerspectiveHandler},
+    crate::render::space::resources::ShaderLoader,
     anyhow::anyhow,
     glam::{Mat4, Vec3, Vec4},
     itertools::Itertools,
@@ -26,14 +26,6 @@ pub struct RenderBackend {
     pub aspect_ratio: Option<f32>,
     pub display_size: Option<[f32; 2]>,
 }
-
-#[repr(C, align(16))]
-pub struct InstanceBufferData {
-    pub world: Mat4,
-    pub colour: Vec3,
-}
-
-impl InstanceBufferData {}
 
 impl RenderBackend {
     pub fn setup_sampler(device: &ID3D11Device) -> anyhow::Result<ID3D11SamplerState> {

@@ -1,5 +1,5 @@
 use {
-    super::perspectiveinputdata::PerspectiveInputData,
+    super::PerspectiveInputData,
     anyhow::anyhow,
     glam::{Mat4, Vec3},
     windows::Win32::Graphics::Direct3D11::{

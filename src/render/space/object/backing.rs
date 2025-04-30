@@ -1,6 +1,6 @@
 use {
     super::ObjectRenderBacking,
-    crate::render::space::state::InstanceBufferData,
+    super::super::dx11::InstanceBufferData,
     windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext},
 };
 
