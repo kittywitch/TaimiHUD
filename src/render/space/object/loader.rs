@@ -18,7 +18,7 @@ impl ObjectLoader {
         if model_dir.exists() {
             let entity_desc_paths: Paths = glob::glob(
                 model_dir
-                    .join("*.entitydesc")
+                    .join("*.objdesc")
                     .to_str()
                     .expect("Model load pattern is unparseable"),
             )?;

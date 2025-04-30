@@ -24,6 +24,7 @@ use {
 // TODO: cut down on this
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct ModelLocationDescription {
+    #[serde(default)]
     pub kind: ModelKind,
     pub file: PathBuf,
     pub index: usize,
