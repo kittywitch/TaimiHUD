@@ -20,11 +20,10 @@ impl ObjFile {
         object_descs: &ObjectLoader,
     ) -> anyhow::Result<HashMap<PathBuf, ObjFile>> {
         let mut model_files: HashMap<PathBuf, ObjFile> = Default::default();
-        let model_filenames: Vec<PathBuf> = object_descs
+        let model_filenames: Vec<&PathBuf> = object_descs
             .0
             .iter()
-            .flat_map(|(_f, o)| o)
-            .map(|o| o.location.file.clone())
+            .map(|o| &o.location.file)
             .dedup()
             .collect();
         for model_filename in &model_filenames {

@@ -2,7 +2,10 @@ use {
     super::{
         super::{
             dx11::instance_buffer::InstanceBuffer,
-            resources::{PixelShader, PixelShaders, VertexShader, VertexShaders, ShaderPair, ModelKind, ObjFile, ObjInstance},
+            resources::{
+                ModelKind, ObjFile, ObjInstance, PixelShader, PixelShaders, ShaderPair,
+                VertexShader, VertexShaders,
+            },
         },
         ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, PrimitiveTopology,
     },
@@ -91,9 +94,9 @@ impl ObjectDescription {
         pixel_shaders: &PixelShaders,
     ) -> anyhow::Result<ObjectBacking> {
         let shaders = self.get_shaders(vertex_shaders, pixel_shaders);
-        let obj_model_data = self.get_model_and_material(device, model_files)?;
-        let model = obj_model_data.model;
-        let material = obj_model_data.material;
+        let obj_data = self.get_model_and_material(device, model_files)?;
+        let model = obj_data.model;
+        let material = obj_data.material;
         let vertex_buffer = model.to_buffer(device)?;
         let render_metadata = ObjectRenderMetadata {
             model,

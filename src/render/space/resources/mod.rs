@@ -1,21 +1,15 @@
 pub mod model;
 pub mod obj_format;
+pub mod shader;
 pub mod texture;
 pub mod vertex;
-pub mod shader;
 
 pub use {
     model::{Model, ModelKind},
-    obj_format::{ObjFile, ObjInstance, ObjMaterial, ObjModel},
-    vertex::Vertex,
+    obj_format::{ObjFile, ObjInstance, ObjMaterial},
     shader::{
-        ShaderDescription,
-        ShaderKind,
-        VertexShaders,
-        PixelShaders,
-        ShaderLoader,
-        VertexShader,
-        PixelShader,
-        ShaderPair,
+        PixelShader, PixelShaders, ShaderLoader, ShaderPair,
+        VertexShader, VertexShaders,
     },
+    vertex::Vertex,
 };

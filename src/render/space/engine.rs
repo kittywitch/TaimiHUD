@@ -1,7 +1,7 @@
 use {
     super::{
-        object::{ObjectBacking, ObjectLoader},
         dx11::{InstanceBufferData, RenderBackend},
+        object::{ObjectBacking, ObjectLoader},
     },
     crate::render::space::resources::ObjFile,
     anyhow::anyhow,
@@ -53,26 +53,12 @@ impl Engine {
         log::debug!("{:?}", object_descs);
         let model_files = ObjFile::load(&models_dir, &object_descs)?;
 
-        let object_kinds: HashMap<String, Arc<ObjectBacking>> = object_descs
-            .0
-            .iter()
-            .flat_map(|(_f, o)| o)
-            .filter_map(|o| {
-                o.to_backing(
-                    &model_files,
-                    &render_backend.device,
-                    &render_backend.shaders.0,
-                    &render_backend.shaders.1,
-                )
-                .ok()
-            })
-            .map(|o| {
-                let name = o.name.clone();
-                let oarc = Arc::new(o);
-                log::info!("Entity {} loaded!", name);
-                (name, oarc)
-            })
-            .collect();
+        let object_kinds = object_descs.to_backings(
+            &render_backend.device,
+            &model_files,
+            &render_backend.shaders.0,
+            &render_backend.shaders.1,
+        );
 
         let world = World::new();
 

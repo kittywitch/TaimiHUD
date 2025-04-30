@@ -1,8 +1,8 @@
 use {
-    super::{DepthHandler, PerspectiveInputData, PerspectiveHandler},
+    super::{DepthHandler, PerspectiveHandler, PerspectiveInputData},
     crate::render::space::resources::ShaderLoader,
     anyhow::anyhow,
-    glam::{Mat4, Vec3, Vec4},
+    glam::Vec4,
     itertools::Itertools,
     nexus::AddonApi,
     std::path::Path,

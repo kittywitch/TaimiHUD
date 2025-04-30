@@ -1,12 +1,8 @@
 use {
     super::{
         super::{
-            dx11::{
-                InstanceBufferData,
-                InstanceBuffer,
-                VertexBuffer,
-            },
-            resources::{ShaderPair, ObjMaterial, Model},
+            dx11::{InstanceBuffer, InstanceBufferData, VertexBuffer},
+            resources::{Model, ObjMaterial, ShaderPair},
         },
         PrimitiveTopology,
     },

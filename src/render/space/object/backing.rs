@@ -1,6 +1,5 @@
 use {
-    super::ObjectRenderBacking,
-    super::super::dx11::InstanceBufferData,
+    super::{super::dx11::InstanceBufferData, ObjectRenderBacking},
     windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext},
 };
 
