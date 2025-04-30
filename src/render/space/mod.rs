@@ -1,6 +1,5 @@
 pub mod depthhandler;
 pub mod ecs;
-pub mod entity;
 pub mod instancebuffer;
 pub mod object;
 pub mod perspectivehandler;

@@ -1,6 +1,6 @@
 use {
     super::ShaderDescription,
-    crate::render::space::entity::Vertex,
+    crate::render::space::resources::Vertex,
     anyhow::anyhow,
     core::ffi::c_char,
     std::{ffi::CStr, mem::offset_of, path::Path, slice::from_raw_parts},
