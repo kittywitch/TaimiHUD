@@ -1,11 +1,13 @@
 use {
-    super::super::{
-        instancebuffer::InstanceBuffer,
-        primitivetopology::PrimitiveTopology,
-        resources::{obj_format::ObjMaterial, Model},
-        shader::ShaderPair,
-        state::InstanceBufferData,
-        vertexbuffer::VertexBuffer,
+    super::{
+        super::{
+            instancebuffer::InstanceBuffer,
+            resources::{obj_format::ObjMaterial, Model},
+            shader::ShaderPair,
+            state::InstanceBufferData,
+            vertexbuffer::VertexBuffer,
+        },
+        PrimitiveTopology,
     },
     glam::Mat4,
     itertools::Itertools,

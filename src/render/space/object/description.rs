@@ -2,11 +2,10 @@ use {
     super::{
         super::{
             instancebuffer::InstanceBuffer,
-            primitivetopology::PrimitiveTopology,
             resources::{ModelKind, ObjFile, ObjInstance},
             shader::{PixelShader, PixelShaders, ShaderPair, VertexShader, VertexShaders},
         },
-        ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata,
+        ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, PrimitiveTopology,
     },
     anyhow::anyhow,
     glam::Mat4,
