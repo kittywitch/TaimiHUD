@@ -49,7 +49,7 @@ impl ObjectRenderBacking {
 
     pub fn set_texture(&self, slot: u32, device_context: &ID3D11DeviceContext) {
         if let Some(diffuse) = &self.metadata.material.diffuse {
-            diffuse.texture.set(&device_context, slot);
+            diffuse.texture.set(device_context, slot);
         }
     }
 
