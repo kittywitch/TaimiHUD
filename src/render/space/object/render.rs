@@ -2,8 +2,7 @@ use {
     super::{
         super::{
             instancebuffer::InstanceBuffer,
-            resources::{obj_format::ObjMaterial, Model},
-            shader::ShaderPair,
+            resources::{ShaderPair, ObjMaterial, Model},
             state::InstanceBufferData,
             vertexbuffer::VertexBuffer,
         },

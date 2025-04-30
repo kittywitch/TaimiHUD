@@ -2,8 +2,7 @@ use {
     super::{
         super::{
             instancebuffer::InstanceBuffer,
-            resources::{ModelKind, ObjFile, ObjInstance},
-            shader::{PixelShader, PixelShaders, ShaderPair, VertexShader, VertexShaders},
+            resources::{PixelShader, PixelShaders, VertexShader, VertexShaders, ShaderPair, ModelKind, ObjFile, ObjInstance},
         },
         ObjectBacking, ObjectRenderBacking, ObjectRenderMetadata, PrimitiveTopology,
     },
