@@ -5,7 +5,7 @@ use {
         render::{RenderState, TimerWindowState},
         settings::TimerSettings,
         timer::TimerFile,
-        SETTINGS, TS_SENDER,
+        SETTINGS, CONTROLLER_SENDER,
     },
     glam::Vec2,
     indexmap::IndexMap,
@@ -51,7 +51,7 @@ impl TimerTabState {
         };
         if ui.button(button_text) {
             timer_window_state.open = !timer_window_state.open;
-            let sender = TS_SENDER.get().unwrap();
+            let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send = sender.try_send(ControllerEvent::WindowState(
                 "timers".to_string(),
                 timer_window_state.open,
@@ -60,7 +60,7 @@ impl TimerTabState {
         }
         ui.same_line();
         if ui.button("Reset Timers") {
-            let sender = TS_SENDER.get().unwrap();
+            let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send = sender.try_send(ControllerEvent::TimerReset);
             drop(event_send);
             timer_window_state.reset_phases();
@@ -206,7 +206,7 @@ impl TimerTabState {
                             _ => "Disable",
                         };
                         if ui.button(button_text) {
-                            let sender = TS_SENDER.get().unwrap();
+                            let sender = CONTROLLER_SENDER.get().unwrap();
                             let event_send = sender
                                 .try_send(ControllerEvent::TimerToggle(selected_timer.id.clone()));
                             drop(event_send);

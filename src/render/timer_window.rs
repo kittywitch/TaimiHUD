@@ -3,7 +3,7 @@ use {
     crate::{
         settings::ProgressBarSettings,
         timer::{PhaseState, TimerAlert, TimerFile},
-        ControllerEvent, SETTINGS, TS_SENDER,
+        ControllerEvent, SETTINGS, CONTROLLER_SENDER,
     },
     glam::Vec2,
     nexus::imgui::{ProgressBar, StyleColor, Ui, Window},
@@ -45,7 +45,7 @@ impl TimerWindowState {
         }
 
         if open != self.open {
-            let sender = TS_SENDER.get().unwrap();
+            let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send =
                 sender.try_send(ControllerEvent::WindowState("timers".to_string(), open));
             drop(event_send);

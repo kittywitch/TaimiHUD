@@ -59,7 +59,7 @@ impl Controller {
     }
 
     pub fn load(
-        mut tm_receiver: Receiver<ControllerEvent>,
+        mut controller_receiver: Receiver<ControllerEvent>,
         rt_sender: Sender<crate::RenderEvent>,
         addon_dir: PathBuf,
     ) {
@@ -88,7 +88,7 @@ impl Controller {
             let mut mumblelink_interval = interval(Duration::from_millis(20));
             loop {
                 select! {
-                    evt = tm_receiver.recv() => match evt {
+                    evt = controller_receiver.recv() => match evt {
                         Some(evt) => {
                             match state.handle_event(evt).await {
                                 Ok(true) => (),

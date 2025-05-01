@@ -1,7 +1,7 @@
 use {
     super::TimerWindowState,
     crate::{
-        controller::ProgressBarStyleChange, render::TextFont, ControllerEvent, SETTINGS, TS_SENDER,
+        controller::ProgressBarStyleChange, render::TextFont, ControllerEvent, SETTINGS, CONTROLLER_SENDER,
     },
     nexus::imgui::{ComboBox, Condition, Selectable, Slider, TreeNode, TreeNodeFlags, Ui},
     strum::IntoEnumIterator,
@@ -22,7 +22,7 @@ impl ConfigTabState {
         };
         ui.text("You can control-click on a slider element, or such, to be able to directly input data to it.");
         if ui.checkbox("Experimental KatRender", &mut self.katrender) {
-            let sender = TS_SENDER.get().unwrap();
+            let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send = sender.try_send(ControllerEvent::ToggleKatRender);
             drop(event_send);
         };
@@ -34,14 +34,14 @@ impl ConfigTabState {
                 "Stock Imgui Progress Bar",
                 &mut timer_window_state.progress_bar.stock,
             ) {
-                let sender = TS_SENDER.get().unwrap();
+                let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
                     ProgressBarStyleChange::Stock(timer_window_state.progress_bar.stock),
                 ));
                 drop(event_send);
             };
             if ui.checkbox("Shadow", &mut timer_window_state.progress_bar.shadow) {
-                let sender = TS_SENDER.get().unwrap();
+                let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
                     ProgressBarStyleChange::Shadow(timer_window_state.progress_bar.shadow),
                 ));
@@ -51,7 +51,7 @@ impl ConfigTabState {
                 "Centre text after icon",
                 &mut timer_window_state.progress_bar.centre_after,
             ) {
-                let sender = TS_SENDER.get().unwrap();
+                let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
                     ProgressBarStyleChange::Centre(timer_window_state.progress_bar.shadow),
                 ));
@@ -61,7 +61,7 @@ impl ConfigTabState {
                 .display_format("%.0f")
                 .build(ui, &mut timer_window_state.progress_bar.height)
             {
-                let sender = TS_SENDER.get().unwrap();
+                let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
                     ProgressBarStyleChange::Height(timer_window_state.progress_bar.height),
                 ));
@@ -83,7 +83,7 @@ impl ConfigTabState {
                 .preview_value(&timer_window_state.progress_bar.font.to_string())
                 .build(ui, font_closure)
             {
-                let sender = TS_SENDER.get().unwrap();
+                let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
                     ProgressBarStyleChange::Font(TextFont::from(selection.clone())),
                 ));

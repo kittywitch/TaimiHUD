@@ -3,13 +3,14 @@ use {
         dx11::{InstanceBufferData, RenderBackend},
         object::{ObjectBacking, ObjectLoader},
     },
-    crate::render::space::resources::ObjFile,
+    crate::{render::space::resources::ObjFile, timer::{PhaseState, TimerFile, TimerMarker}},
     anyhow::anyhow,
     bevy_ecs::prelude::*,
     glam::{Mat4, Vec3},
     itertools::Itertools,
     nexus::{imgui::Ui, paths::get_addon_dir},
-    std::{collections::HashMap, path::PathBuf, sync::Arc},
+    tokio::sync::mpsc::Receiver,
+    std::{collections::HashMap, path::PathBuf, sync::Arc}, tokio::time::Instant,
 };
 
 #[derive(Component)]
@@ -21,6 +22,26 @@ struct Position(Vec3);
 
 #[derive(Component)]
 struct Rotation(Vec3);
+
+#[derive(Clone)]
+pub enum RotationType {
+    Rotation(Vec3),
+    Billboard,
+}
+
+struct Marker {
+}
+
+struct CreateMarker {
+    marker: TimerMarker,
+    start: Instant,
+}
+
+#[derive(Event)]
+enum EngineEvent {
+    CreateMarker,
+}
+
 #[derive(Bundle)]
 struct Space {
     position: Position,
@@ -33,17 +54,24 @@ struct MarkerBundle {
     render: Render,
 }
 
+pub enum SpaceEvent {
+    MarkerFeed(PhaseState),
+    MarkerReset(Arc<TimerFile>),
+}
+
 pub struct Engine {
+    receiver: Receiver<SpaceEvent>,
     addon_dir: PathBuf,
-    render_backend: RenderBackend,
+    pub render_backend: RenderBackend,
     object_kinds: HashMap<String, Arc<ObjectBacking>>,
+    phase_states: Vec<PhaseState>,
 
     // ECS stuff
     world: World,
 }
 
 impl Engine {
-    pub fn initialise(ui: &Ui) -> anyhow::Result<Engine> {
+    pub fn initialise(ui: &Ui, receiver: Receiver<SpaceEvent>) -> anyhow::Result<Engine> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
 
         let render_backend = RenderBackend::setup(&addon_dir, ui.io().display_size)?;
@@ -65,10 +93,12 @@ impl Engine {
         let schedule = Schedule::default();
 
         let mut engine = Engine {
+            receiver,
             addon_dir,
             render_backend,
             object_kinds,
             world,
+            phase_states: Default::default(),
         };
 
         if let Some(backing) = engine.object_kinds.get("Cat") {
@@ -82,8 +112,34 @@ impl Engine {
         Ok(engine)
     }
 
+    pub fn new_phase(&mut self, phase_state: PhaseState) {
+        self.phase_states.push(phase_state);
+    }
+    pub fn remove_phase(&mut self, timer: Arc<TimerFile>) {
+        self.phase_states.retain(|p| !Arc::ptr_eq(&p.timer, &timer));
+    }
+    pub fn reset_phases(&mut self) {
+        self.phase_states.clear();
+    }
+
+    pub fn process_event(&mut self) {
+        match self.receiver.try_recv() {
+            Ok(event) => {
+                use SpaceEvent::*;
+                match event {
+                    MarkerFeed(phase_state) =>
+                        self.new_phase(phase_state),
+                    MarkerReset(timer) =>
+                        self.remove_phase(timer),
+                }
+            },
+            Err(_error) => (),
+        }
+    }
+
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;
+        self.process_event();
         let backend = &mut self.render_backend;
         backend.prepare(&display_size);
         let device_context =

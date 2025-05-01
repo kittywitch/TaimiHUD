@@ -1,5 +1,5 @@
 use {
-    crate::{controller::ControllerEvent, settings::NeedsUpdate, SETTINGS, TS_SENDER},
+    crate::{controller::ControllerEvent, settings::NeedsUpdate, SETTINGS, CONTROLLER_SENDER},
     nexus::imgui::Ui,
 };
 
@@ -20,7 +20,7 @@ impl DataSourceTabState {
                 ui.text("Checking for updates! Please hold.")
             } else {
                 if ui.button("Check for updates") {
-                    let sender = TS_SENDER.get().unwrap();
+                    let sender = CONTROLLER_SENDER.get().unwrap();
                     let event_send = sender.try_send(ControllerEvent::CheckDataSourceUpdates);
                     drop(event_send);
                 }
@@ -45,7 +45,7 @@ impl DataSourceTabState {
                     };
                     if let Some(button_text) = button_text {
                         if ui.button(button_text) {
-                            let sender = TS_SENDER.get().unwrap();
+                            let sender = CONTROLLER_SENDER.get().unwrap();
                             let source = source.clone();
                             let event_send =
                                 sender.try_send(ControllerEvent::DoDataSourceUpdate { source });

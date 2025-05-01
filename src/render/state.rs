@@ -4,7 +4,7 @@ use {
         render::{PrimaryWindowState, TimerWindowState},
         settings::ProgressBarSettings,
         timer::{PhaseState, TextAlert, TimerFile},
-        RENDER_STATE, TS_SENDER,
+        RENDER_STATE, CONTROLLER_SENDER,
     },
     glam::Vec2,
     nexus::{
@@ -122,7 +122,7 @@ impl RenderState {
                     Image::new(icon.id(), size).build(ui);
                     ui.same_line();
                 } else {
-                    let sender = TS_SENDER.get().unwrap();
+                    let sender = CONTROLLER_SENDER.get().unwrap();
                     let event_send = sender.try_send(ControllerEvent::LoadTexture(
                         icon.clone(),
                         path.to_path_buf(),

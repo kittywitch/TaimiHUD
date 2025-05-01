@@ -11,5 +11,6 @@ pub use {
         PixelShader, PixelShaders, ShaderLoader, ShaderPair,
         VertexShader, VertexShaders,
     },
+    texture::Texture,
     vertex::Vertex,
 };

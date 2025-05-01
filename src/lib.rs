@@ -8,9 +8,7 @@ use {
         controller::{Controller, ControllerEvent},
         render::{Engine, RenderEvent, RenderState},
         settings::SettingsLock,
-    },
-    arcdps::AgentOwned,
-    nexus::{
+    }, arcdps::AgentOwned, nexus::{
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
@@ -20,23 +18,23 @@ use {
         paths::get_addon_dir,
         quick_access::add_quick_access,
         AddonFlags, UpdateProvider,
-    },
-    std::{
+    }, render::space::engine::SpaceEvent, std::{
         cell::{Cell, RefCell},
         ptr,
         sync::{Mutex, OnceLock},
         thread::{self, JoinHandle},
-    },
-    tokio::sync::mpsc::{channel, Sender},
+    }, tokio::sync::mpsc::{channel, Sender}
 };
 
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-static TS_SENDER: OnceLock<Sender<ControllerEvent>> = OnceLock::new();
-static RT_SENDER: OnceLock<Sender<RenderEvent>> = OnceLock::new();
-static TM_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
+static CONTROLLER_SENDER: OnceLock<Sender<ControllerEvent>> = OnceLock::new();
+static RENDER_SENDER: OnceLock<Sender<RenderEvent>> = OnceLock::new();
+static SPACE_SENDER: OnceLock<Sender<SpaceEvent>> = OnceLock::new();
+
+static CONTROLLER_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
 
 nexus::export! {
     name: "TaimiHUD",
@@ -65,18 +63,18 @@ fn load() {
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
 
-    let (ts_event_sender, ts_event_receiver) = channel::<ControllerEvent>(32);
-    let (rt_event_sender, rt_event_receiver) = channel::<RenderEvent>(32);
+    let (controller_sender, controller_receiver) = channel::<ControllerEvent>(32);
+    let (render_sender, render_receiver) = channel::<RenderEvent>(32);
 
-    let _ = TS_SENDER.set(ts_event_sender);
-    let _ = RT_SENDER.set(rt_event_sender.clone());
+    let _ = CONTROLLER_SENDER.set(controller_sender);
+    let _ = RENDER_SENDER.set(render_sender.clone());
 
-    let tm_handler =
-        thread::spawn(|| Controller::load(ts_event_receiver, rt_event_sender, addon_dir));
+    let controller_handler =
+        thread::spawn(|| Controller::load(controller_receiver, render_sender, addon_dir));
 
     // muh queues
-    let _ = TM_THREAD.set(tm_handler);
-    let _ = RENDER_STATE.set(Mutex::new(RenderState::new(rt_event_receiver)));
+    let _ = CONTROLLER_THREAD.set(controller_handler);
+    let _ = RENDER_STATE.set(Mutex::new(RenderState::new(render_receiver)));
 
     // Rendering setup
     let taimi_window = render!(|ui| {
@@ -86,7 +84,9 @@ fn load() {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender {
                 if !ENGINE_INITIALIZED.get() {
-                    let drawstate_inner = Engine::initialise(ui);
+                    let (space_sender, space_receiver) = channel::<SpaceEvent>(32);
+                    let _ = SPACE_SENDER.set(space_sender);
+                    let drawstate_inner = Engine::initialise(ui,  space_receiver);
                     if let Err(error) = &drawstate_inner {
                         log::error!("DrawState setup failed: {}", error);
                     };
@@ -108,7 +108,7 @@ fn load() {
     // Handle window toggling with keybind and button
     let main_window_keybind_handler = keybind_handler!(|_id, is_release| {
         if !is_release {
-            let sender = RT_SENDER.get().unwrap();
+            let sender = RENDER_SENDER.get().unwrap();
             let _ = sender.try_send(RenderEvent::RenderKeybindUpdate);
         }
     });
@@ -121,7 +121,7 @@ fn load() {
     .revert_on_unload();
 
     let event_trigger_keybind_handler = keybind_handler!(|id, is_release| {
-        let sender = TS_SENDER.get().unwrap();
+        let sender = CONTROLLER_SENDER.get().unwrap();
         let _ = sender.try_send(ControllerEvent::TimerKeyTrigger(id.to_string(), is_release));
     });
     for i in 0..5 {
@@ -155,7 +155,7 @@ fn load() {
     .revert_on_unload();
 
     let combat_callback = event_consume!(|cdata: Option<&CombatData>| {
-        let sender = TS_SENDER.get().unwrap();
+        let sender = CONTROLLER_SENDER.get().unwrap();
         if let Some(combat_data) = cdata {
             if let Some(evt) = combat_data.event() {
                 if let Some(agt) = combat_data.src() {
@@ -174,7 +174,7 @@ fn load() {
     // MumbleLink Identity
     MUMBLE_IDENTITY_UPDATED
         .subscribe(event_consume!(<MumbleIdentityUpdate> |mumble_identity| {
-            let sender = TS_SENDER.get().unwrap();
+            let sender = CONTROLLER_SENDER.get().unwrap();
             match mumble_identity {
                 None => (),
                 Some(ident) => {
@@ -190,7 +190,8 @@ fn load() {
 fn unload() {
     log::info!("Unloading addon");
     // all actions passed to on_load() or revert_on_unload() are performed automatically
-    let sender = TS_SENDER.get().unwrap();
+    // TODO: clean up Engine / 3d render state
+    let sender = CONTROLLER_SENDER.get().unwrap();
     let event_send = sender.try_send(ControllerEvent::Quit);
     drop(event_send);
 }

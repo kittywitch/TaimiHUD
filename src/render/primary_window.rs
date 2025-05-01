@@ -3,7 +3,7 @@ use {
         render::{
             ConfigTabState, DataSourceTabState, InfoTabState, TimerTabState, TimerWindowState,
         },
-        ControllerEvent, SETTINGS, TS_SENDER,
+        ControllerEvent, SETTINGS, CONTROLLER_SENDER,
     },
     nexus::imgui::{Ui, Window},
 };
@@ -54,7 +54,7 @@ impl PrimaryWindowState {
             });
         }
         if open != self.open {
-            let sender = TS_SENDER.get().unwrap();
+            let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send =
                 sender.try_send(ControllerEvent::WindowState("primary".to_string(), open));
             drop(event_send);
@@ -63,7 +63,7 @@ impl PrimaryWindowState {
     }
 
     pub fn keybind_handler(&mut self) {
-        let sender = TS_SENDER.get().unwrap();
+        let sender = CONTROLLER_SENDER.get().unwrap();
         let event_send = sender.try_send(ControllerEvent::WindowState(
             "primary".to_string(),
             !self.open,

@@ -1,15 +1,12 @@
 use {
-    crate::{
-        render::RenderEvent,
-        timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase},
-    },
-    bitflags::bitflags,
-    std::{fmt::Display, ops::Deref, sync::Arc},
-    tokio::{
+    super::TimerMarker, crate::{
+        render::{space::engine::SpaceEvent, RenderEvent},
+        timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase}, RENDER_SENDER, SPACE_SENDER,
+    }, bitflags::bitflags, std::{fmt::Display, ops::Deref, sync::Arc}, tokio::{
         sync::{mpsc::Sender, Mutex},
         task::JoinHandle,
         time::{sleep, Duration, Instant},
-    },
+    }
 };
 
 bitflags! {
@@ -121,6 +118,7 @@ pub struct PhaseState {
     pub start: Instant,
     pub phase: TimerFilePhase,
     pub alerts: Vec<TimerAlert>,
+    pub markers: Vec<TimerMarker>,
 }
 
 #[derive(Clone)]
@@ -146,7 +144,7 @@ impl TimerMachine {
         }
     }
 
-    async fn send_alert_event(
+    async fn send_alerender(
         sender: Sender<RenderEvent>,
         lock: Arc<Mutex<()>>,
         timer: Arc<TimerFile>,
@@ -192,7 +190,7 @@ impl TimerMachine {
         wait_duration: Duration,
         display_duration: Duration,
     ) -> JoinHandle<()> {
-        tokio::spawn(Self::send_alert_event(
+        tokio::spawn(Self::send_alerender(
             self.sender.clone(),
             self.alert_sem.clone(),
             self.timer.clone(),
@@ -232,11 +230,10 @@ impl TimerMachine {
             self.timer.name
         );
         self.abort_tasks(reason).await;
-        let event_send = self
+        let _ = self
             .sender
             .send(RenderEvent::AlertEnd(self.timer.clone()))
             .await;
-        drop(event_send);
     }
 
     async fn abort_tasks(&self, reason: String) {
@@ -249,20 +246,32 @@ impl TimerMachine {
             .send(RenderEvent::AlertReset(self.timer.clone()))
             .await
             .unwrap();
+        /*let space_sender = SPACE_SENDER.get().unwrap();
+        let _ = space_sender
+            .send(SpaceEvent::MarkerReset(self.timer.clone()))
+            .await;
+        drop(space_sender);*/
     }
 
     async fn start_tasks(&self, phase: &TimerFilePhase) {
         let alerts = phase.get_alerts();
+        let markers = phase.get_markers();
         let phase_state = PhaseState {
             timer: self.timer.clone(),
             start: Instant::now(),
             phase: phase.clone(),
             alerts,
+            markers,
         };
         self.sender
-            .send(RenderEvent::AlertFeed(phase_state))
+            .send(RenderEvent::AlertFeed(phase_state.clone()))
             .await
             .unwrap();
+        /*let space_sender = SPACE_SENDER.get().unwrap();
+        let _ = space_sender
+            .send(SpaceEvent::MarkerFeed(phase_state))
+            .await;
+        drop(space_sender);*/
     }
 
     /**

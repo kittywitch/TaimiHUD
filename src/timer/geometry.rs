@@ -7,7 +7,7 @@ use {
     std::cmp::Ordering,
 };
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Default, Debug, Clone, Copy)]
 #[serde(transparent)]
 pub struct BlishVec3 {
     child: Vec3,
