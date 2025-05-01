@@ -7,7 +7,17 @@ edition = "2021"
 build = "build.rs"
 
 [features]
-space = []
+space = [
+  "dep:itertools",
+  "dep:tobj",
+  "dep:image",
+  "dep:bevy_ecs",
+  "dep:bevy_utils",
+  "dep:arc-atomic",
+  "dep:windows",
+  "dep:windows-strings",
+  "dep:windows-core",
+]
 
 [build-dependencies]
 built = { version = "0.7.7", features = [ "chrono", "git2" ] }
@@ -15,8 +25,7 @@ built = { version = "0.7.7", features = [ "chrono", "git2" ] }
 [dependencies]
 anyhow = "1.0.95"
 log = "0.4.21"
-nexus = { git = "https://github.com/zerthox/nexus-rs", features = ["log", "log_filter", "mumble", "arc", "extras"] }
-tokio = { version = "1.43.0", features = [ "full" ] }
+tokio = { version = "1.43.0", features = [ "fs", "macros" ] }
 arcdps = { git = "https://github.com/zerthox/arcdps-rs", tag = "0.15.1" }
 glam = { version = "0.30.0", features = [ "serde", "mint" ] }
 palette = { version = "0.7.6", features = [ "serde" ] }
@@ -28,7 +37,7 @@ serde_with = "3.12.0"
 json-strip-comments = "1.0.4"
 strum = "0.27.1"
 strum_macros = "0.27.1"
-octocrab = "0.44.0"
+octocrab = "0.44.0" # excise like the plague o.o
 reqwest = { version = "0.12.15", features = [ "stream" ] }
 tempfile = "3.19.1"
 bytes = "1.10.1"
@@ -43,17 +52,52 @@ chrono = { version = "0.4.40", features = [ "serde", "alloc" ] }
 indexmap = "2.9.0"
 relative-path = { version = "1.9.3", features = [ "serde" ] }
 bitflags = "2.9.0"
-windows = { version = "0.60.0", features = ["Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi", "Win32_Graphics_Dxgi_Common", "System", "Win32_Graphics_Direct3D_Fxc", "Win32_Graphics_Hlsl", "Win32_System_Diagnostics_Debug"] }
-windows-strings = "0.3.1"
-windows-core = "0.60.1"
 mint = "0.5.9"
-tobj = { version = "4.0.3", features = [ "merging", "reordering" ] }
-itertools = "0.14.0"
-rand = "0.9.1"
-image = "0.25.6"
-arc-atomic = "0.1.0"
-bevy_ecs = "0.16.0"
-bevy_utils = "0.16.0"
+
+itertools = { optional = true, version = "0.14.0" }
+tobj = { optional = true, version = "4.0.3", features = [ "merging", "reordering" ] }
+bevy_ecs = { optional = true, version = "0.16.0" }
+bevy_utils = { optional = true, version = "0.16.0" }
+arc-atomic = { optional = true, version = "0.1.0" }
+windows-strings = { optional = true, version = "0.3.1" }
+windows-core = { optional = true, version = "0.60.1" }
+
+[dependencies.nexus]
+git = "https://github.com/zerthox/nexus-rs"
+features = [
+  "log",
+  "log_filter",
+  "mumble",
+  "arc",
+  "extras",
+]
+
+[dependencies.image]
+optional = true
+version = "0.25.6"
+features = [
+  "png",
+  "jpeg",
+  "tga",
+  "tiff",
+  "bmp",
+  "dds",
+]
+
+[dependencies.windows]
+optional = true
+version = "0.60.0"
+features = [
+  "System",
+  "Win32_Graphics_Direct3D11",
+  "Win32_Graphics_Dxgi",
+  "Win32_Graphics_Dxgi_Common",
+  "Win32_Graphics_Direct3D_Fxc",
+  "Win32_Graphics_Hlsl",
+  "Win32_System_Diagnostics_Debug"
+]
+
+
 
 [lib]
 crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)
