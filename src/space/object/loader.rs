@@ -1,6 +1,6 @@
 use {
     super::{ObjectBacking, ObjectDescription},
-    crate::render::space::resources::{ObjFile, PixelShaders, VertexShaders},
+    crate::space::resources::{ObjFile, PixelShaders, VertexShaders},
     glob::Paths,
     itertools::Itertools,
     std::{

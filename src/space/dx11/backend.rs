@@ -1,6 +1,6 @@
 use {
     super::{DepthHandler, PerspectiveHandler, PerspectiveInputData},
-    crate::render::space::resources::ShaderLoader,
+    crate::space::resources::ShaderLoader,
     anyhow::anyhow,
     glam::Vec4,
     itertools::Itertools,

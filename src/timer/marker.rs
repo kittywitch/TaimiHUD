@@ -1,6 +1,6 @@
 use {
     tokio::time::{Duration, Instant},
-    crate::{render::space::engine::RotationType, timer::BlishVec3}, glam::{Mat4, Vec3}, serde::{Deserialize, Serialize}, std::path::PathBuf
+    crate::{ timer::BlishVec3}, glam::{Mat4, Vec3}, serde::{Deserialize, Serialize}, std::path::PathBuf
 };
 
 fn default_size() -> f32 {
@@ -63,6 +63,13 @@ impl BlishMarker {
             .collect()
     }
 }
+
+#[derive(Clone)]
+pub enum RotationType {
+    Rotation(Vec3),
+    Billboard,
+}
+
 
 #[derive(Clone)]
 pub struct TimerMarker {

@@ -15,7 +15,7 @@ pub use {
     blishcolour::BlishColour,
     file::TimerFile,
     geometry::{BlishPosition, BlishVec3, Polytope, Position},
-    marker::{BlishMarker, TimerMarker},
+    marker::{BlishMarker, TimerMarker, RotationType},
     phase::TimerPhase,
     state_machine::{PhaseState, TextAlert, TimerKeybinds, TimerMachine},
     trigger::{CombatState, TimerTrigger, TimerTriggerType},

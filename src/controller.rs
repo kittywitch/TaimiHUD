@@ -1,6 +1,6 @@
 use {
     crate::{
-        render::{space::dx11::PerspectiveInputData, TextFont},
+        render::TextFont,
         settings::{RemoteSource, Settings, SettingsLock},
         timer::{CombatState, Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, SETTINGS,
@@ -35,6 +35,9 @@ use {
         time::{interval, Duration},
     },
 };
+
+#[cfg(feature = "space")]
+use crate::space::dx11::PerspectiveInputData;
 
 #[derive(Debug, Clone)]
 pub struct Controller {
@@ -202,10 +205,12 @@ impl Controller {
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         if let Some(mumble) = self.mumble_pointer {
             let playpos = Vec3::from_array(mumble.read_avatar().position);
+            #[cfg(feature = "space")] {
             let camera = mumble.read_camera();
             let front = Vec3::from_array(camera.front);
             let pos = Vec3::from_array(camera.position);
             PerspectiveInputData::swap_camera(front, pos, playpos);
+            }
             self.player_position = Some(playpos);
             let combat_state = mumble
                 .read_context()
@@ -235,9 +240,11 @@ impl Controller {
     }
 
     async fn handle_mumble(&mut self, identity: MumbleIdentityUpdate) {
-        if self.last_fov != identity.fov {
-            PerspectiveInputData::swap_fov(identity.fov);
-            self.last_fov = identity.fov;
+        #[cfg(feature = "space")] {
+            if self.last_fov != identity.fov {
+                PerspectiveInputData::swap_fov(identity.fov);
+                self.last_fov = identity.fov;
+            }
         }
         let new_map_id = identity.map_id;
         if Some(new_map_id) != self.map_id {

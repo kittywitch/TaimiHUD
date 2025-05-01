@@ -1,6 +1,6 @@
 use {
     super::{super::Model, ObjMaterial, ObjMaterials, ObjModel},
-    crate::render::space::object::ObjectLoader,
+    crate::space::object::ObjectLoader,
     itertools::Itertools,
     std::{
         collections::HashMap,

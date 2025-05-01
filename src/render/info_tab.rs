@@ -1,7 +1,14 @@
 use {
     super::TimerWindowState,
-    crate::{built_info, render::RenderState, ENGINE, ENGINE_INITIALIZED, SETTINGS, TEXTURES},
+    crate::{built_info, render::RenderState, SETTINGS},
     nexus::imgui::{TableColumnSetup, Ui},
+};
+
+#[cfg(feature="space")]
+use {
+    crate::{
+      ENGINE, ENGINE_INITIALIZED, TEXTURES,
+    },
 };
 
 pub struct InfoTabState {}
@@ -52,6 +59,12 @@ impl InfoTabState {
             ui.table_next_column();
         }
         drop(table_token);
+        #[cfg(feature="space")]
+        self.space_info(ui);
+    }
+
+    #[cfg(feature="space")]
+    pub fn space_info(&self, ui: &Ui) {
         RenderState::font_text("ui", ui,"Engine");
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender && ENGINE_INITIALIZED.get() {

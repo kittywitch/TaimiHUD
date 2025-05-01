@@ -2,7 +2,7 @@ use {
     super::{
         dx11::{perspective_input_data::PERSPECTIVEINPUTDATA, InstanceBufferData, RenderBackend},
         object::{ObjectBacking, ObjectLoader}, resources::Texture,
-    }, crate::{render::space::resources::ObjFile, timer::{PhaseState, TimerFile, TimerMarker}}, anyhow::anyhow, bevy_ecs::prelude::*, glam::{Mat4, Vec3, Vec3Swizzles}, itertools::Itertools, nexus::{imgui::Ui, paths::get_addon_dir}, std::{collections::HashMap, path::PathBuf, sync::{Arc, OnceLock, RwLock}}, tokio::{sync::mpsc::Receiver, time::{Duration, Instant}}
+    }, crate::{space::resources::ObjFile, timer::{RotationType, PhaseState, TimerFile, TimerMarker}}, anyhow::anyhow, bevy_ecs::prelude::*, glam::{Mat4, Vec3, Vec3Swizzles}, itertools::Itertools, nexus::{imgui::Ui, paths::get_addon_dir}, std::{collections::HashMap, path::PathBuf, sync::{Arc, OnceLock, RwLock}}, tokio::{sync::mpsc::Receiver, time::{Duration, Instant}}
 };
 
 
@@ -17,12 +17,6 @@ struct Position(Vec3);
 
 #[derive(Component)]
 struct Rotation(Vec3);
-
-#[derive(Clone)]
-pub enum RotationType {
-    Rotation(Vec3),
-    Billboard,
-}
 
 #[derive(Bundle)]
 struct Space {

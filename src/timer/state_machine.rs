@@ -1,11 +1,19 @@
 use {
     super::TimerMarker, crate::{
-        render::{space::engine::SpaceEvent, RenderEvent}, timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase}, RENDER_SENDER, SETTINGS, SPACE_SENDER
+        render::{ RenderEvent}, timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase}, RENDER_SENDER, SETTINGS,
     }, bitflags::bitflags, std::{fmt::Display, ops::Deref, sync::Arc}, tokio::{
         sync::{mpsc::Sender, Mutex},
         task::JoinHandle,
         time::{sleep, Duration, Instant},
     }
+};
+
+#[cfg(feature="space")]
+use {
+    crate::{
+        SPACE_SENDER,
+        space::engine::SpaceEvent,
+    },
 };
 
 bitflags! {
@@ -16,6 +24,83 @@ bitflags! {
         const C = 1 << 2;
         const D = 1 << 3;
         const E = 1 << 4;
+    }
+}
+
+enum EventMapper {
+    Feed(PhaseState),
+    Reset(Arc<TimerFile>),
+}
+
+impl EventMapper {
+    fn feed(ps: PhaseState) -> Self {
+        Self::Feed(ps)
+    }
+
+    fn reset(tf: Arc<TimerFile>) -> Self {
+        Self::Reset(tf.clone())
+    }
+
+    #[cfg(feature = "space")]
+    async fn send_space(&self) {
+        match self {
+            Self::Feed(ps) => {
+                if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+                    if settings.enable_katrender {
+                        let space_sender = SPACE_SENDER.get().unwrap();
+                        let _ = space_sender
+                            .send(SpaceEvent::MarkerFeed(ps.clone()))
+                            .await;
+                        drop(space_sender);
+                    }
+                }
+            
+            },
+            Self::Reset(tf) => {
+                if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+                    if settings.enable_katrender {
+                        let space_sender = SPACE_SENDER.get().unwrap();
+                        let _ = space_sender
+                            .send(SpaceEvent::MarkerReset(tf.clone()))
+                            .await;
+                        drop(space_sender);
+                    }
+                }
+            }
+        }
+    }
+    async fn send_render(&self) {
+        match self {
+            Self::Feed(ps) => {
+                if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+                    if settings.enable_katrender {
+                        let render_sender = RENDER_SENDER.get().unwrap();
+                        let _ = render_sender
+                            .send(RenderEvent::AlertFeed(ps.clone()))
+                            .await;
+                        drop(render_sender);
+                    }
+                }
+            
+            },
+            Self::Reset(tf) => {
+                if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+                    if settings.enable_katrender {
+                        let render_sender = RENDER_SENDER.get().unwrap();
+                        let _ = render_sender
+                            .send(RenderEvent::AlertReset(tf.clone()))
+                            .await;
+                        drop(render_sender);
+                    }
+                }
+            }
+        }
+    }
+
+    async fn send(&self) {
+        #[cfg(feature = "space")]
+        self.send_space().await;
+        self.send_render().await;
     }
 }
 
@@ -241,19 +326,8 @@ impl TimerMachine {
             self.tasks.len(),
             reason
         );
-        self.sender
-            .send(RenderEvent::AlertReset(self.timer.clone()))
-            .await
-            .unwrap();
-        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
-            if settings.enable_katrender {
-                let space_sender = SPACE_SENDER.get().unwrap();
-                let _ = space_sender
-                    .send(SpaceEvent::MarkerReset(self.timer.clone()))
-                    .await;
-                drop(space_sender);
-            }
-        }
+        let reset_event = EventMapper::reset(self.timer.clone());
+        reset_event.send();
     }
 
     async fn start_tasks(&self, phase: &TimerFilePhase) {
@@ -266,19 +340,8 @@ impl TimerMachine {
             alerts,
             markers,
         };
-        self.sender
-            .send(RenderEvent::AlertFeed(phase_state.clone()))
-            .await
-            .unwrap();
-        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
-            if settings.enable_katrender {
-        let space_sender = SPACE_SENDER.get().unwrap();
-        let _ = space_sender
-            .send(SpaceEvent::MarkerFeed(phase_state))
-            .await;
-        drop(space_sender);
-            }
-        }
+        let feed_event = EventMapper::feed(phase_state.clone());
+        feed_event.send();
     }
 
     /**

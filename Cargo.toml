@@ -6,6 +6,9 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
+[features]
+space = []
+
 [build-dependencies]
 built = { version = "0.7.7", features = [ "chrono", "git2" ] }
 

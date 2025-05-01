@@ -3,10 +3,19 @@ mod render;
 mod settings;
 mod timer;
 
+#[cfg(feature="space")]
+mod space;
+
+#[cfg(feature="space")]
+use {
+ space::{Engine, engine::SpaceEvent, resources::Texture},
+};
+
+
 use {
     crate::{
         controller::{Controller, ControllerEvent},
-        render::{Engine, RenderEvent, RenderState},
+        render::{RenderEvent, RenderState},
         settings::SettingsLock,
     }, arcdps::AgentOwned, nexus::{
         event::{
@@ -18,7 +27,7 @@ use {
         paths::get_addon_dir,
         quick_access::add_quick_access,
         AddonFlags, UpdateProvider,
-    }, render::space::{engine::SpaceEvent, resources::Texture}, std::{
+    }, std::{
         cell::{Cell, RefCell}, collections::HashMap, path::PathBuf, ptr, sync::{Arc, Mutex, OnceLock, RwLock}, thread::{self, JoinHandle}
     }, tokio::sync::mpsc::{channel, Sender}
 };
@@ -27,9 +36,12 @@ pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
+#[cfg(feature="space")]
 static TEXTURES: OnceLock<RwLock<HashMap<PathBuf, Arc<Texture>>>> = OnceLock::new();
 static CONTROLLER_SENDER: OnceLock<Sender<ControllerEvent>> = OnceLock::new();
 static RENDER_SENDER: OnceLock<Sender<RenderEvent>> = OnceLock::new();
+
+#[cfg(feature="space")]
 static SPACE_SENDER: OnceLock<Sender<SpaceEvent>> = OnceLock::new();
 
 static CONTROLLER_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
@@ -47,12 +59,14 @@ nexus::export! {
 
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
 static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
+#[cfg(feature="space")]
 thread_local! {
     static ENGINE_INITIALIZED: Cell<bool> = const { Cell::new(false) };
     static ENGINE: RefCell<Option<Engine>> = panic!("!");
 }
 
 fn load() {
+    #[cfg(feature="space")]
     TEXTURES.set(
         RwLock::new(
             HashMap::new()));
@@ -82,6 +96,11 @@ fn load() {
         let mut state = RenderState::lock();
         state.draw(ui);
         drop(state);
+    });
+    register_render(RenderType::Render, taimi_window).revert_on_unload();
+
+    #[cfg(feature="space")]
+    let space_render = render!(|ui|  {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender {
                 if !ENGINE_INITIALIZED.get() {
@@ -104,7 +123,8 @@ fn load() {
             }
         }
     });
-    register_render(RenderType::Render, taimi_window).revert_on_unload();
+    #[cfg(feature="space")]
+    register_render(RenderType::Render, space_render).revert_on_unload();
 
     // Handle window toggling with keybind and button
     let main_window_keybind_handler = keybind_handler!(|_id, is_release| {
