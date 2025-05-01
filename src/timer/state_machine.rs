@@ -1,7 +1,6 @@
 use {
     super::TimerMarker, crate::{
-        render::{space::engine::SpaceEvent, RenderEvent},
-        timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase}, RENDER_SENDER, SPACE_SENDER,
+        render::{space::engine::SpaceEvent, RenderEvent}, timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase}, RENDER_SENDER, SETTINGS, SPACE_SENDER
     }, bitflags::bitflags, std::{fmt::Display, ops::Deref, sync::Arc}, tokio::{
         sync::{mpsc::Sender, Mutex},
         task::JoinHandle,
@@ -246,11 +245,15 @@ impl TimerMachine {
             .send(RenderEvent::AlertReset(self.timer.clone()))
             .await
             .unwrap();
-        /*let space_sender = SPACE_SENDER.get().unwrap();
-        let _ = space_sender
-            .send(SpaceEvent::MarkerReset(self.timer.clone()))
-            .await;
-        drop(space_sender);*/
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            if settings.enable_katrender {
+                let space_sender = SPACE_SENDER.get().unwrap();
+                let _ = space_sender
+                    .send(SpaceEvent::MarkerReset(self.timer.clone()))
+                    .await;
+                drop(space_sender);
+            }
+        }
     }
 
     async fn start_tasks(&self, phase: &TimerFilePhase) {
@@ -267,11 +270,15 @@ impl TimerMachine {
             .send(RenderEvent::AlertFeed(phase_state.clone()))
             .await
             .unwrap();
-        /*let space_sender = SPACE_SENDER.get().unwrap();
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            if settings.enable_katrender {
+        let space_sender = SPACE_SENDER.get().unwrap();
         let _ = space_sender
             .send(SpaceEvent::MarkerFeed(phase_state))
             .await;
-        drop(space_sender);*/
+        drop(space_sender);
+            }
+        }
     }
 
     /**

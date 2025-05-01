@@ -64,6 +64,6 @@ PSOutput PSMain(PSInput input)
     PSOutput output = (PSOutput)0;
     float2 newtex = float2(input.tex.x, 1 - input.tex.y);
     float4 textureColour = shaderTexture.Sample(SampleType, newtex);
-    output.color = float4(input.color, 1.0) * textureColour;
+    output.color = float4(input.color * textureColour.xyz, textureColour.w);
     return output;
 }

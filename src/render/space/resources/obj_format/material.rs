@@ -1,14 +1,15 @@
 use {
     super::super::texture::Texture, glam::Vec3, itertools::Itertools, std::path::PathBuf,
     tobj::Material as tobjMaterial, windows::Win32::Graphics::Direct3D11::ID3D11Device,
+    std::sync::Arc,
 };
 
 pub struct ColouredMaterialTexture {
-    pub texture: Texture,
+    pub texture: Arc<Texture>,
     pub colour: Vec3,
 }
 pub struct AttributedMaterialTexture {
-    pub texture: Texture,
+    pub texture: Arc<Texture>,
     pub attribute: f32,
 }
 
@@ -17,7 +18,7 @@ pub struct ObjMaterial {
     pub ambient: Option<ColouredMaterialTexture>,
     pub diffuse: Option<ColouredMaterialTexture>,
     pub specular: Option<ColouredMaterialTexture>,
-    pub normal: Option<Texture>,
+    pub normal: Option<Arc<Texture>>,
     pub shininess: Option<AttributedMaterialTexture>,
     pub dissolve: Option<AttributedMaterialTexture>,
 }

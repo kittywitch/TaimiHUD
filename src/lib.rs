@@ -18,11 +18,8 @@ use {
         paths::get_addon_dir,
         quick_access::add_quick_access,
         AddonFlags, UpdateProvider,
-    }, render::space::engine::SpaceEvent, std::{
-        cell::{Cell, RefCell},
-        ptr,
-        sync::{Mutex, OnceLock},
-        thread::{self, JoinHandle},
+    }, render::space::{engine::SpaceEvent, resources::Texture}, std::{
+        cell::{Cell, RefCell}, collections::HashMap, path::PathBuf, ptr, sync::{Arc, Mutex, OnceLock, RwLock}, thread::{self, JoinHandle}
     }, tokio::sync::mpsc::{channel, Sender}
 };
 
@@ -30,6 +27,7 @@ pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
+static TEXTURES: OnceLock<RwLock<HashMap<PathBuf, Arc<Texture>>>> = OnceLock::new();
 static CONTROLLER_SENDER: OnceLock<Sender<ControllerEvent>> = OnceLock::new();
 static RENDER_SENDER: OnceLock<Sender<RenderEvent>> = OnceLock::new();
 static SPACE_SENDER: OnceLock<Sender<SpaceEvent>> = OnceLock::new();
@@ -55,6 +53,9 @@ thread_local! {
 }
 
 fn load() {
+    TEXTURES.set(
+        RwLock::new(
+            HashMap::new()));
     // Say hi to the world :o
     let name = env!("CARGO_PKG_NAME");
     let authors = env!("CARGO_PKG_AUTHORS");

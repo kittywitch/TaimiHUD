@@ -1,5 +1,5 @@
 use {
-    super::{super::dx11::InstanceBufferData, ObjectRenderBacking, ObjectRenderMetadata}, crate::{render::{space::{dx11::InstanceBuffer, resources::{obj_format::material::ColouredMaterialTexture, Model, ObjMaterial, ShaderPair, Texture}}, Engine}, timer::TimerMarker}, glam::{Mat4, Vec3}, std::sync::RwLock, windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext}
+    super::{super::dx11::InstanceBufferData, ObjectRenderBacking, ObjectRenderMetadata}, crate::{render::{space::{dx11::{InstanceBuffer, RenderBackend}, object::PrimitiveTopology, resources::{obj_format::material::ColouredMaterialTexture, Model, ObjFile, ObjMaterial, ShaderPair, Texture}}, Engine}, timer::TimerMarker}, glam::{Mat4, Vec3}, std::{path::PathBuf, sync::RwLock}, windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext}
 };
 
 pub struct ObjectBacking {
@@ -9,16 +9,25 @@ pub struct ObjectBacking {
 
 impl ObjectBacking {
     pub fn create_marker(
-        &self,
-        engine: &Engine,
+        render_backend: &RenderBackend,
+        cat: &Model,
         marker: &TimerMarker,
+        path: PathBuf,
     ) -> anyhow::Result<Self> {
-        let texture = Texture::load(&engine.render_backend.device, &marker.texture)?;
+        let timer_path = if let Some(timer_path_parent) = path.parent() {
+            timer_path_parent.join(marker.texture.clone())
+        }
+        else {
+            marker.texture.clone()
+        };
+        log::info!("Loading texture from {timer_path:?}!");
+        let texture = Texture::load(&render_backend.device, &timer_path)?;
         let shaders = ShaderPair(
-            engine.render_backend.shaders.0["textured"].clone(),
-            engine.render_backend.shaders.1["textured"].clone(),
+            render_backend.shaders.0["textured"].clone(),
+            render_backend.shaders.1["textured"].clone(),
         );
         let model = Model::quad()?;
+        //let model = cat.clone();
         let model_matrix = marker.model_matrix();
         let ibd = [InstanceBufferData {
             world: model_matrix,
@@ -27,8 +36,8 @@ impl ObjectBacking {
         }];
         let render = ObjectRenderBacking {
             instance_buffer: RwLock::new(InstanceBuffer::create(
-                &engine.render_backend.device, &ibd)?),
-            vertex_buffer: model.to_buffer(&engine.render_backend.device)?,
+                &render_backend.device, &ibd)?),
+            vertex_buffer: model.to_buffer(&render_backend.device)?,
             shaders,
             metadata: ObjectRenderMetadata {
                 model,
@@ -44,13 +53,14 @@ impl ObjectBacking {
                     })
                 },
                 model_matrix,
-                topology: Default::default(),
+                topology: PrimitiveTopology::TriangleList,
             }
         };
-        Ok(Self {
+        let marker = Self {
             name: "Marker".to_string(),
             render,
-        })
+        };
+        Ok(marker)
 
     }
 

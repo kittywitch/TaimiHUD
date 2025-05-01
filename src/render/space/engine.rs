@@ -1,21 +1,16 @@
 use {
     super::{
-        dx11::{InstanceBufferData, RenderBackend},
-        object::{ObjectBacking, ObjectLoader},
-    },
-    crate::{render::space::resources::ObjFile, timer::{PhaseState, TimerFile, TimerMarker}},
-    anyhow::anyhow,
-    bevy_ecs::prelude::*,
-    glam::{Mat4, Vec3},
-    itertools::Itertools,
-    nexus::{imgui::Ui, paths::get_addon_dir},
-    tokio::sync::mpsc::Receiver,
-    std::{collections::HashMap, path::PathBuf, sync::Arc}, tokio::time::Instant,
+        dx11::{perspective_input_data::PERSPECTIVEINPUTDATA, InstanceBufferData, RenderBackend},
+        object::{ObjectBacking, ObjectLoader}, resources::Texture,
+    }, crate::{render::space::resources::ObjFile, timer::{PhaseState, TimerFile, TimerMarker}}, anyhow::anyhow, bevy_ecs::prelude::*, glam::{Mat4, Vec3, Vec3Swizzles}, itertools::Itertools, nexus::{imgui::Ui, paths::get_addon_dir}, std::{collections::HashMap, path::PathBuf, sync::{Arc, OnceLock, RwLock}}, tokio::{sync::mpsc::Receiver, time::{Duration, Instant}}
 };
+
 
 #[derive(Component)]
 struct Render {
+    disabled: bool,
     backing: Arc<ObjectBacking>,
+    rotation: RotationType,
 }
 #[derive(Component)]
 struct Position(Vec3);
@@ -29,23 +24,17 @@ pub enum RotationType {
     Billboard,
 }
 
-struct Marker {
-}
-
-struct CreateMarker {
-    marker: TimerMarker,
-    start: Instant,
-}
-
-#[derive(Event)]
-enum EngineEvent {
-    CreateMarker,
-}
-
 #[derive(Bundle)]
 struct Space {
     position: Position,
     rotation: Rotation,
+}
+
+#[derive(Component)]
+struct Marker {
+    start: Instant,
+    duration: Duration,
+    marker: TimerMarker,
 }
 
 #[derive(Bundle)]
@@ -59,15 +48,21 @@ pub enum SpaceEvent {
     MarkerReset(Arc<TimerFile>),
 }
 
+
+fn handle_marker_timings(query: Query<Entity, With<Marker>>) {
+}
+
 pub struct Engine {
     receiver: Receiver<SpaceEvent>,
     addon_dir: PathBuf,
     pub render_backend: RenderBackend,
-    object_kinds: HashMap<String, Arc<ObjectBacking>>,
+    pub model_files: HashMap<PathBuf, ObjFile>,
+    pub object_kinds: HashMap<String, Arc<ObjectBacking>>,
     phase_states: Vec<PhaseState>,
+    associated_entities: HashMap<String, Vec<Entity>>,
 
     // ECS stuff
-    world: World,
+    pub world: World,
 }
 
 impl Engine {
@@ -93,11 +88,13 @@ impl Engine {
         let schedule = Schedule::default();
 
         let mut engine = Engine {
+            model_files,
             receiver,
             addon_dir,
             render_backend,
             object_kinds,
             world,
+            associated_entities: Default::default(),
             phase_states: Default::default(),
         };
 
@@ -105,41 +102,79 @@ impl Engine {
             engine.world.spawn((
                 Position(Vec3::new(0.0, 130.0, 0.0)),
                 Render {
+                    disabled: false,
                     backing: backing.clone(),
+                    rotation: RotationType::Rotation(Vec3::ZERO),
                 },
             ));
         }
         Ok(engine)
     }
 
-    pub fn new_phase(&mut self, phase_state: PhaseState) {
+    pub fn new_phase(&mut self, phase_state: PhaseState) -> anyhow::Result<()> {
+        let markers = &phase_state.markers;
+        let entry = self.associated_entities
+            .entry(phase_state.timer.name.clone())
+            .or_default();
+        for marker in markers {
+            if let Some(base_path) = &phase_state.timer.path {
+                let backing = Arc::new(ObjectBacking::create_marker(&self.render_backend, &self.object_kinds["Cat"].render.metadata.model, marker, base_path.clone())?);
+                let entity = self.world.spawn((
+                    Position(marker.position),
+                    Render {
+                        rotation: marker.kind.clone(),
+                        disabled: false,
+                        backing,
+                    },
+                ));
+                let id = entity.id();
+                log::debug!("Creating entity {id} at {} from timer {} markers, phase {}", marker.position, phase_state.timer.name(), phase_state.phase.name);
+                entry.push(id);
+            }
+        }
         self.phase_states.push(phase_state);
+        Ok(())
     }
-    pub fn remove_phase(&mut self, timer: Arc<TimerFile>) {
+    pub fn remove_phase(&mut self, timer: Arc<TimerFile>) -> anyhow::Result<()> {
+        if let Some(entry) = self.associated_entities
+            .remove(&timer.name.clone()) {
+            for entity in entry {
+                log::debug!("Despawning {entity} from timer {} markers", timer.name());
+                self.world.despawn(entity);
+            }
+        }
         self.phase_states.retain(|p| !Arc::ptr_eq(&p.timer, &timer));
+        Ok(())
     }
     pub fn reset_phases(&mut self) {
+        for entities in self.associated_entities.values() {
+            for entity in entities {
+                self.world.despawn(*entity);
+            }
+        }
+        self.associated_entities.clear();
         self.phase_states.clear();
     }
 
-    pub fn process_event(&mut self) {
+    pub fn process_event(&mut self) -> anyhow::Result<()> {
         match self.receiver.try_recv() {
             Ok(event) => {
                 use SpaceEvent::*;
                 match event {
                     MarkerFeed(phase_state) =>
-                        self.new_phase(phase_state),
+                        self.new_phase(phase_state)?,
                     MarkerReset(timer) =>
-                        self.remove_phase(timer),
+                        self.remove_phase(timer)?,
                 }
             },
             Err(_error) => (),
         }
+        Ok(())
     }
 
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;
-        self.process_event();
+        self.process_event()?;
         let backend = &mut self.render_backend;
         backend.prepare(&display_size);
         let device_context =
@@ -154,12 +189,24 @@ impl Engine {
         {
             let mut itery = c.into_iter();
             let slice = itery.next().ok_or(anyhow!("empty slice!"))?;
-            let (r, _p) = slice;
+            let (r, p) = slice;
+            if !r.disabled {
+                let pdata = PERSPECTIVEINPUTDATA.get().unwrap().load();
+            let rot = match r.rotation {
+                RotationType::Billboard => {
+                        let mark2d = (p.0.xz() - pdata.pos.xz()).to_angle();
+                        let y = Mat4::from_rotation_y(-90.0f32.to_radians() -mark2d);
+                        y
+                        //Mat4::IDENTITY
+                },
+                _ => Mat4::IDENTITY,
+            };
             let ibd: Vec<_> = vec![slice]
                 .into_iter()
                 .chain(itery)
                 .map(|(_r, p)| {
-                    let affy = r.backing.render.metadata.model_matrix * Mat4::from_translation(p.0);
+//  r.backing.render.metadata.model_matrix *
+                    let affy = Mat4::from_translation(p.0) * rot * r.backing.render.metadata.model_matrix;
                     InstanceBufferData {
                         world: affy,
                         //world_position: affy.translation,
@@ -169,6 +216,7 @@ impl Engine {
                 .collect();
             r.backing
                 .set_and_draw(slot, &backend.device, &device_context, &ibd)?;
+            }
         }
         Ok(())
     }

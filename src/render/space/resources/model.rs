@@ -16,7 +16,7 @@ pub enum ModelKind {
     Obj,
 }
 
-#[derive(Default, PartialEq)]
+#[derive(Default, PartialEq,Clone)]
 pub struct Model(Vec<Vertex>);
 
 impl Model {

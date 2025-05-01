@@ -1,4 +1,5 @@
 use {
+    tokio::time::{Duration, Instant},
     crate::{render::space::engine::RotationType, timer::BlishVec3}, glam::{Mat4, Vec3}, serde::{Deserialize, Serialize}, std::path::PathBuf
 };
 
@@ -75,21 +76,43 @@ pub struct TimerMarker {
 }
 
 impl TimerMarker {
+    pub fn raw_timestamp(&self) -> Duration {
+        Duration::from_secs_f32(self.timestamp)
+    }
+    pub fn timestamp(&self) -> Duration {
+        self.raw_timestamp()
+            .checked_sub(self.duration())
+            .unwrap_or_default()
+    }
+    pub fn duration(&self) -> Duration {
+        Duration::from_secs_f32(self.duration)
+    }
+    pub fn end(&self, start: Instant) -> Instant {
+        self.start(start) + self.duration()
+    }
+    pub fn start(&self, start: Instant) -> Instant {
+        start + self.timestamp()
+    }
+    pub fn remaining(&self, start: Instant) -> Duration {
+        self.end(start).saturating_duration_since(Instant::now())
+    }
     pub fn model_matrix(&self) -> Mat4 {
         // scale first
-        let mtx_scale = Mat4::from_scale(Vec3::new(self.size, self.size, self.size));
+        let scaler = self.size;
+        let mtx_scale = Mat4::from_scale(Vec3::new(scaler, scaler, scaler));
         // then rotate the points
-        let mtx_rotation = match self.kind {
+        let mut mtx_rotation = match self.kind {
             // billboards should have their rotation component handled elsewhere ideally
             // perhaps *prior* to the application of this, thus NOOP :p
-            RotationType::Billboard => Mat4::IDENTITY,
+            RotationType::Billboard => Mat4::IDENTITY, //Mat4::from_rotation_y(180.0f32.to_radians()), //Mat4::from_rotation_x(90.0f32.to_radians()), //* Mat4::from_rotation_z(90.0f32.to_radians()),
             RotationType::Rotation(rot) => 
                     Mat4::from_rotation_x(rot.x) *
                     Mat4::from_rotation_y(rot.y) *
                     Mat4::from_rotation_z(rot.z),
         };
         // then move them
-        let mtx_position = Mat4::from_translation(self.position);
-        mtx_scale * mtx_rotation * mtx_position
+        //let mtx_position = Mat4::from_translation(self.position);
+        //mtx_rotation = mtx_rotation * Mat4::from_rotation_y(180.0f32.to_radians());
+        mtx_scale * mtx_rotation// * mtx_position
     }
 }

@@ -201,11 +201,12 @@ impl Controller {
 
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         if let Some(mumble) = self.mumble_pointer {
-            self.player_position = Some(Vec3::from_array(mumble.read_avatar().position));
+            let playpos = Vec3::from_array(mumble.read_avatar().position);
             let camera = mumble.read_camera();
             let front = Vec3::from_array(camera.front);
             let pos = Vec3::from_array(camera.position);
-            PerspectiveInputData::swap_camera(front, pos);
+            PerspectiveInputData::swap_camera(front, pos, playpos);
+            self.player_position = Some(playpos);
             let combat_state = mumble
                 .read_context()
                 .ui_state

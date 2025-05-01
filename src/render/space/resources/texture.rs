@@ -1,9 +1,5 @@
 use {
-    anyhow::anyhow,
-    image::ImageReader,
-    itertools::Itertools,
-    std::path::Path,
-    windows::Win32::Graphics::{
+    crate::TEXTURES, anyhow::anyhow, image::ImageReader, itertools::Itertools, std::path::Path, windows::Win32::Graphics::{
         Direct3D::D3D11_SRV_DIMENSION_TEXTURE2D,
         Direct3D11::{
             ID3D11Device, ID3D11DeviceContext, ID3D11ShaderResourceView, ID3D11Texture2D,
@@ -14,6 +10,7 @@ use {
         },
         Dxgi::Common::{DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC},
     },
+    std::sync::Arc,
 };
 
 #[derive(PartialEq)]
@@ -24,7 +21,15 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub fn load(device: &ID3D11Device, path: &Path) -> anyhow::Result<Self> {
+    pub fn load(device: &ID3D11Device, path: &Path) -> anyhow::Result<Arc<Self>> {
+        let tex_store = TEXTURES.get().unwrap();
+        let tex_lock = tex_store.read().unwrap();
+        if tex_lock.contains_key(path) {
+            log::debug!("Deduplicated {path:?}!");
+            Ok(tex_lock[path].clone())
+        } else {
+            log::debug!("Un-deduplicated {path:?}!");
+            drop(tex_lock);
         let image_reader = ImageReader::open(path)?;
         let format = image_reader.format();
         log::info!("Loading {:?} texture from {path:?}!", format);
@@ -84,11 +89,16 @@ impl Texture {
         .and_then(|()| view_ptr.ok_or_else(|| anyhow!("no shader resource view")))?;
         let view = vec![Some(view)];
         log::info!("Loaded {:?} texture from {path:?}!", format);
-        Ok(Self {
+        let texture = Self {
             texture,
             view,
             dimensions: dimensions.into(),
-        })
+        };
+            let tarc = Arc::new(texture);
+        let mut tex_write = tex_store.write().unwrap();
+        tex_write.insert(path.to_path_buf(), tarc.clone());
+        Ok(tarc.clone())
+        }
     }
 
     pub fn generate_mips(&self, device_context: &ID3D11DeviceContext) {

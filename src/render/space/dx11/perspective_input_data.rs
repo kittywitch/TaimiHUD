@@ -5,13 +5,14 @@ use {
     std::sync::{Arc, OnceLock},
 };
 
-static PERSPECTIVEINPUTDATA: OnceLock<Arc<AtomicArc<PerspectiveInputData>>> = OnceLock::new();
+pub static PERSPECTIVEINPUTDATA: OnceLock<Arc<AtomicArc<PerspectiveInputData>>> = OnceLock::new();
 
 #[derive(Debug, Default, PartialEq, Clone)]
 pub struct PerspectiveInputData {
     pub front: Vec3,
     pub pos: Vec3,
     pub fov: f32,
+    pub playpos: Vec3,
 }
 
 impl PerspectiveInputData {
@@ -24,10 +25,11 @@ impl PerspectiveInputData {
         Some(PERSPECTIVEINPUTDATA.get()?.load())
     }
 
-    pub fn swap_camera(front: Vec3, pos: Vec3) {
+    pub fn swap_camera(front: Vec3, pos: Vec3, playpos: Vec3) {
         if let Some(data) = PERSPECTIVEINPUTDATA.get() {
             let pdata = data.load();
             data.store(Arc::new(PerspectiveInputData {
+                playpos,
                 fov: pdata.fov,
                 front,
                 pos,
@@ -40,6 +42,7 @@ impl PerspectiveInputData {
             let pdata = data.load();
             data.store(Arc::new(PerspectiveInputData {
                 fov,
+                playpos: pdata.playpos,
                 front: pdata.front,
                 pos: pdata.pos,
             }))
