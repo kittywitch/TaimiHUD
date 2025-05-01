@@ -210,8 +210,11 @@ fn load() {
 
 fn unload() {
     log::info!("Unloading addon");
-    // all actions passed to on_load() or revert_on_unload() are performed automatically
-    // TODO: clean up Engine / 3d render state
+    #[cfg(feature="space")]
+    ENGINE.with_borrow_mut(|e| {
+        #[cfg(todo)]
+        e.cleanup();
+    });
     let sender = CONTROLLER_SENDER.get().unwrap();
     let event_send = sender.try_send(ControllerEvent::Quit);
     drop(event_send);

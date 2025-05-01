@@ -1,10 +1,10 @@
 use {
+    super::GitHubSource,
     crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS},
     anyhow::anyhow,
     async_compression::tokio::bufread::GzipDecoder,
     chrono::{DateTime, Utc},
     futures::stream::{StreamExt, TryStreamExt},
-    octocrab::models::repos::Release,
     reqwest::{Client, IntoUrl, Response},
     serde::{Deserialize, Serialize},
     std::{
@@ -70,81 +70,6 @@ impl fmt::Display for NeedsUpdate {
     }
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct GitHubSource {
-    pub owner: String,
-    pub repository: String,
-}
-
-impl fmt::Display for GitHubSource {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}/{}", self.owner, self.repository)
-    }
-}
-
-impl GitHubSource {
-    fn folder_name(&self) -> String {
-        format!("{}_{}", self.owner, self.repository)
-    }
-
-    async fn get<U: IntoUrl>(url: U) -> anyhow::Result<Response> {
-        let name = env!("CARGO_PKG_NAME");
-        let authors = env!("CARGO_PKG_AUTHORS");
-        let user_agent = format!("{} by {}", name, authors);
-        let client = Client::builder().user_agent(user_agent).build()?;
-        Ok(client.get(url).send().await?)
-    }
-
-    async fn get_and_extract_tar<U: IntoUrl>(dir: &Path, url: U) -> anyhow::Result<()> {
-        let response = Self::get(url).await?;
-        let bytes_stream = response.bytes_stream().map_err(io::Error::other);
-        let stream_reader = StreamReader::new(bytes_stream);
-        let gzip_decoder = GzipDecoder::new(stream_reader);
-        let mut tar_file = Archive::new(gzip_decoder);
-        let entries = tar_file.entries()?;
-        let mut containing_directory: Option<PathBuf> = None;
-        let mut iterator = entries;
-        iterator.next().await; // skip pax_global_header
-        while let Some(file) = iterator.next().await {
-            let mut f = file?;
-            let path = f.path()?;
-            log::debug!("Path in tarball: {}", path.display());
-            if let Some(prefix) = &containing_directory {
-                let destination_suffix = path.strip_prefix(prefix)?;
-                log::debug!("Destination suffix: {}", destination_suffix.display());
-                let destination_path = dir.join(destination_suffix);
-                if let Some(destination_parent) = destination_path.parent() {
-                    create_dir_all(destination_parent).await?;
-                    f.unpack(destination_path).await?;
-                    //f.unpack_in(destination).await?;
-                }
-            } else {
-                containing_directory = Some(path.into_owned());
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn download_latest(&self, install_dir: &Path) -> anyhow::Result<String> {
-        let latest = self.latest_release().await?;
-        if let Some(tarball_url) = latest.tarball_url {
-            Self::get_and_extract_tar(install_dir, tarball_url).await?;
-        }
-        Ok(latest.tag_name)
-    }
-
-    pub async fn latest_release(&self) -> anyhow::Result<Release> {
-        Ok(octocrab::instance()
-            .repos(&self.owner, &self.repository)
-            .releases()
-            .get_latest()
-            .await?)
-    }
-
-    async fn latest_id(&self) -> anyhow::Result<String> {
-        Ok(self.latest_release().await?.tag_name)
-    }
-}
 /*#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 enum RemoteSource {
     GitHub(GitHubSource),

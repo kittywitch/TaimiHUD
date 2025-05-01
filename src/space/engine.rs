@@ -214,4 +214,8 @@ impl Engine {
         }
         Ok(())
     }
+
+    pub fn cleanup(&self) {
+        todo!("Please clean up the engine when the program quits");
+    }
 }

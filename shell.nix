@@ -41,6 +41,6 @@ pkgs.callPackage
     CARGO_BUILD_TARGET = "x86_64-pc-windows-gnu";
     TARGET_CC = "${stdenv.cc.targetPrefix}cc";
     CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER = TARGET_CC;
-    CXXFLAGS_x86_64_pc_windows_gnu = "-shared -fno-threadsafe-statics";
+    CXXFLAGS_x86_64_pc_windows_gnu = "-Oz -shared -fno-threadsafe-statics";
   })
 { }

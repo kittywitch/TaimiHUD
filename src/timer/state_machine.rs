@@ -327,7 +327,7 @@ impl TimerMachine {
             reason
         );
         let reset_event = EventMapper::reset(self.timer.clone());
-        reset_event.send();
+        reset_event.send().await;
     }
 
     async fn start_tasks(&self, phase: &TimerFilePhase) {
@@ -341,7 +341,7 @@ impl TimerMachine {
             markers,
         };
         let feed_event = EventMapper::feed(phase_state.clone());
-        feed_event.send();
+        feed_event.send().await;
     }
 
     /**
