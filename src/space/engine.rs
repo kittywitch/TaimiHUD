@@ -9,6 +9,7 @@ use {
         timer::{PhaseState, RotationType, TimerFile, TimerMarker},
     },
     anyhow::anyhow,
+    
     bevy_ecs::prelude::*,
     glam::{Mat4, Vec3, Vec3Swizzles},
     itertools::Itertools,
@@ -34,18 +35,8 @@ struct Render {
 struct Position(Vec3);
 
 #[derive(Component)]
-struct Rotation(Vec3);
-
-#[derive(Bundle)]
-struct Space {
-    position: Position,
-    rotation: Rotation,
-}
-
-#[derive(Component)]
 struct Marker {
     start: Instant,
-    duration: Duration,
     marker: TimerMarker,
 }
 
@@ -60,7 +51,19 @@ pub enum SpaceEvent {
     MarkerReset(Arc<TimerFile>),
 }
 
-fn handle_marker_timings(query: Query<Entity, With<Marker>>) {}
+fn handle_marker_timings(mut commands: Commands, mut query: Query<(Entity, &Marker, &mut Render)>) {
+    let now = Instant::now();
+    for (entity, marker, mut render) in &mut query {
+        if now > marker.marker.end(marker.start) {
+            log::info!("Entity {} reached end after {}, despawning.", entity, marker.marker.duration);
+            commands.entity(entity).despawn();
+        }
+        else if now > marker.marker.start(marker.start) && render.disabled {
+            log::info!("Entity {} reached start at {}!", entity, marker.marker.timestamp);
+            render.disabled = false;
+        }
+    }
+}
 
 pub struct Engine {
     receiver: Receiver<SpaceEvent>,
@@ -70,6 +73,8 @@ pub struct Engine {
     pub object_kinds: HashMap<String, Arc<ObjectBacking>>,
     phase_states: Vec<PhaseState>,
     associated_entities: HashMap<String, Vec<Entity>>,
+
+    schedule: Schedule,
 
     // ECS stuff
     pub world: World,
@@ -93,9 +98,12 @@ impl Engine {
             &render_backend.shaders.1,
         );
 
-        let world = World::new();
+        let mut world = World::new();
 
-        let schedule = Schedule::default();
+
+        let mut schedule = Schedule::default();
+
+        schedule.add_systems(handle_marker_timings);
 
         let mut engine = Engine {
             model_files,
@@ -103,6 +111,7 @@ impl Engine {
             addon_dir,
             render_backend,
             object_kinds,
+            schedule,
             world,
             associated_entities: Default::default(),
             phase_states: Default::default(),
@@ -137,9 +146,13 @@ impl Engine {
                 )?);
                 let entity = self.world.spawn((
                     Position(marker.position),
+                    Marker {
+                        start: phase_state.start,
+                        marker: marker.clone(),
+                    },
                     Render {
                         rotation: marker.kind.clone(),
-                        disabled: false,
+                        disabled: true,
                         backing,
                     },
                 ));
@@ -193,6 +206,7 @@ impl Engine {
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;
         self.process_event()?;
+        self.schedule.run(&mut self.world);
         let backend = &mut self.render_backend;
         backend.prepare(&display_size);
         let device_context =
