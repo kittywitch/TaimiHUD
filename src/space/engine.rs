@@ -206,6 +206,9 @@ impl Engine {
         Ok(())
     }
 
+    pub fn check_phase_ends() {
+    }
+
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;
         self.process_event()?;

@@ -9,6 +9,7 @@ use {
 pub struct TimerTrigger {
     #[serde(rename = "type", default)]
     pub kind: TimerTriggerType,
+    #[serde(alias = "keyBinds")]
     pub key_bind: Option<String>,
     pub position: Option<BlishPosition>,
     pub antipode: Option<BlishPosition>,

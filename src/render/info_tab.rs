@@ -17,6 +17,7 @@ impl InfoTabState {
     pub fn draw(&self, ui: &Ui, timer_window_state: &TimerWindowState) {
         let name = env!("CARGO_PKG_NAME");
         let authors = env!("CARGO_PKG_AUTHORS");
+        let version = env!("CARGO_PKG_VERSION");
         let version: String;
         if let Some(git_version) = built_info::GIT_VERSION {
             version = format!("v{}, {}", env!("CARGO_PKG_VERSION"), git_version);
@@ -32,6 +33,14 @@ impl InfoTabState {
 
         let project_heading = format!("{}, {} by {}", name, version, authors);
         RenderState::font_text("big", ui, &project_heading);
+
+        if let Some(git_head_ref) = built_info::GIT_HEAD_REF {
+            ui.text(format!("Built from ref: {}", git_head_ref));
+        }
+        if let Some(git_hash) = built_info::GIT_COMMIT_HASH_SHORT {
+            ui.same_line();
+            ui.text(format!("Git hash: {}", git_hash));
+        }
         let profile_info = format!("Built in the {} profile.", profile);
         ui.text(profile_info);
         let description = env!("CARGO_PKG_DESCRIPTION");
