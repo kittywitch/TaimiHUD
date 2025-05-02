@@ -36,7 +36,7 @@ in
     # XXX: symlinks are not followed, see https://github.com/softprops/action-gh-release/issues/182
     #artifactPackage = config.artifactPackages.win64;
     artifactPackage = runCommand "taimihud-artifacts" { } (''
-      mkdir -p $out/bin
+      mkdir -p $out/lib
     '' + concatStringsSep "\n" (mapAttrsToList (key: taimi: ''
         cp ${taimi}/lib/taimi_hud.dll $out/lib/TaimiHUD-${key}.dll
     '') config.artifactPackages));
