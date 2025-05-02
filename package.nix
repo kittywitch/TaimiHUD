@@ -32,8 +32,8 @@ craneLib.buildPackage rec {
   TARGET_CC = "${stdenv.cc.targetPrefix}cc";
 
   # Build without a dependency not provided by wine
-  CXXFLAGS_x86_64_pc_windows_gnu = "-shared -fno-threadsafe-statics";
-
+  CXXFLAGS_x86_64_pc_windows_gnu = "-Oz -shared -fno-threadsafe-statics";
+  PROFILE="release";
   CARGO_BUILD_RUSTFLAGS = [
     "-C"
     "linker=${TARGET_CC}"
