@@ -2,7 +2,8 @@
   taimiHUD-rs = import ./.;
   packages = taimiHUD-rs.packages.${pkgs.system};
   artifactRoot = ".ci/artifacts";
-  artifacts = "${artifactRoot}/lib/taimi_hud.dll";
+  artifacts = "${artifactRoot}/lib/TaimiHUD*.dll";
+  release = "${artifactRoot}/lib/taimi_hud.dll";
 in
 {
   config = {
@@ -37,6 +38,7 @@ in
     #artifactPackage = config.artifactPackages.win64;
     artifactPackage = runCommand "taimihud-artifacts" { } (''
       mkdir -p $out/lib
+      cp ${config.artifactPackages.main}/lib/taimi_hud.dll $out/lib/
     '' + concatStringsSep "\n" (mapAttrsToList (key: taimi: ''
         cp ${taimi}/lib/taimi_hud.dll $out/lib/TaimiHUD-${key}.dll
     '') config.artifactPackages));
@@ -76,7 +78,7 @@ in
               name = "release";
               "if" = "startsWith(github.ref, 'refs/tags/')";
               uses.path = "softprops/action-gh-release@v1";
-              "with".files = artifacts;
+              "with".files = release;
             };
           };
         };

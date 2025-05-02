@@ -118,7 +118,7 @@ impl Engine {
             phase_states: Default::default(),
         };
 
-        if let Some(backing) = engine.object_kinds.get("Cat") {
+        /*if let Some(backing) = engine.object_kinds.get("Cat") {
             engine.world.spawn((
                 Position(Vec3::new(0.0, 130.0, 0.0)),
                 Render {
@@ -127,7 +127,7 @@ impl Engine {
                     rotation: RotationType::Rotation(Vec3::ZERO),
                 },
             ));
-        }
+        }*/
         Ok(engine)
     }
 
