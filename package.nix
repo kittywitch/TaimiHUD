@@ -3,7 +3,7 @@
 craneLib.buildPackage rec {
   src = ./.;
   strictDeps = true;
-  cargoExtraArgs = if features != [] then lib.escapeShellArgs (["--features"] ++ features) else [];
+  cargoExtraArgs = if features != [] then lib.escapeShellArgs (["--features"] ++ features) else "";
 
     buildInputs = [
       stdenv.cc
