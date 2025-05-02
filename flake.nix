@@ -43,6 +43,11 @@
           craneLib = packageCraneLib;
         };
 
+        taimiHUDSpace = pkgs.callPackage ./package.nix {
+          craneLib = packageCraneLib;
+          features = [ "space" ];
+        };
+
         # TaimiHUD devShell
         shellToolchain = with fenix.packages.${system};
           combine [
@@ -63,7 +68,7 @@
         devShells.default = taimiShell;
 
         packages = {
-          inherit taimiHUD;
+          inherit taimiHUD taimiHUDSpace;
           default = taimiHUD;
         };
       });

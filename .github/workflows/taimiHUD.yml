@@ -28,8 +28,8 @@ jobs:
         args: -u .github/workflows/taimiHUD.yml .ci/workflow.yml
         attrs: nixpkgs.diffutils
         command: diff
-  nixos:
-    name: taimiHUD-nixos
+  main:
+    name: taimiHUD-main
     permissions:
       contents: write
     runs-on: ubuntu-latest
@@ -46,13 +46,13 @@ jobs:
       name: nix setup
       uses: arcnmx/ci/actions/nix/run@v0.7
       with:
-        attrs: ci.job.nixos.run.setup
+        attrs: ci.job.main.run.setup
         quiet: false
     - id: ci-dirty
       name: nix test dirty
       uses: arcnmx/ci/actions/nix/run@v0.7
       with:
-        attrs: ci.job.nixos.run.test
+        attrs: ci.job.main.run.test
         command: ci-build-dirty
         quiet: false
         stdout: ${{ runner.temp }}/ci.build.dirty
@@ -60,7 +60,7 @@ jobs:
       name: nix test build
       uses: arcnmx/ci/actions/nix/run@v0.7
       with:
-        attrs: ci.job.nixos.run.test
+        attrs: ci.job.main.run.test
         command: ci-build-realise
         ignore-exit-code: true
         quiet: false
@@ -71,7 +71,7 @@ jobs:
       name: nix test results
       uses: arcnmx/ci/actions/nix/run@v0.7
       with:
-        attrs: ci.job.nixos.run.test
+        attrs: ci.job.main.run.test
         command: ci-build-summarise
         quiet: false
         stdin: ${{ runner.temp }}/ci.build.dirty
@@ -83,7 +83,7 @@ jobs:
       name: nix test cache
       uses: arcnmx/ci/actions/nix/run@v0.7
       with:
-        attrs: ci.job.nixos.run.test
+        attrs: ci.job.main.run.test
         command: ci-build-cache
         quiet: false
         stdin: ${{ runner.temp }}/ci.build.cache
@@ -91,7 +91,7 @@ jobs:
       name: artifact build
       uses: arcnmx/ci/actions/nix/build@v0.7
       with:
-        attrs: config.jobs.nixos.artifactPackage
+        attrs: config.jobs.main.artifactPackage
         file: <ci>
         out-link: .ci/artifacts
     - id: artifact-upload

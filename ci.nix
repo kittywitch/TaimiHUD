@@ -8,6 +8,7 @@ in
   config = {
     name = "taimiHUD";
     ci.gh-actions.enable = true;
+    # TODO: add cachix
     cache.cachix.arc.enable = true;
     channels = {
       nixpkgs = {
@@ -17,21 +18,28 @@ in
       };
     };
     tasks = {
-      build.inputs = singleton packages.taimiHUD;
+      build.inputs = with packages; [ taimiHUD taimiHUDSpace ];
     };
     jobs = {
-      nixos = {
+      main = {
         tasks = {
           build-windows.inputs = singleton packages.taimiHUD;
+          build-windows-space.inputs = singleton packages.taimiHUD;
         };
         artifactPackages = {
-          win64 = packages.taimiHUD;
+          main = packages.taimiHUD;
+          space = packages.taimiHUDSpace;
         };
       };
     };
 
     # XXX: symlinks are not followed, see https://github.com/softprops/action-gh-release/issues/182
-    artifactPackage = config.artifactPackages.win64;
+    #artifactPackage = config.artifactPackages.win64;
+    artifactPackage = runCommand "taimihud-artifacts" { } (''
+      mkdir -p $out/bin
+    '' + concatStringsSep "\n" (mapAttrsToList (key: taimi: ''
+        cp ${taimi}/lib/taimi_hud.dll $out/lib/TaimiHUD-${key}.dll
+    '') config.artifactPackages));
 
     gh-actions = {
       jobs = mkIf (config.id != "ci") {

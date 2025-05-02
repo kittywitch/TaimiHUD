@@ -1,8 +1,9 @@
-{ lib, buildPackages, craneLib, stdenv, windows, libgit2, pkg-config }:
+{ lib, buildPackages, craneLib, stdenv, windows, libgit2, pkg-config, features ? []}:
 
 craneLib.buildPackage rec {
   src = ./.;
   strictDeps = true;
+  cargoExtraArgs = if features != [] then lib.escapeShellArgs (["--features"] ++ features) else [];
 
     buildInputs = [
       stdenv.cc
