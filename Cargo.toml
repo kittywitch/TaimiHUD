@@ -2,7 +2,7 @@
 name = "taimi_hud"
 authors = [ "kittywitch" ]
 description = "Timers for RaidcoreGG Nexus"
-version = "0.2.3"
+version = "0.2.4"
 edition = "2021"
 build = "build.rs"
 
