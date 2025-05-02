@@ -57,7 +57,7 @@ impl InstanceBuffer {
         };
 
         let subresource_data = D3D11_SUBRESOURCE_DATA {
-            pSysMem: data.as_ptr() as *const _,
+            pSysMem: data.as_ptr().cast(),
             SysMemPitch: 0,
             SysMemSlicePitch: 0,
         };

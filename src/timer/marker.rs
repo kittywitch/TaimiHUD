@@ -1,18 +1,21 @@
 use {
+    crate::timer::BlishVec3,
+    glam::{Mat4, Vec3},
+    serde::{Deserialize, Serialize},
+    std::path::PathBuf,
     tokio::time::{Duration, Instant},
-    crate::{ timer::BlishVec3}, glam::{Mat4, Vec3}, serde::{Deserialize, Serialize}, std::path::PathBuf
 };
 
 fn default_size() -> f32 {
-    return 1.0
+    return 1.0;
 }
 
 fn default_opacity() -> f32 {
-    return 0.8
+    return 0.8;
 }
 
 fn default_duration() -> f32 {
-    return 10.0
+    return 10.0;
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -22,14 +25,14 @@ pub struct BlishMarker {
     pub position: BlishVec3,
     #[serde(default)]
     pub rotation: BlishVec3,
-    #[serde(default="default_size")]
+    #[serde(default = "default_size")]
     pub size: f32,
     #[serde(default)]
     pub fade_center: bool,
-    #[serde(default="default_opacity")]
+    #[serde(default = "default_opacity")]
     pub opacity: f32,
     pub texture: PathBuf,
-    #[serde(default="default_duration")]
+    #[serde(default = "default_duration")]
     pub duration: f32,
     #[serde(default)]
     pub timestamps: Vec<f32>,
@@ -57,10 +60,7 @@ impl BlishMarker {
     }
 
     pub fn get_markers(&self) -> Vec<TimerMarker> {
-        self.timestamps
-            .iter()
-            .map(|&ts| self.marker(ts))
-            .collect()
+        self.timestamps.iter().map(|&ts| self.marker(ts)).collect()
     }
 }
 
@@ -69,7 +69,6 @@ pub enum RotationType {
     Rotation(Vec3),
     Billboard,
 }
-
 
 #[derive(Clone)]
 pub struct TimerMarker {
@@ -112,14 +111,15 @@ impl TimerMarker {
             // billboards should have their rotation component handled elsewhere ideally
             // perhaps *prior* to the application of this, thus NOOP :p
             RotationType::Billboard => Mat4::IDENTITY, //Mat4::from_rotation_y(180.0f32.to_radians()), //Mat4::from_rotation_x(90.0f32.to_radians()), //* Mat4::from_rotation_z(90.0f32.to_radians()),
-            RotationType::Rotation(rot) => 
-                    Mat4::from_rotation_x(rot.x) *
-                    Mat4::from_rotation_y(rot.y) *
-                    Mat4::from_rotation_z(rot.z),
+            RotationType::Rotation(rot) => {
+                Mat4::from_rotation_x(rot.x)
+                    * Mat4::from_rotation_y(rot.y)
+                    * Mat4::from_rotation_z(rot.z)
+            }
         };
         // then move them
         //let mtx_position = Mat4::from_translation(self.position);
         //mtx_rotation = mtx_rotation * Mat4::from_rotation_y(180.0f32.to_radians());
-        mtx_scale * mtx_rotation// * mtx_position
+        mtx_scale * mtx_rotation // * mtx_position
     }
 }

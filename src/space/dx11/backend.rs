@@ -1,5 +1,5 @@
 use {
-    super::{DepthHandler, PerspectiveHandler, PerspectiveInputData},
+    super::{BlendingHandler, DepthHandler, PerspectiveHandler, PerspectiveInputData},
     crate::space::resources::ShaderLoader,
     anyhow::anyhow,
     glam::Vec4,
@@ -18,6 +18,7 @@ use {
 pub struct RenderBackend {
     pub depth_handler: DepthHandler,
     pub perspective_handler: PerspectiveHandler,
+    pub blending_handler: BlendingHandler,
 
     pub shaders: ShaderLoader,
     pub sampler_state: Vec<Option<ID3D11SamplerState>>,
@@ -67,6 +68,7 @@ impl RenderBackend {
         let depth_handler = DepthHandler::create(&display_size, &device, swap_chain)?;
         let sampler_state = vec![Self::setup_sampler(&device).ok()];
 
+        let blending_handler = BlendingHandler::setup(&device)?;
         //log::info!("Setting up device context");
         //let device_context = unsafe { device.GetImmediateContext().expect("I lost my context!") };
 
@@ -81,6 +83,7 @@ impl RenderBackend {
             }
         }*/
         Ok(RenderBackend {
+            blending_handler,
             depth_handler,
             perspective_handler,
 

@@ -1,5 +1,20 @@
 use {
-    super::{super::dx11::InstanceBufferData, ObjectRenderBacking, ObjectRenderMetadata}, crate::{render::{space::{dx11::{InstanceBuffer, RenderBackend}, object::PrimitiveTopology, resources::{obj_format::material::ColouredMaterialTexture, Model, ObjFile, ObjMaterial, ShaderPair, Texture}}, Engine}, timer::TimerMarker}, glam::{Mat4, Vec3}, std::{path::PathBuf, sync::RwLock}, windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext}
+    super::{super::dx11::InstanceBufferData, ObjectRenderBacking, ObjectRenderMetadata},
+    crate::{
+        space::{
+            dx11::{InstanceBuffer, RenderBackend},
+            object::PrimitiveTopology,
+            resources::{
+                obj_format::material::ColouredMaterialTexture, Model, ObjFile, ObjMaterial,
+                ShaderPair, Texture,
+            },
+            Engine,
+        },
+        timer::TimerMarker,
+    },
+    glam::{Mat4, Vec3},
+    std::{path::PathBuf, sync::RwLock},
+    windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext},
 };
 
 pub struct ObjectBacking {
@@ -16,8 +31,7 @@ impl ObjectBacking {
     ) -> anyhow::Result<Self> {
         let timer_path = if let Some(timer_path_parent) = path.parent() {
             timer_path_parent.join(marker.texture.clone())
-        }
-        else {
+        } else {
             marker.texture.clone()
         };
         log::info!("Loading texture from {timer_path:?}!");
@@ -35,8 +49,7 @@ impl ObjectBacking {
             colour: Vec3::ONE,
         }];
         let render = ObjectRenderBacking {
-            instance_buffer: RwLock::new(InstanceBuffer::create(
-                &render_backend.device, &ibd)?),
+            instance_buffer: RwLock::new(InstanceBuffer::create(&render_backend.device, &ibd)?),
             vertex_buffer: model.to_buffer(&render_backend.device)?,
             shaders,
             metadata: ObjectRenderMetadata {
@@ -50,18 +63,17 @@ impl ObjectBacking {
                     diffuse: Some(ColouredMaterialTexture {
                         texture,
                         colour: Vec3::ONE,
-                    })
+                    }),
                 },
                 model_matrix,
                 topology: PrimitiveTopology::TriangleList,
-            }
+            },
         };
         let marker = Self {
             name: "Marker".to_string(),
             render,
         };
         Ok(marker)
-
     }
 
     pub fn set_and_draw(

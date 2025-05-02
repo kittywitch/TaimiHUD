@@ -1,9 +1,13 @@
 use {
-    super::{BlishMarker, TimerMarker}, crate::timer::{BlishAlert, TimerAction, TimerAlert, TimerTrigger}, serde::{Deserialize, Serialize}, serde_json::Value
+    super::{BlishMarker, TimerMarker},
+    crate::timer::{BlishAlert, TimerAction, TimerAlert, TimerTrigger},
+    serde::{
+        de::{self, Deserializer, Error as _, MapAccess, SeqAccess, Visitor},
+        Deserialize, Serialize,
+    },
+    serde_json::Value,
+    std::{fmt, marker::PhantomData},
 };
-use serde::de::{self, Deserializer, Visitor, SeqAccess, MapAccess, Error as _};
-use std::marker::PhantomData;
-use std::fmt;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -45,7 +49,8 @@ impl TimerPhase {
             .collect()
     }
     pub fn get_markers(&self) -> Vec<TimerMarker> {
-        self.markers.0
+        self.markers
+            .0
             .iter()
             .flat_map(BlishMarker::get_markers)
             .collect()
@@ -54,7 +59,6 @@ impl TimerPhase {
 
 #[derive(Serialize, Debug, Clone, Default)]
 pub struct BlishMarkers(pub Vec<BlishMarker>);
-
 
 impl<'de> Deserialize<'de> for BlishMarkers {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
@@ -77,7 +81,7 @@ impl<'de> Deserialize<'de> for BlishMarkers {
                 let mut markers = Vec::new();
                 while let Some((key, value)) = access.next_entry::<&str, Vec<BlishMarker>>()? {
                     if key == "markers" {
-                        markers.extend( value);
+                        markers.extend(value);
                     } else {
                         return Err(M::Error::unknown_field(key, &["markers"]));
                     }
@@ -85,6 +89,10 @@ impl<'de> Deserialize<'de> for BlishMarkers {
                 Ok(markers)
             }
         }
-        Ok(BlishMarkers(deserializer.deserialize_struct("BlishMarkers", &["markers"], MyVisitor)?))
+        Ok(BlishMarkers(deserializer.deserialize_struct(
+            "BlishMarkers",
+            &["markers"],
+            MyVisitor,
+        )?))
     }
 }

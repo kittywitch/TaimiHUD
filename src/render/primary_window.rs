@@ -3,7 +3,7 @@ use {
         render::{
             ConfigTabState, DataSourceTabState, InfoTabState, TimerTabState, TimerWindowState,
         },
-        ControllerEvent, SETTINGS, CONTROLLER_SENDER,
+        ControllerEvent, CONTROLLER_SENDER, SETTINGS,
     },
     nexus::imgui::{Ui, Window},
 };
@@ -35,25 +35,26 @@ impl PrimaryWindowState {
         if open {
             Window::new("Taimi")
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
-                .opened(&mut open).build(ui, || {
-                if let Some(_token) = ui.tab_bar("modules") {
-                    if let Some(_token) = ui.tab_item("Timers") {
-                        self.timer_tab.draw(ui, timer_window_state);
-                    };
-                    if let Some(_token) = ui.tab_item("Markers") {
-                        ui.text("To-do!");
+                .opened(&mut open)
+                .build(ui, || {
+                    if let Some(_token) = ui.tab_bar("modules") {
+                        if let Some(_token) = ui.tab_item("Timers") {
+                            self.timer_tab.draw(ui, timer_window_state);
+                        };
+                        if let Some(_token) = ui.tab_item("Markers") {
+                            ui.text("To-do!");
+                        }
+                        if let Some(_token) = ui.tab_item("Data Sources") {
+                            self.data_sources_tab.draw(ui);
+                        }
+                        if let Some(_token) = ui.tab_item("Config") {
+                            self.config_tab.draw(ui, timer_window_state);
+                        }
+                        if let Some(_token) = ui.tab_item("Info") {
+                            self.info_tab.draw(ui, timer_window_state);
+                        }
                     }
-                    if let Some(_token) = ui.tab_item("Data Sources") {
-                        self.data_sources_tab.draw(ui);
-                    }
-                    if let Some(_token) = ui.tab_item("Config") {
-                        self.config_tab.draw(ui, timer_window_state);
-                    }
-                    if let Some(_token) = ui.tab_item("Info") {
-                        self.info_tab.draw(ui, timer_window_state);
-                    }
-                }
-            });
+                });
         }
         if open != self.open {
             let sender = CONTROLLER_SENDER.get().unwrap();

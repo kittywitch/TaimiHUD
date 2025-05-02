@@ -2,15 +2,8 @@ mod github;
 mod settings;
 
 pub use {
+    github::GitHubSource,
     settings::{
-        SettingsLock,
-        ProgressBarSettings,
-        TimerSettings,
-        NeedsUpdate,
-        RemoteSource,
-        Settings,
-    },
-    github::{
-        GitHubSource,
+        NeedsUpdate, ProgressBarSettings, RemoteSource, Settings, SettingsLock, TimerSettings,
     },
 };

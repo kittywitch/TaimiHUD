@@ -5,7 +5,7 @@ use {
         render::{RenderState, TimerWindowState},
         settings::TimerSettings,
         timer::TimerFile,
-        SETTINGS, CONTROLLER_SENDER,
+        CONTROLLER_SENDER, SETTINGS,
     },
     glam::Vec2,
     indexmap::IndexMap,

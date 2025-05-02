@@ -3,21 +3,19 @@ mod render;
 mod settings;
 mod timer;
 
-#[cfg(feature="space")]
+#[cfg(feature = "space")]
 mod space;
 
-#[cfg(feature="space")]
-use {
- space::{Engine, engine::SpaceEvent, resources::Texture},
-};
-
-
+#[cfg(feature = "space")]
+use space::{engine::SpaceEvent, resources::Texture, Engine};
 use {
     crate::{
         controller::{Controller, ControllerEvent},
         render::{RenderEvent, RenderState},
         settings::SettingsLock,
-    }, arcdps::AgentOwned, nexus::{
+    },
+    arcdps::AgentOwned,
+    nexus::{
         event::{
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
@@ -26,22 +24,31 @@ use {
         keybind::{keybind_handler, register_keybind_with_string},
         paths::get_addon_dir,
         quick_access::add_quick_access,
+        texture::Texture as NexusTexture,
         AddonFlags, UpdateProvider,
-    }, std::{
-        cell::{Cell, RefCell}, collections::HashMap, path::PathBuf, ptr, sync::{Arc, Mutex, OnceLock, RwLock}, thread::{self, JoinHandle}
-    }, tokio::sync::mpsc::{channel, Sender}
+    },
+    std::{
+        cell::{Cell, RefCell},
+        collections::HashMap,
+        path::PathBuf,
+        ptr,
+        sync::{Arc, Mutex, OnceLock, RwLock},
+        thread::{self, JoinHandle},
+    },
+    tokio::sync::mpsc::{channel, Sender},
 };
 
 pub mod built_info {
     include!(concat!(env!("OUT_DIR"), "/built.rs"));
 }
 
-#[cfg(feature="space")]
+#[cfg(feature = "space")]
 static TEXTURES: OnceLock<RwLock<HashMap<PathBuf, Arc<Texture>>>> = OnceLock::new();
+static IMGUI_TEXTURES: OnceLock<RwLock<HashMap<String, Arc<NexusTexture>>>> = OnceLock::new();
 static CONTROLLER_SENDER: OnceLock<Sender<ControllerEvent>> = OnceLock::new();
 static RENDER_SENDER: OnceLock<Sender<RenderEvent>> = OnceLock::new();
 
-#[cfg(feature="space")]
+#[cfg(feature = "space")]
 static SPACE_SENDER: OnceLock<Sender<SpaceEvent>> = OnceLock::new();
 
 static CONTROLLER_THREAD: OnceLock<JoinHandle<()>> = OnceLock::new();
@@ -59,17 +66,16 @@ nexus::export! {
 
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
 static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
-#[cfg(feature="space")]
+#[cfg(feature = "space")]
 thread_local! {
     static ENGINE_INITIALIZED: Cell<bool> = const { Cell::new(false) };
     static ENGINE: RefCell<Option<Engine>> = panic!("!");
 }
 
 fn load() {
-    #[cfg(feature="space")]
-    TEXTURES.set(
-        RwLock::new(
-            HashMap::new()));
+    IMGUI_TEXTURES.set(RwLock::new(HashMap::new()));
+    #[cfg(feature = "space")]
+    TEXTURES.set(RwLock::new(HashMap::new()));
     // Say hi to the world :o
     let name = env!("CARGO_PKG_NAME");
     let authors = env!("CARGO_PKG_AUTHORS");
@@ -99,14 +105,14 @@ fn load() {
     });
     register_render(RenderType::Render, taimi_window).revert_on_unload();
 
-    #[cfg(feature="space")]
-    let space_render = render!(|ui|  {
+    #[cfg(feature = "space")]
+    let space_render = render!(|ui| {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender {
                 if !ENGINE_INITIALIZED.get() {
                     let (space_sender, space_receiver) = channel::<SpaceEvent>(32);
                     let _ = SPACE_SENDER.set(space_sender);
-                    let drawstate_inner = Engine::initialise(ui,  space_receiver);
+                    let drawstate_inner = Engine::initialise(ui, space_receiver);
                     if let Err(error) = &drawstate_inner {
                         log::error!("DrawState setup failed: {}", error);
                     };
@@ -123,7 +129,7 @@ fn load() {
             }
         }
     });
-    #[cfg(feature="space")]
+    #[cfg(feature = "space")]
     register_render(RenderType::Render, space_render).revert_on_unload();
 
     // Handle window toggling with keybind and button
@@ -210,11 +216,12 @@ fn load() {
 
 fn unload() {
     log::info!("Unloading addon");
-    #[cfg(feature="space")]
-    ENGINE.with_borrow_mut(|e| {
-        #[cfg(todo)]
-        e.cleanup();
-    });
+    #[cfg(feature = "space")]
+    ENGINE.set(None);
+    /*ENGINE.with_borrow_mut(|e| {
+        //#[cfg(todo)]
+        //e.cleanup();
+    });*/
     let sender = CONTROLLER_SENDER.get().unwrap();
     let event_send = sender.try_send(ControllerEvent::Quit);
     drop(event_send);

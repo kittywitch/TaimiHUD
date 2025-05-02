@@ -16,4 +16,3 @@ pub use {
     timer_tab::TimerTabState,
     timer_window::TimerWindowState,
 };
-

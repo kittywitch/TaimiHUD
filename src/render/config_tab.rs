@@ -1,7 +1,8 @@
 use {
     super::TimerWindowState,
     crate::{
-        controller::ProgressBarStyleChange, render::TextFont, ControllerEvent, SETTINGS, CONTROLLER_SENDER,
+        controller::ProgressBarStyleChange, render::TextFont, ControllerEvent, CONTROLLER_SENDER,
+        SETTINGS,
     },
     nexus::imgui::{ComboBox, Condition, Selectable, Slider, TreeNode, TreeNodeFlags, Ui},
     strum::IntoEnumIterator,
@@ -75,12 +76,12 @@ impl ConfigTabState {
                         .selected(font == selected)
                         .build(ui)
                     {
-                    let sender = CONTROLLER_SENDER.get().unwrap();
-                    let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
-                        ProgressBarStyleChange::Font(font.clone()),
-                    ));
+                        let sender = CONTROLLER_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
+                            ProgressBarStyleChange::Font(font.clone()),
+                        ));
                         selected = font;
-                    drop(event_send);
+                        drop(event_send);
                     }
                 }
                 selected
@@ -88,8 +89,7 @@ impl ConfigTabState {
             if let Some(selection) = ComboBox::new("Font")
                 .preview_value(&timer_window_state.progress_bar.font.to_string())
                 .build(ui, font_closure)
-            {
-            }
+            {}
         };
         let timers_window = TreeNode::new("Timers Window")
             .flags(TreeNodeFlags::empty())

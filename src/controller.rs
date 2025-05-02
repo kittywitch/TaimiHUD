@@ -1,9 +1,6 @@
 use {
     crate::{
-        render::TextFont,
-        settings::{RemoteSource, Settings, SettingsLock},
-        timer::{CombatState, Position, TimerFile, TimerMachine},
-        MumbleIdentityUpdate, RenderEvent, SETTINGS,
+        render::TextFont, settings::{RemoteSource, Settings, SettingsLock}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -205,11 +202,12 @@ impl Controller {
     async fn mumblelink_tick(&mut self) -> anyhow::Result<()> {
         if let Some(mumble) = self.mumble_pointer {
             let playpos = Vec3::from_array(mumble.read_avatar().position);
-            #[cfg(feature = "space")] {
-            let camera = mumble.read_camera();
-            let front = Vec3::from_array(camera.front);
-            let pos = Vec3::from_array(camera.position);
-            PerspectiveInputData::swap_camera(front, pos, playpos);
+            #[cfg(feature = "space")]
+            {
+                let camera = mumble.read_camera();
+                let front = Vec3::from_array(camera.front);
+                let pos = Vec3::from_array(camera.position);
+                PerspectiveInputData::swap_camera(front, pos, playpos);
             }
             self.player_position = Some(playpos);
             let combat_state = mumble
@@ -240,7 +238,8 @@ impl Controller {
     }
 
     async fn handle_mumble(&mut self, identity: MumbleIdentityUpdate) {
-        #[cfg(feature = "space")] {
+        #[cfg(feature = "space")]
+        {
             if self.last_fov != identity.fov {
                 PerspectiveInputData::swap_fov(identity.fov);
                 self.last_fov = identity.fov;
@@ -436,7 +435,13 @@ impl Controller {
     async fn load_texture(&self, rel: RelativePathBuf, base: PathBuf) {
         if let Some(base) = base.parent() {
             let abs = rel.to_path(base);
-            let cally: RawTextureReceiveCallback = texture_receive!(|id, _texture| {
+            let cally: RawTextureReceiveCallback = texture_receive!(|id, texture| {
+                let gooey = IMGUI_TEXTURES.get().unwrap();
+                let mut gooey_lock = gooey.write().unwrap();
+                if let Some(texture) = texture {
+                    gooey_lock.entry(id.into()).or_insert(Arc::new(texture.clone()));
+                }
+                drop(gooey_lock);
                 log::info!("Texture {id} loaded.");
             });
             load_texture_from_file(rel.as_str(), abs, Some(cally));

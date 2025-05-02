@@ -1,5 +1,5 @@
 use {
-    crate::{controller::ControllerEvent, settings::NeedsUpdate, SETTINGS, CONTROLLER_SENDER},
+    crate::{controller::ControllerEvent, settings::NeedsUpdate, CONTROLLER_SENDER, SETTINGS},
     nexus::imgui::Ui,
 };
 

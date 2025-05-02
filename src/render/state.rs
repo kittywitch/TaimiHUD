@@ -1,10 +1,6 @@
 use {
     crate::{
-        controller::ControllerEvent,
-        render::{PrimaryWindowState, TimerWindowState},
-        settings::ProgressBarSettings,
-        timer::{PhaseState, TextAlert, TimerFile},
-        RENDER_STATE, CONTROLLER_SENDER,
+        controller::ControllerEvent, render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
     },
     glam::Vec2,
     nexus::{
@@ -115,7 +111,11 @@ impl RenderState {
     ) {
         if let Some(icon) = alert_icon {
             if let Some(path) = path {
-                if let Some(icon) = get_texture(icon.as_str()) {
+                let gooey = IMGUI_TEXTURES.get().unwrap();
+                let gooey_lock = gooey.read().unwrap();
+                let path_str = icon.as_str();
+                if let Some(icon) = gooey_lock.get(path_str) {
+                //if let Some(icon) = get_texture(icon.as_str()) {
                     let size = match height {
                         Some(height) => [height, height],
                         None => icon.size(),

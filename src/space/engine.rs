@@ -1,10 +1,28 @@
 use {
     super::{
         dx11::{perspective_input_data::PERSPECTIVEINPUTDATA, InstanceBufferData, RenderBackend},
-        object::{ObjectBacking, ObjectLoader}, resources::Texture,
-    }, crate::{space::resources::ObjFile, timer::{RotationType, PhaseState, TimerFile, TimerMarker}}, anyhow::anyhow, bevy_ecs::prelude::*, glam::{Mat4, Vec3, Vec3Swizzles}, itertools::Itertools, nexus::{imgui::Ui, paths::get_addon_dir}, std::{collections::HashMap, path::PathBuf, sync::{Arc, OnceLock, RwLock}}, tokio::{sync::mpsc::Receiver, time::{Duration, Instant}}
+        object::{ObjectBacking, ObjectLoader},
+        resources::Texture,
+    },
+    crate::{
+        space::resources::ObjFile,
+        timer::{PhaseState, RotationType, TimerFile, TimerMarker},
+    },
+    anyhow::anyhow,
+    bevy_ecs::prelude::*,
+    glam::{Mat4, Vec3, Vec3Swizzles},
+    itertools::Itertools,
+    nexus::{imgui::Ui, paths::get_addon_dir},
+    std::{
+        collections::HashMap,
+        path::PathBuf,
+        sync::{Arc, OnceLock, RwLock},
+    },
+    tokio::{
+        sync::mpsc::Receiver,
+        time::{Duration, Instant},
+    },
 };
-
 
 #[derive(Component)]
 struct Render {
@@ -42,9 +60,7 @@ pub enum SpaceEvent {
     MarkerReset(Arc<TimerFile>),
 }
 
-
-fn handle_marker_timings(query: Query<Entity, With<Marker>>) {
-}
+fn handle_marker_timings(query: Query<Entity, With<Marker>>) {}
 
 pub struct Engine {
     receiver: Receiver<SpaceEvent>,
@@ -107,12 +123,18 @@ impl Engine {
 
     pub fn new_phase(&mut self, phase_state: PhaseState) -> anyhow::Result<()> {
         let markers = &phase_state.markers;
-        let entry = self.associated_entities
+        let entry = self
+            .associated_entities
             .entry(phase_state.timer.name.clone())
             .or_default();
         for marker in markers {
             if let Some(base_path) = &phase_state.timer.path {
-                let backing = Arc::new(ObjectBacking::create_marker(&self.render_backend, &self.object_kinds["Cat"].render.metadata.model, marker, base_path.clone())?);
+                let backing = Arc::new(ObjectBacking::create_marker(
+                    &self.render_backend,
+                    &self.object_kinds["Cat"].render.metadata.model,
+                    marker,
+                    base_path.clone(),
+                )?);
                 let entity = self.world.spawn((
                     Position(marker.position),
                     Render {
@@ -122,7 +144,12 @@ impl Engine {
                     },
                 ));
                 let id = entity.id();
-                log::debug!("Creating entity {id} at {} from timer {} markers, phase {}", marker.position, phase_state.timer.name(), phase_state.phase.name);
+                log::debug!(
+                    "Creating entity {id} at {} from timer {} markers, phase {}",
+                    marker.position,
+                    phase_state.timer.name(),
+                    phase_state.phase.name
+                );
                 entry.push(id);
             }
         }
@@ -130,8 +157,7 @@ impl Engine {
         Ok(())
     }
     pub fn remove_phase(&mut self, timer: Arc<TimerFile>) -> anyhow::Result<()> {
-        if let Some(entry) = self.associated_entities
-            .remove(&timer.name.clone()) {
+        if let Some(entry) = self.associated_entities.remove(&timer.name.clone()) {
             for entity in entry {
                 log::debug!("Despawning {entity} from timer {} markers", timer.name());
                 self.world.despawn(entity);
@@ -155,12 +181,10 @@ impl Engine {
             Ok(event) => {
                 use SpaceEvent::*;
                 match event {
-                    MarkerFeed(phase_state) =>
-                        self.new_phase(phase_state)?,
-                    MarkerReset(timer) =>
-                        self.remove_phase(timer)?,
+                    MarkerFeed(phase_state) => self.new_phase(phase_state)?,
+                    MarkerReset(timer) => self.remove_phase(timer)?,
                 }
-            },
+            }
             Err(_error) => (),
         }
         Ok(())
@@ -176,6 +200,7 @@ impl Engine {
         let slot = 0;
         backend.perspective_handler.set(&device_context, slot);
         backend.depth_handler.setup(&device_context);
+        backend.blending_handler.set(&device_context);
         let mut query = self.world.query::<(&mut Render, &Position)>();
         for (k, c) in &query
             .iter(&self.world)
@@ -186,30 +211,32 @@ impl Engine {
             let (r, p) = slice;
             if !r.disabled {
                 let pdata = PERSPECTIVEINPUTDATA.get().unwrap().load();
-            let rot = match r.rotation {
-                RotationType::Billboard => {
+                let rot = match r.rotation {
+                    RotationType::Billboard => {
                         let mark2d = (p.0.xz() - pdata.pos.xz()).to_angle();
-                        let y = Mat4::from_rotation_y(-90.0f32.to_radians() -mark2d);
+                        let y = Mat4::from_rotation_y(-90.0f32.to_radians() - mark2d);
                         y
                         //Mat4::IDENTITY
-                },
-                _ => Mat4::IDENTITY,
-            };
-            let ibd: Vec<_> = vec![slice]
-                .into_iter()
-                .chain(itery)
-                .map(|(_r, p)| {
-//  r.backing.render.metadata.model_matrix *
-                    let affy = Mat4::from_translation(p.0) * rot * r.backing.render.metadata.model_matrix;
-                    InstanceBufferData {
-                        world: affy,
-                        //world_position: affy.translation,
-                        colour: Vec3::new(1.0, 1.0, 1.0),
                     }
-                })
-                .collect();
-            r.backing
-                .set_and_draw(slot, &backend.device, &device_context, &ibd)?;
+                    _ => Mat4::IDENTITY,
+                };
+                let ibd: Vec<_> = vec![slice]
+                    .into_iter()
+                    .chain(itery)
+                    .map(|(_r, p)| {
+                        //  r.backing.render.metadata.model_matrix *
+                        let affy = Mat4::from_translation(p.0)
+                            * rot
+                            * r.backing.render.metadata.model_matrix;
+                        InstanceBufferData {
+                            world: affy,
+                            //world_position: affy.translation,
+                            colour: Vec3::new(1.0, 1.0, 1.0),
+                        }
+                    })
+                    .collect();
+                r.backing
+                    .set_and_draw(slot, &backend.device, &device_context, &ibd)?;
             }
         }
         Ok(())

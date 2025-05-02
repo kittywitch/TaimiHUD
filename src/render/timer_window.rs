@@ -3,7 +3,7 @@ use {
     crate::{
         settings::ProgressBarSettings,
         timer::{PhaseState, TimerAlert, TimerFile},
-        ControllerEvent, SETTINGS, CONTROLLER_SENDER,
+        ControllerEvent, CONTROLLER_SENDER, SETTINGS,
     },
     glam::Vec2,
     nexus::imgui::{ProgressBar, StyleColor, Ui, Window},

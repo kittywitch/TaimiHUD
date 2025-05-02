@@ -1,5 +1,10 @@
 use {
-    crate::TEXTURES, anyhow::anyhow, image::ImageReader, itertools::Itertools, std::path::Path, windows::Win32::Graphics::{
+    crate::TEXTURES,
+    anyhow::anyhow,
+    image::ImageReader,
+    itertools::Itertools,
+    std::{path::Path, sync::Arc},
+    windows::Win32::Graphics::{
         Direct3D::D3D11_SRV_DIMENSION_TEXTURE2D,
         Direct3D11::{
             ID3D11Device, ID3D11DeviceContext, ID3D11ShaderResourceView, ID3D11Texture2D,
@@ -10,7 +15,6 @@ use {
         },
         Dxgi::Common::{DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC},
     },
-    std::sync::Arc,
 };
 
 #[derive(PartialEq)]
@@ -30,74 +34,74 @@ impl Texture {
         } else {
             log::debug!("Un-deduplicated {path:?}!");
             drop(tex_lock);
-        let image_reader = ImageReader::open(path)?;
-        let format = image_reader.format();
-        log::info!("Loading {:?} texture from {path:?}!", format);
-        let image = image_reader.with_guessed_format()?.decode()?;
-        let rgba_image = image.to_rgba32f();
-        let dimensions = rgba_image.dimensions();
-        let raw_rgba_image = rgba_image.into_raw();
-        let texture_sample_desc = DXGI_SAMPLE_DESC {
-            Count: 1,
-            Quality: 0,
-        };
-        let texture_desc = D3D11_TEXTURE2D_DESC {
-            Width: dimensions.0,
-            Height: dimensions.1,
-            MipLevels: 1,
-            ArraySize: 1,
-            Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
-            SampleDesc: texture_sample_desc,
-            Usage: D3D11_USAGE_DEFAULT,
-            BindFlags: (D3D11_BIND_SHADER_RESOURCE.0 | D3D11_BIND_RENDER_TARGET.0) as u32,
-            CPUAccessFlags: 0,
-            MiscFlags: D3D11_RESOURCE_MISC_GENERATE_MIPS.0 as u32,
-        };
-        let texture_subresource_data = D3D11_SUBRESOURCE_DATA {
-            pSysMem: raw_rgba_image.as_ptr().cast(),
-            SysMemPitch: (size_of::<f32>() as u32 * dimensions.0 * 4),
-            SysMemSlicePitch: 0,
-        };
-        let mut texture_ptr: Option<ID3D11Texture2D> = None;
-        let texture = unsafe {
-            device.CreateTexture2D(
-                &texture_desc,
-                Some(&texture_subresource_data),
-                Some(&mut texture_ptr),
-            )
-        }
-        .map_err(anyhow::Error::from)
-        .and_then(|()| texture_ptr.ok_or_else(|| anyhow!("no texture for {path:?}")))?;
-        log::info!("Creating a shader resource view for {:?}!", path);
-        let tex2d_srv = D3D11_TEX2D_SRV {
-            MostDetailedMip: 0,
-            MipLevels: u32::MAX,
-        };
-        let view_anonymous = D3D11_SHADER_RESOURCE_VIEW_DESC_0 {
-            Texture2D: tex2d_srv,
-        };
-        let view_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
-            Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
-            ViewDimension: D3D11_SRV_DIMENSION_TEXTURE2D,
-            Anonymous: view_anonymous,
-        };
-        let mut view_ptr: Option<ID3D11ShaderResourceView> = None;
-        let view = unsafe {
-            device.CreateShaderResourceView(&texture, Some(&view_desc), Some(&mut view_ptr))
-        }
-        .map_err(anyhow::Error::from)
-        .and_then(|()| view_ptr.ok_or_else(|| anyhow!("no shader resource view")))?;
-        let view = vec![Some(view)];
-        log::info!("Loaded {:?} texture from {path:?}!", format);
-        let texture = Self {
-            texture,
-            view,
-            dimensions: dimensions.into(),
-        };
+            let image_reader = ImageReader::open(path)?;
+            let format = image_reader.format();
+            log::info!("Loading {:?} texture from {path:?}!", format);
+            let image = image_reader.with_guessed_format()?.decode()?;
+            let rgba_image = image.to_rgba32f();
+            let dimensions = rgba_image.dimensions();
+            let raw_rgba_image = rgba_image.into_raw();
+            let texture_sample_desc = DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            };
+            let texture_desc = D3D11_TEXTURE2D_DESC {
+                Width: dimensions.0,
+                Height: dimensions.1,
+                MipLevels: 1,
+                ArraySize: 1,
+                Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
+                SampleDesc: texture_sample_desc,
+                Usage: D3D11_USAGE_DEFAULT,
+                BindFlags: (D3D11_BIND_SHADER_RESOURCE.0 | D3D11_BIND_RENDER_TARGET.0) as u32,
+                CPUAccessFlags: 0,
+                MiscFlags: D3D11_RESOURCE_MISC_GENERATE_MIPS.0 as u32,
+            };
+            let texture_subresource_data = D3D11_SUBRESOURCE_DATA {
+                pSysMem: raw_rgba_image.as_ptr().cast(),
+                SysMemPitch: (size_of::<f32>() as u32 * dimensions.0 * 4),
+                SysMemSlicePitch: 0,
+            };
+            let mut texture_ptr: Option<ID3D11Texture2D> = None;
+            let texture = unsafe {
+                device.CreateTexture2D(
+                    &texture_desc,
+                    Some(&texture_subresource_data),
+                    Some(&mut texture_ptr),
+                )
+            }
+            .map_err(anyhow::Error::from)
+            .and_then(|()| texture_ptr.ok_or_else(|| anyhow!("no texture for {path:?}")))?;
+            log::info!("Creating a shader resource view for {:?}!", path);
+            let tex2d_srv = D3D11_TEX2D_SRV {
+                MostDetailedMip: 0,
+                MipLevels: u32::MAX,
+            };
+            let view_anonymous = D3D11_SHADER_RESOURCE_VIEW_DESC_0 {
+                Texture2D: tex2d_srv,
+            };
+            let view_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
+                Format: DXGI_FORMAT_R32G32B32A32_FLOAT,
+                ViewDimension: D3D11_SRV_DIMENSION_TEXTURE2D,
+                Anonymous: view_anonymous,
+            };
+            let mut view_ptr: Option<ID3D11ShaderResourceView> = None;
+            let view = unsafe {
+                device.CreateShaderResourceView(&texture, Some(&view_desc), Some(&mut view_ptr))
+            }
+            .map_err(anyhow::Error::from)
+            .and_then(|()| view_ptr.ok_or_else(|| anyhow!("no shader resource view")))?;
+            let view = vec![Some(view)];
+            log::info!("Loaded {:?} texture from {path:?}!", format);
+            let texture = Self {
+                texture,
+                view,
+                dimensions: dimensions.into(),
+            };
             let tarc = Arc::new(texture);
-        let mut tex_write = tex_store.write().unwrap();
-        tex_write.insert(path.to_path_buf(), tarc.clone());
-        Ok(tarc.clone())
+            let mut tex_write = tex_store.write().unwrap();
+            tex_write.insert(path.to_path_buf(), tarc.clone());
+            Ok(tarc.clone())
         }
     }
 

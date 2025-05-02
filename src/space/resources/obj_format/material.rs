@@ -1,7 +1,10 @@
 use {
-    super::super::texture::Texture, glam::Vec3, itertools::Itertools, std::path::PathBuf,
-    tobj::Material as tobjMaterial, windows::Win32::Graphics::Direct3D11::ID3D11Device,
-    std::sync::Arc,
+    super::super::texture::Texture,
+    glam::Vec3,
+    itertools::Itertools,
+    std::{path::PathBuf, sync::Arc},
+    tobj::Material as tobjMaterial,
+    windows::Win32::Graphics::Direct3D11::ID3D11Device,
 };
 
 pub struct ColouredMaterialTexture {

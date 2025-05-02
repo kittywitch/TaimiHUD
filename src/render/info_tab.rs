@@ -4,12 +4,8 @@ use {
     nexus::imgui::{TableColumnSetup, Ui},
 };
 
-#[cfg(feature="space")]
-use {
-    crate::{
-      ENGINE, ENGINE_INITIALIZED, TEXTURES,
-    },
-};
+#[cfg(feature = "space")]
+use crate::{ENGINE, ENGINE_INITIALIZED, TEXTURES};
 
 pub struct InfoTabState {}
 
@@ -59,59 +55,57 @@ impl InfoTabState {
             ui.table_next_column();
         }
         drop(table_token);
-        #[cfg(feature="space")]
+        #[cfg(feature = "space")]
         self.space_info(ui);
     }
 
-    #[cfg(feature="space")]
+    #[cfg(feature = "space")]
     pub fn space_info(&self, ui: &Ui) {
-        RenderState::font_text("ui", ui,"Engine");
+        RenderState::font_text("ui", ui, "Engine");
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender && ENGINE_INITIALIZED.get() {
-                    ENGINE.with_borrow(|e| {
-                        if let Some(engine) = e {
-                            RenderState::font_text("big", ui,"ECS Data");
-                            let entities = engine.world.entities();
-                            let used_entities = entities.used_count();
-                            let total_entities = entities.total_count();
-                            ui.text(format!("Used: {}", used_entities));
-                            ui.text(format!("Total: {}", total_entities));
-                            RenderState::font_text("big", ui,"Object Data");
-                            let table_token = ui.begin_table_header(
-                                "object_types",
-                                [
-                                    TableColumnSetup::new("Object Kind"),
-                                ],
-                            );
+                ENGINE.with_borrow(|e| {
+                    if let Some(engine) = e {
+                        RenderState::font_text("big", ui, "ECS Data");
+                        let entities = engine.world.entities();
+                        let used_entities = entities.used_count();
+                        let total_entities = entities.total_count();
+                        ui.text(format!("Used: {}", used_entities));
+                        ui.text(format!("Total: {}", total_entities));
+                        RenderState::font_text("big", ui, "Object Data");
+                        let table_token = ui.begin_table_header(
+                            "object_types",
+                            [TableColumnSetup::new("Object Kind")],
+                        );
+                        ui.table_next_column();
+                        for object in engine.object_kinds.keys() {
+                            ui.text(object);
                             ui.table_next_column();
-                            for object in engine.object_kinds.keys() {
-                                ui.text(object);
-                                ui.table_next_column();
-                            }
-                            drop(table_token);
-                            RenderState::font_text("big", ui,"Model Files");
-                            let table_token = ui.begin_table_header(
-                                "model_files",
-                                [
-                                    TableColumnSetup::new("Name"),
-                                    TableColumnSetup::new("Path"),
-                                    TableColumnSetup::new("Vertices"),
-                                ],
-                            );
-                            ui.table_next_column();
-                            for (path , file) in &engine.model_files {
-                                for model in &file.models {
+                        }
+                        drop(table_token);
+                        RenderState::font_text("big", ui, "Model Files");
+                        let table_token = ui.begin_table_header(
+                            "model_files",
+                            [
+                                TableColumnSetup::new("Name"),
+                                TableColumnSetup::new("Path"),
+                                TableColumnSetup::new("Vertices"),
+                            ],
+                        );
+                        ui.table_next_column();
+                        for (path, file) in &engine.model_files {
+                            for model in &file.models {
                                 ui.text(format!("{:?}", path));
                                 ui.table_next_column();
                                 ui.text(&model.0.name);
                                 ui.table_next_column();
-                                ui.text(format!("{}", model.0.mesh.positions.len()/3));
+                                ui.text(format!("{}", model.0.mesh.positions.len() / 3));
                                 ui.table_next_column();
                             }
-                            }
-                            drop(table_token);
                         }
-                    });
+                        drop(table_token);
+                    }
+                });
                 let tex_store = TEXTURES.get().unwrap();
                 let tex_lock = tex_store.read().unwrap();
                 ui.text(format!("Textures: {}", tex_lock.keys().len()));
