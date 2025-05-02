@@ -70,26 +70,16 @@ impl EventMapper {
     async fn send_render(&self) {
         match self {
             Self::Feed(ps) => {
-                if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok())
-                {
-                    if settings.enable_katrender {
-                        let render_sender = RENDER_SENDER.get().unwrap();
-                        let _ = render_sender.send(RenderEvent::AlertFeed(ps.clone())).await;
-                        drop(render_sender);
-                    }
-                }
+                let render_sender = RENDER_SENDER.get().unwrap();
+                let _ = render_sender.send(RenderEvent::AlertFeed(ps.clone())).await;
+                drop(render_sender);
             }
             Self::Reset(tf) => {
-                if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok())
-                {
-                    if settings.enable_katrender {
-                        let render_sender = RENDER_SENDER.get().unwrap();
-                        let _ = render_sender
-                            .send(RenderEvent::AlertReset(tf.clone()))
-                            .await;
-                        drop(render_sender);
-                    }
-                }
+                let render_sender = RENDER_SENDER.get().unwrap();
+                let _ = render_sender
+                    .send(RenderEvent::AlertReset(tf.clone()))
+                    .await;
+                drop(render_sender);
             }
         }
     }
