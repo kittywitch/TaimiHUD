@@ -29,6 +29,7 @@ impl TimerWindowState {
         let mut open = self.open;
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             open = settings.timers_window_open;
+            self.progress_bar = settings.progress_bar.clone();
         };
         if open {
             Window::new("Timers").opened(&mut open).build(ui, || {

@@ -54,7 +54,7 @@ impl ConfigTabState {
             ) {
                 let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
-                    ProgressBarStyleChange::Centre(timer_window_state.progress_bar.shadow),
+                    ProgressBarStyleChange::Centre(timer_window_state.progress_bar.centre_after),
                 ));
                 drop(event_send);
             }
@@ -75,20 +75,20 @@ impl ConfigTabState {
                         .selected(font == selected)
                         .build(ui)
                     {
-                        selected = font.clone()
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
+                        ProgressBarStyleChange::Font(font.clone()),
+                    ));
+                        selected = font;
+                    drop(event_send);
                     }
                 }
-                return selected;
+                selected
             };
             if let Some(selection) = ComboBox::new("Font")
                 .preview_value(&timer_window_state.progress_bar.font.to_string())
                 .build(ui, font_closure)
             {
-                let sender = CONTROLLER_SENDER.get().unwrap();
-                let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
-                    ProgressBarStyleChange::Font(TextFont::from(selection.clone())),
-                ));
-                drop(event_send);
             }
         };
         let timers_window = TreeNode::new("Timers Window")

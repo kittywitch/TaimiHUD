@@ -38,6 +38,7 @@ pub enum RenderEvent {
 
 #[derive(Display, Default, Clone, Debug, Deserialize, Serialize, EnumIter, PartialEq)]
 #[serde(rename_all = "snake_case")]
+#[strum(serialize_all = "snake_case")]
 pub enum TextFont {
     #[default]
     Fontless,

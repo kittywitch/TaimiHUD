@@ -53,7 +53,7 @@ nexus::export! {
     unload,
     flags: AddonFlags::None,
     provider: UpdateProvider::GitHub,
-    update_link: "https://github.com/kittywitch/gw2Taimi-rs",
+    update_link: "https://github.com/kittywitch/TaimiHUD",
     log_filter: "debug"
 }
 
