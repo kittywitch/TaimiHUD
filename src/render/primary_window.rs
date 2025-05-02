@@ -33,7 +33,9 @@ impl PrimaryWindowState {
             open = settings.primary_window_open;
         };
         if open {
-            Window::new("Taimi").opened(&mut open).build(ui, || {
+            Window::new("Taimi")
+                .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
+                .opened(&mut open).build(ui, || {
                 if let Some(_token) = ui.tab_bar("modules") {
                     if let Some(_token) = ui.tab_item("Timers") {
                         self.timer_tab.draw(ui, timer_window_state);
