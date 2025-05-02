@@ -36,6 +36,7 @@ struct Position(Vec3);
 
 #[derive(Component)]
 struct Marker {
+    phase: Arc<PhaseState>,
     start: Instant,
     marker: TimerMarker,
 }
@@ -71,7 +72,7 @@ pub struct Engine {
     pub render_backend: RenderBackend,
     pub model_files: HashMap<PathBuf, ObjFile>,
     pub object_kinds: HashMap<String, Arc<ObjectBacking>>,
-    phase_states: Vec<PhaseState>,
+    phase_states: Vec<Arc<PhaseState>>,
     associated_entities: HashMap<String, Vec<Entity>>,
 
     schedule: Schedule,
@@ -131,6 +132,7 @@ impl Engine {
     }
 
     pub fn new_phase(&mut self, phase_state: PhaseState) -> anyhow::Result<()> {
+        let phase_state = Arc::new(phase_state);
         let markers = &phase_state.markers;
         let entry = self
             .associated_entities
@@ -147,6 +149,7 @@ impl Engine {
                 let entity = self.world.spawn((
                     Position(marker.position),
                     Marker {
+                        phase: phase_state.clone(),
                         start: phase_state.start,
                         marker: marker.clone(),
                     },
@@ -171,10 +174,10 @@ impl Engine {
     }
     pub fn remove_phase(&mut self, timer: Arc<TimerFile>) -> anyhow::Result<()> {
         if let Some(entry) = self.associated_entities.remove(&timer.name.clone()) {
-            for entity in entry {
+            entry.iter().for_each(|entity| {
                 log::debug!("Despawning {entity} from timer {} markers", timer.name());
-                self.world.despawn(entity);
-            }
+                self.world.despawn(*entity);
+            });
         }
         self.phase_states.retain(|p| !Arc::ptr_eq(&p.timer, &timer));
         Ok(())

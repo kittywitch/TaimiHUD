@@ -70,7 +70,9 @@ impl GitHubSource {
         let authors = env!("CARGO_PKG_AUTHORS");
         let user_agent = format!("{} by {}", name, authors);
         let client = Client::builder().user_agent(user_agent).build()?;
-        Ok(client.get(url).send().await?)
+        let resp = client.get(url).send().await?.error_for_status()?;
+        Ok(resp)
+
     }
 
     async fn get_and_extract_tar<U: IntoUrl>(dir: &Path, url: U) -> anyhow::Result<()> {
