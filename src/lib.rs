@@ -2,6 +2,7 @@ mod controller;
 mod render;
 mod settings;
 mod timer;
+mod marker;
 
 #[cfg(feature = "space")]
 mod space;

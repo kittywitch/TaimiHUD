@@ -1849,6 +1849,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lininterp"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8a55db720c79151e28e9cbbfe9248966ac16fb59174ae125cef614b5646517c4"
+
+[[package]]
 name = "linux-raw-sys"
 version = "0.4.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3225,6 +3231,7 @@ dependencies = [
  "indexmap 2.9.0",
  "itertools 0.14.0",
  "json-strip-comments",
+ "lininterp",
  "log",
  "mint",
  "nexus",

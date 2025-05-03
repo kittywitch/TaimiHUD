@@ -118,6 +118,8 @@ impl InfoTabState {
                 let tex_store = TEXTURES.get().unwrap();
                 let tex_lock = tex_store.read().unwrap();
                 ui.text(format!("Textures: {}", tex_lock.keys().len()));
+                ui.text(format!("Mouse Location: {:?}", ui.io().mouse_pos));
+                ui.text(format!("Window Size: {:?}", ui.io().display_size));
             }
         }
     }

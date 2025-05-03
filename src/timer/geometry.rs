@@ -96,8 +96,8 @@ impl Position {
         lhs.max(rhs).into()
     }
 
-    pub fn max(self, _rhs: Position) -> Self {
-        match self {
+    pub fn max(self, rhs: Position) -> Self {
+        match rhs {
             Self::Vec3(vec) => self.max3(vec),
             Self::Vec2(vec) => self.max2(vec),
         }
@@ -226,6 +226,9 @@ impl Polytope {
             Polytope::NCuboid { pode, antipode } => {
                 let mins = pode.min(*antipode);
                 let maxes = pode.max(*antipode);
+                log::debug!("Antipode: {:?}", antipode);
+                log::info!("{:?}, {:?}, {:?}", mins, player, maxes);
+                log::info!("{}, {}", player >= mins, player <= maxes);
                 player >= mins && player <= maxes
             }
         }
