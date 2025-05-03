@@ -219,6 +219,7 @@ fn unload() {
     log::info!("Unloading addon");
     #[cfg(feature = "space")]
     ENGINE.set(None);
+    TEXTURES.set(Default::default());
     /*ENGINE.with_borrow_mut(|e| {
         //#[cfg(todo)]
         //e.cleanup();

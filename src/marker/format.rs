@@ -1,5 +1,5 @@
 use {
-    crate::timer::{BlishVec3, Polytope, Position}, chrono::{DateTime, Utc}, glam::Vec3, nexus::gamebind::GameBind, serde::{Deserialize, Serialize}
+    crate::timer::{BlishVec3, Polytope, Position}, chrono::{DateTime, Utc}, glam::{Mat4, Vec3}, nexus::gamebind::GameBind, serde::{Deserialize, Serialize}
 };
 
 
@@ -95,17 +95,70 @@ impl From<UiSize> for f32 {
     }
 }
 
-struct MinimapState {
+enum CurrentPerspective {
+    Global, // map_open: true,
+    Minimap, // map_open: false,
+}
+
+struct MapState {
+    perspective: CurrentPerspective,
     width: u16,
     height: u16,
     rotation: f32,
     map_scale: f32,
-    map_center_x: f32,
-    map_center_y: f32,
+    map_centre_x: f32,
+    map_centre_y: f32,
     placement: MinimapPlacement,
 }
 
-impl MinimapState {
+impl MapState {
+    fn global_to_local_offset(&self, player_local: Vec3, player_global: Vec3) -> Vec3 {
+        let ft_to_m = 0.3048;
+        let global_in_local_units = player_global * ft_to_m;
+        global_in_local_units - player_local
+    }
+
+    fn local_to_global_offset(&self, player_local: Vec3, player_global: Vec3) -> Vec3 {
+        let m_to_ft = 3.2808;
+        let local_in_global_units = player_local * m_to_ft;
+        local_in_global_units - player_global
+    }
+
+    fn get_third_point_from_offset(&self, pl: Vec3, pg: Vec3, marker: Vec3) -> Vec3 {
+        let offset = self.local_to_global_offset(pl, pg);
+        marker + offset
+    }
+
+    fn meep(&self, display_size: &[f32; 2]) {
+        let [width, height] = match &self.perspective {
+            CurrentPerspective::Global => *display_size,
+            CurrentPerspective::Minimap => [self.width as f32, self.height as f32],
+        };
+        let global_width = self.map_scale * width;
+        let global_height = self.map_scale * height;
+
+        let offset_from_centre_x = global_width / 2.0;
+        let offset_from_centre_y = global_height / 2.0;
+
+        let map_left_x = self.map_centre_x - offset_from_centre_x;
+        let map_top_y = self.map_centre_y - offset_from_centre_y;
+        let map_right_x = self.map_centre_x + offset_from_centre_x;
+        let map_bottom_y = self.map_centre_y + offset_from_centre_y;
+        let camera = Mat4::orthographic_lh(
+            map_left_x,
+            map_right_x,
+            map_bottom_y,
+            map_top_y,
+            0.0,
+            1.0
+        );
+        let real_rotation = match &self.perspective {
+            CurrentPerspective::Global => Mat4::IDENTITY,
+            CurrentPerspective::Minimap => Mat4::from_rotation_y(self.rotation),
+        };
+        let combined_perspective = real_rotation * camera;
+
+    }
     fn boundary(&self, window_size: &[f32; 2], ui_scale: UiSize) {
         let ui_scaler: f32 = ui_scale.into();
         let vertical_offset = match &self.placement {
