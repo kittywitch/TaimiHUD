@@ -1,7 +1,7 @@
 # TaimiHUD
 
 A cross-platform Timers addon, leveraging [Raidcore Nexus](https://raidcore.gg/Nexus).
-Long-term, intends to provide markers and directions too.
+Long-term, intends to provide pathing, Commander's Markers equivalent functionality, timer-provided markers and directions too.
 
 Project management is handled here: https://github.com/users/kittywitch/projects/1
 
