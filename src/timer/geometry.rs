@@ -226,9 +226,6 @@ impl Polytope {
             Polytope::NCuboid { pode, antipode } => {
                 let mins = pode.min(*antipode);
                 let maxes = pode.max(*antipode);
-                log::debug!("Antipode: {:?}", antipode);
-                log::info!("{:?}, {:?}, {:?}", mins, player, maxes);
-                log::info!("{}, {}", player >= mins, player <= maxes);
                 player >= mins && player <= maxes
             }
         }

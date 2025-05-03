@@ -87,8 +87,6 @@ impl TimerTrigger {
         let combat_check = combat_entered_check && combat_exited_check;
         let entry_check = !self.require_entry || position_check;
         let departure_check = !self.require_departure || !position_check;
-        log::debug!("Position: {}", position_check);
-        log::debug!("Entry: {}", entry_check);
         entry_check && departure_check && combat_check && key_check
     }
 }
