@@ -219,7 +219,9 @@ fn unload() {
     log::info!("Unloading addon");
     #[cfg(feature = "space")]
     ENGINE.set(None);
+    #[cfg(feature = "space")]
     TEXTURES.set(Default::default());
+    IMGUI_TEXTURES.set(Default::default());
     /*ENGINE.with_borrow_mut(|e| {
         //#[cfg(todo)]
         //e.cleanup();
