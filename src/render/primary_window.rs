@@ -59,7 +59,7 @@ impl PrimaryWindowState {
         if open != self.open {
             let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send =
-                sender.try_send(ControllerEvent::WindowState("primary".to_string(), open));
+                sender.try_send(ControllerEvent::WindowState("primary".to_string(), Some(open)));
             drop(event_send);
             self.open = open;
         }
@@ -69,7 +69,7 @@ impl PrimaryWindowState {
         let sender = CONTROLLER_SENDER.get().unwrap();
         let event_send = sender.try_send(ControllerEvent::WindowState(
             "primary".to_string(),
-            !self.open,
+            Some(!self.open),
         ));
         drop(event_send);
     }

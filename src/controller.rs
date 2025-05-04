@@ -1,6 +1,6 @@
 use {
     crate::{
-        render::TextFont, settings::{RemoteSource, Settings, SettingsLock}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS
+        render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -413,7 +413,7 @@ impl Controller {
         drop(settings_lock);
     }
 
-    async fn set_window_state(&mut self, window: String, state: bool) {
+    async fn set_window_state(&mut self, window: String, state: Option<bool>) {
         let mut settings_lock = self.settings.write().await;
         settings_lock.set_window_state(&window, state).await;
         drop(settings_lock);
@@ -423,6 +423,13 @@ impl Controller {
         let mut settings_lock = self.settings.write().await;
         settings_lock.toggle_katrender().await;
         drop(settings_lock);
+    }
+
+    async fn uninstall_addon(&mut self, source: &RemoteSource) -> anyhow::Result<()> {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.uninstall_remote(source).await?;
+        drop(settings_lock);
+        Ok(())
     }
 
     async fn timer_key_trigger(&mut self, id: String, is_release: bool) {
@@ -459,6 +466,7 @@ impl Controller {
         log::debug!("Controller received event: {}", event);
         match event {
             ToggleKatRender => self.toggle_katrender().await,
+            UninstallAddon(dd) => self.uninstall_addon(&dd).await?,
             MumbleIdentityUpdated(identity) => self.handle_mumble(identity).await,
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,
             TimerEnable(id) => self.enable_timer(&id).await,
@@ -490,6 +498,7 @@ pub enum ProgressBarStyleChange {
 
 #[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
+    UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     ToggleKatRender,
     CombatEvent {
@@ -500,7 +509,7 @@ pub enum ControllerEvent {
         source: Arc<RemoteSource>,
     },
     ProgressBarStyle(ProgressBarStyleChange),
-    WindowState(String, bool),
+    WindowState(String, Option<bool>),
     #[strum(to_string = "Id {0}, pressed {1}")]
     TimerKeyTrigger(String, bool),
     LoadTexture(RelativePathBuf, PathBuf),

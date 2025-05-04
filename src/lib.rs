@@ -7,6 +7,7 @@ mod marker;
 #[cfg(feature = "space")]
 mod space;
 
+use nexus::{imgui::{MenuItem, Ui}, quick_access::add_quick_access_context_menu};
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
 use {
@@ -174,11 +175,36 @@ fn load() {
     */
 
     add_quick_access(
-        "TAIMI Control",
+        "TAIMIControl",
         "TAIMI_ICON",
         "TAIMI_ICON_HOVER",
         "Taimi Window Toggle",
         "Open Taimi control menu",
+    )
+    .revert_on_unload();
+    
+
+    let timers_callback = render!(|ui| {
+        ui.menu("Taimi Menu", || {
+            if MenuItem::new("Configuration")
+                .build(ui) {
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                let event_send =
+                sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
+            }
+        })
+
+    });
+    add_quick_access_context_menu(
+        "TAIMIMenu",
+        Some("TAIMIControl"),
+        timers_callback
+    )
+    .revert_on_unload();
+    add_quick_access_context_menu(
+        "TAIMIMenuMoo",
+        Some("TAIMIControl"),
+        timers_callback
     )
     .revert_on_unload();
 
@@ -218,10 +244,10 @@ fn load() {
 fn unload() {
     log::info!("Unloading addon");
     #[cfg(feature = "space")]
-    ENGINE.set(None);
+    let _ = ENGINE.set(None);
     #[cfg(feature = "space")]
-    TEXTURES.set(Default::default());
-    IMGUI_TEXTURES.set(Default::default());
+    let _ = TEXTURES.set(Default::default());
+    let _ = IMGUI_TEXTURES.set(Default::default());
     /*ENGINE.with_borrow_mut(|e| {
         //#[cfg(todo)]
         //e.cleanup();

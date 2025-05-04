@@ -5,7 +5,7 @@ use {
         path::{Path, PathBuf},
         sync::Arc,
     }, tokio::{
-        fs::{create_dir_all, read_to_string, try_exists, File},
+        fs::{create_dir_all, read_to_string, remove_dir_all, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
     }, tokio_tar::Archive, tokio_util::io::StreamReader, url::Url
@@ -40,6 +40,7 @@ pub struct GitHubLatestRelease {
 pub struct GitHubSource {
     pub owner: String,
     pub repository: String,
+    pub description: String,
 }
 
 impl fmt::Display for GitHubSource {
@@ -53,11 +54,11 @@ impl GitHubSource {
         format!("{}_{}", self.owner, self.repository)
     }
 
+    pub fn repo_url(&self) -> String {
+        format!("https://github.com/{}", self.repo_string())
+    }
+
     async fn get<U: IntoUrl>(url: U) -> anyhow::Result<Response> {
-        let settings_arc = SETTINGS
-            .get()
-            .expect("SettingsLock should've been initialized by now!");
-        let settings_lock = settings_arc.read().await;
         let name = env!("CARGO_PKG_NAME");
         let authors = env!("CARGO_PKG_AUTHORS");
         let user_agent = format!("{} by {}", name, authors);
@@ -79,6 +80,10 @@ impl GitHubSource {
         let mut containing_directory: Option<PathBuf> = None;
         let mut iterator = entries;
         iterator.next().await; // skip pax_global_header
+        if dir.exists() {
+            log::info!("Directory {dir:?} exists already; removing prior to extraction.");
+            remove_dir_all(dir).await?;
+        }
         while let Some(file) = iterator.next().await {
             let mut f = file?;
             let path = f.path()?;

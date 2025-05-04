@@ -1,11 +1,8 @@
 use {
     super::GitHubSource, crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, reqwest::{Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, std::{
-        collections::HashMap,
-        fmt, io,
-        path::{Path, PathBuf},
-        sync::Arc,
+        collections::HashMap, fmt, fs, io, path::{Path, PathBuf}, sync::Arc
     }, tokio::{
-        fs::{create_dir_all, read_to_string, try_exists, File},
+        fs::{create_dir_all, remove_dir_all, read_to_string, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
     }, tokio_tar::Archive, tokio_util::io::StreamReader
@@ -35,8 +32,8 @@ impl TimerSettings {
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 pub struct RemoteState {
     pub source: Arc<RemoteSource>,
-    installed_tag: Option<String>,
-    installed_path: Option<PathBuf>,
+    pub installed_tag: Option<String>,
+    pub installed_path: Option<PathBuf>,
     #[serde(skip)]
     pub needs_update: NeedsUpdate,
 }
@@ -55,7 +52,7 @@ impl fmt::Display for NeedsUpdate {
         match &self {
             Unknown => write!(f, "Unknown"),
             Error(e) => write!(f, "Error: {e}!"),
-            Known(true, id) => write!(f, "Newer version, {} available!", id),
+            Known(true, id) => write!(f, "Available: {}", id),
             Known(false, _id) => write!(f, "Up to date!"),
         }
     }
@@ -69,11 +66,12 @@ enum RemoteSource {
 pub type RemoteSource = GitHubSource;
 
 impl RemoteState {
-    fn new(owner: &str, repository: &str) -> Self {
+    fn new(owner: &str, repository: &str, description: &str) -> Self {
         Self {
             source: Arc::new(RemoteSource {
                 owner: owner.to_string(),
                 repository: repository.to_string(),
+                description: description.to_string(),
             }),
             installed_tag: Default::default(),
             installed_path: Default::default(),
@@ -81,11 +79,30 @@ impl RemoteState {
         }
     }
 
+    pub async fn uninstall(&mut self) -> anyhow::Result<()> {
+        // fuck man, be careful o:
+        if let Some(path) = &self.installed_path {
+            if path.exists() {
+                log::warn!("Uninstalling: removing {path:?}!");
+                remove_dir_all(path).await?;
+            } else {
+                log::warn!("Uninstalling: {path:?} no longer exists.");
+            }
+        }
+        self.installed_tag = None;
+        self.installed_path = None;
+        self.needs_update = NeedsUpdate::Unknown;
+        Ok(())
+    }
+
     fn suggested_sources() -> impl Iterator<Item = Self> {
-        let hardcoded_sources = [("QuitarHero", "Hero-Timers")];
+        let hardcoded_sources = [
+            ("kittywitch", "Hero-Timers", "The author of this mod's fork of the below; changes such as Sabetha markers and others planned, specific to this addon."),
+            ("QuitarHero", "Hero-Timers", "The OG timer pack for BlishHUD!")
+        ];
         hardcoded_sources
             .into_iter()
-            .map(|(owner, repository)| Self::new(owner, repository))
+            .map(|(owner, repository, description)| Self::new(owner, repository, description))
     }
 
     pub async fn needs_update(&self) -> NeedsUpdate {
@@ -210,14 +227,21 @@ impl Settings {
             .collect()
     }
 
-    pub async fn set_window_state(&mut self, window: &str, state: bool) {
+    pub async fn set_window_state(&mut self, window: &str, state: Option<bool>) {
         let window_open = match window {
             "primary" => &mut self.primary_window_open,
             "timers" => &mut self.timers_window_open,
             _ => unreachable!("unsupported window"),
         };
 
-        *window_open = state;
+        match state {
+            Some(s) => {
+                *window_open = s;
+            },
+            None => {
+                *window_open = !*window_open;
+            },
+        }
         let _ = self.save(&self.addon_dir).await;
     }
 
@@ -255,6 +279,17 @@ impl Settings {
 
     pub async fn get_status_for_mut(&mut self, source: &RemoteSource) -> Option<&mut RemoteState> {
         self.remotes.iter_mut().find(|dd| *dd.source == *source)
+    }
+
+    pub async fn uninstall_remote(&mut self, source: &RemoteSource) -> anyhow::Result<()> {
+        if let Some(remote) = self.remotes
+            .iter_mut()
+            .find(|dd| *dd.source == *source) {
+            remote.uninstall().await?;
+        }
+        log::info!("Did we get this far?");
+        let _ = self.save(&self.addon_dir).await;
+        Ok(())
     }
 
     pub async fn download_latest(source: &RemoteSource) -> anyhow::Result<()> {

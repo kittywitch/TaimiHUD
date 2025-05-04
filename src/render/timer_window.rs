@@ -32,7 +32,9 @@ impl TimerWindowState {
             self.progress_bar = settings.progress_bar.clone();
         };
         if open {
-            Window::new("Timers").opened(&mut open).build(ui, || {
+            Window::new("Timers")
+                .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
+                .opened(&mut open).build(ui, || {
                 for ps in &self.phase_states {
                     for alert in ps.alerts.iter() {
                         if self.progress_bar.stock {
@@ -48,7 +50,7 @@ impl TimerWindowState {
         if open != self.open {
             let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send =
-                sender.try_send(ControllerEvent::WindowState("timers".to_string(), open));
+                sender.try_send(ControllerEvent::WindowState("timers".to_string(), Some(open)));
             drop(event_send);
             self.open = open;
         }

@@ -54,7 +54,7 @@ impl TimerTabState {
             let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send = sender.try_send(ControllerEvent::WindowState(
                 "timers".to_string(),
-                timer_window_state.open,
+                Some(timer_window_state.open),
             ));
             drop(event_send);
         }

@@ -18,7 +18,7 @@ impl ConfigTabState {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             self.katrender = settings.enable_katrender;
         };
-        ui.text("You can control-click on a slider element, or such, to be able to directly input data to it.");
+        ui.text("You can control-click on a slider element, or such, to be able to directly input data to it. Remember to press enter after inputting the value.");
         #[cfg(feature = "space")]
         if ui.checkbox("Experimental KatRender", &mut self.katrender) {
             let sender = CONTROLLER_SENDER.get().unwrap();
