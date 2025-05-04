@@ -184,25 +184,14 @@ fn load() {
     .revert_on_unload();
     
 
-    let timers_callback = render!(|ui| {
-        ui.menu("Taimi Menu", || {
-            if MenuItem::new("Configuration")
-                .build(ui) {
-                let sender = CONTROLLER_SENDER.get().unwrap();
-                let event_send =
-                sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
-            }
-        })
+    let timers_callback = render!(|_ui| {
+        let sender = CONTROLLER_SENDER.get().unwrap();
+        let _ =
+            sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
 
     });
     add_quick_access_context_menu(
         "TAIMIMenu",
-        Some("TAIMIControl"),
-        timers_callback
-    )
-    .revert_on_unload();
-    add_quick_access_context_menu(
-        "TAIMIMenuMoo",
         Some("TAIMIControl"),
         timers_callback
     )
