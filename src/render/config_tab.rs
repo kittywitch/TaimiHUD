@@ -18,7 +18,10 @@ impl ConfigTabState {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             self.katrender = settings.enable_katrender;
         };
-        ui.text("You can control-click on a slider element, or such, to be able to directly input data to it. Remember to press enter after inputting the value.");
+        ui.text_wrapped("You can control-click on a slider element, or such, to be able to directly input data to it. Remember to press enter after inputting the value.");
+        ui.dummy([4.0, 4.0]);
+        ui.text_wrapped("If you need keybind-based timer triggers, please bind the appropriate keys in the Nexus settings.");
+        ui.dummy([4.0, 4.0]);
         #[cfg(feature = "space")]
         if ui.checkbox("Experimental KatRender", &mut self.katrender) {
             let sender = CONTROLLER_SENDER.get().unwrap();
@@ -26,6 +29,7 @@ impl ConfigTabState {
             drop(event_send);
         };
         let timers_window_closure = || {
+            ui.dummy([4.0, 4.0]);
             if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
                 timer_window_state.progress_bar.stock = settings.progress_bar.stock;
             };
@@ -89,7 +93,7 @@ impl ConfigTabState {
             {}
         };
         let timers_window = TreeNode::new("Timers Window")
-            .flags(TreeNodeFlags::empty())
+            .flags(TreeNodeFlags::FRAMED)
             .opened(true, Condition::Once)
             .tree_push_on_open(true)
             .build(ui, timers_window_closure);

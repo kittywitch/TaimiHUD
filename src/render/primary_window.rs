@@ -41,9 +41,9 @@ impl PrimaryWindowState {
                         if let Some(_token) = ui.tab_item("Timers") {
                             self.timer_tab.draw(ui, timer_window_state);
                         };
-                        if let Some(_token) = ui.tab_item("Markers") {
+                        /*if let Some(_token) = ui.tab_item("Markers") {
                             ui.text("To-do!");
-                        }
+                        }*/
                         if let Some(_token) = ui.tab_item("Data Sources") {
                             self.data_sources_tab.draw(ui);
                         }

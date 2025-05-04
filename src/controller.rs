@@ -16,11 +16,7 @@ use {
     },
     relative_path::RelativePathBuf,
     std::{
-        collections::HashMap,
-        fs::read_to_string,
-        path::{Path, PathBuf},
-        sync::Arc,
-        time::SystemTime,
+        collections::HashMap, ffi::OsStr, fs::read_to_string, path::{Path, PathBuf}, sync::Arc, time::SystemTime
     },
     strum_macros::Display,
     tokio::{
@@ -419,6 +415,17 @@ impl Controller {
         drop(settings_lock);
     }
 
+    async fn open_openable<T: AsRef<OsStr>>(&self, key: String, uri: T) {
+        match open::that(uri) {
+            Ok(_) => (),
+            Err(err) => {
+                let _ = self
+                    .rt_sender
+                    .send(RenderEvent::OpenableError(key, err.into()))
+                    .await;
+            }
+        }
+    }
     async fn toggle_katrender(&mut self) {
         let mut settings_lock = self.settings.write().await;
         settings_lock.toggle_katrender().await;
@@ -466,6 +473,7 @@ impl Controller {
         log::debug!("Controller received event: {}", event);
         match event {
             ToggleKatRender => self.toggle_katrender().await,
+            OpenOpenable(key, uri) => self.open_openable(key,uri).await,
             UninstallAddon(dd) => self.uninstall_addon(&dd).await?,
             MumbleIdentityUpdated(identity) => self.handle_mumble(identity).await,
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,
@@ -498,6 +506,7 @@ pub enum ProgressBarStyleChange {
 
 #[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
+    OpenOpenable(String, String),
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     ToggleKatRender,

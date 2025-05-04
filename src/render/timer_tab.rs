@@ -45,7 +45,7 @@ impl TimerTabState {
     }
 
     fn draw_sidebar_header(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
-        let button_text = match timer_window_state.open {
+        /*let button_text = match timer_window_state.open {
             true => "Close Timers",
             false => "Open Timers",
         };
@@ -64,7 +64,7 @@ impl TimerTabState {
             let event_send = sender.try_send(ControllerEvent::TimerReset);
             drop(event_send);
             timer_window_state.reset_phases();
-        }
+        }*/
         if self.category_status.len() != self.categories.keys().len() {
             ui.same_line();
             if ui.button("Expand All") {

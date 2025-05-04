@@ -24,6 +24,7 @@ use {
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
     AlertFeed(PhaseState),
+    OpenableError(String, anyhow::Error),
     AlertReset(Arc<TimerFile>),
     AlertStart(TextAlert),
     AlertEnd(Arc<TimerFile>),
@@ -66,6 +67,9 @@ impl RenderState {
             Ok(event) => {
                 use RenderEvent::*;
                 match event {
+                    OpenableError(key, err) => {
+                        self.primary_window.data_sources_tab.state_errors.insert(key, err);
+                    }
                     RenderKeybindUpdate => {
                         self.primary_window.keybind_handler();
                     }
@@ -147,7 +151,7 @@ impl RenderState {
             let font_handle = ui.push_font(font.id());
             font_handles.push(font_handle);
         }
-        ui.text(text);
+        ui.text_wrapped(text);
         for font_handle in font_handles {
             font_handle.pop();
         }

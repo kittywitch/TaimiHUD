@@ -35,6 +35,20 @@ impl TimerWindowState {
             Window::new("Timers")
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
                 .opened(&mut open).build(ui, || {
+                if !self.phase_states.is_empty() {
+                    if ui.button("Reset Timers") {
+                        let sender = CONTROLLER_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::TimerReset);
+                        drop(event_send);
+                        self.reset_phases();
+                    }
+                    ui.dummy([2.0; 2]);
+                    ui.separator();
+                    ui.dummy([4.0; 2]);
+                }
+                else {
+                    ui.text_wrapped("No phases currently active, no timers running.");
+                }
                 for ps in &self.phase_states {
                     for alert in ps.alerts.iter() {
                         if self.progress_bar.stock {

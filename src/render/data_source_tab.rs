@@ -5,7 +5,7 @@ use {
 
 pub struct DataSourceTabState {
     pub checking_for_updates: bool,
-    state_errors: HashMap<String, anyhow::Error>,
+    pub state_errors: HashMap<String, anyhow::Error>,
 }
 
 impl DataSourceTabState {
@@ -55,40 +55,43 @@ impl DataSourceTabState {
 
     pub fn draw_open_button<
             S: AsRef<str> + std::fmt::Display,
-            T: AsRef<OsStr> + std::fmt::Debug
-        >(&mut self, ui: &Ui, text: S, openable: T) {
+        >(&mut self, ui: &Ui, text: S, openable: String) {
         let entry_name = format!("{text}: {openable:?}");
         let modal_name = format!("{entry_name} Error");
         if ui.button(&text) {
             log::info!("Triggered open {openable:?} for {text}");
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(
+                ControllerEvent::OpenOpenable(entry_name.clone(), openable.clone()));
+            drop(event_send);
             match open::that(&openable) {
                 Ok(_) => {
-                    self.state_errors.remove(&entry_name);
                 },
                 Err(err) => {
                     self.state_errors.insert(entry_name.clone(), err.into());
-                    ui.open_popup(&modal_name);
                 }
             }
         }
         if ui.is_item_hovered() {
             ui.tooltip_text(format!("Location: {:?}", openable));
         }
-        if let Some(_token) = PopupModal::new(&modal_name)
+        if let Some(errory) = &self.state_errors.get(&entry_name) {
+            ui.open_popup(&modal_name);
+            if let Some(_token) = PopupModal::new(&modal_name)
             .always_auto_resize(true)
             .begin_popup(ui) {
-            if let Some(errory) = &self.state_errors.get(&entry_name) {
                 ui.text_wrapped(format!("Open error for {text}, {openable:?}!"));
                 ui.dummy([4.0, 4.0]);
                 ui.text_wrapped(format!("{:?}", errory));
                 ui.dummy([4.0, 4.0]);
                 if ui.button("OK") {
+                    self.state_errors.remove(&entry_name);
                     ui.close_current_popup();
                 }
             } else {
                 ui.close_current_popup();
             }
-        };
+        }
     }
 
     pub fn draw(&mut self, ui: &Ui) {
@@ -156,14 +159,14 @@ impl DataSourceTabState {
                     let pushy = ui.push_id(&source_text);
                     ui.text(format!("{}", source));
                     ui.table_next_column();
-                    ui.text_wrapped(format!("{}", download_data.source.description));
+                    ui.text_wrapped(&download_data.source.description);
                     ui.table_next_column();
                     if let Some(installed) = &download_data.installed_tag {
                         ui.text_wrapped(format!("Installed: {}", installed));
                     } else {
-                        ui.text_wrapped(format!("Not installed"));
+                        ui.text_wrapped("Not installed");
                     }
-                    ui.text_wrapped(format!("{}", download_data.needs_update));
+                    download_data.needs_update.draw(ui);
                     ui.table_next_column();
                     use NeedsUpdate::*;
                     let button_text = match &download_data.needs_update {
@@ -183,7 +186,9 @@ impl DataSourceTabState {
                     }
                     self.draw_open_button(ui, "Open Repository", source.repo_url());
                     if let Some(path) = &download_data.installed_path {
-                        self.draw_open_button(ui, "Open Folder", path.as_os_str());
+                        if let Some (path) = path.to_str() {
+                            self.draw_open_button(ui, "Open Folder", path.to_string());
+                        }
                         self.draw_uninstall(ui, download_data);
                     }
 

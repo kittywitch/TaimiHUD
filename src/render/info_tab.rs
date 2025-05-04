@@ -18,12 +18,7 @@ impl InfoTabState {
         let name = env!("CARGO_PKG_NAME");
         let authors = env!("CARGO_PKG_AUTHORS");
         let version = env!("CARGO_PKG_VERSION");
-        let version: String;
-        if let Some(git_version) = built_info::GIT_VERSION {
-            version = format!("v{}, {}", env!("CARGO_PKG_VERSION"), git_version);
-        } else {
-            version = env!("CARGO_PKG_VERSION").to_string();
-        }
+        let version = env!("CARGO_PKG_VERSION");
         let profile = match () {
             #[cfg(debug_assertions)]
             _ => "debug",
@@ -34,18 +29,22 @@ impl InfoTabState {
         let project_heading = format!("{}, {} by {}", name, version, authors);
         RenderState::font_text("big", ui, &project_heading);
 
-        if let Some(git_head_ref) = built_info::GIT_HEAD_REF {
-            ui.text(format!("Built from ref: {}", git_head_ref));
+        let in_ci = match built_info::CI_PLATFORM {
+            Some(platform) => format!(" using {platform}"),
+            None => "".to_string(),
+        };
+        if let (Some(git_head_ref), Some(git_hash)) = (built_info::GIT_HEAD_REF, built_info::GIT_COMMIT_HASH_SHORT) {
+            let mut build = format!("Built from {}@{}", git_head_ref, git_hash);
+            build.push_str(&in_ci);
+            build.push_str(&format!(", in profile \"{profile}\""));
+            build.push('.');
+            ui.text_wrapped(build);
         }
-        if let Some(git_hash) = built_info::GIT_COMMIT_HASH_SHORT {
-            ui.same_line();
-            ui.text(format!("Git hash: {}", git_hash));
-        }
-        let profile_info = format!("Built in the {} profile.", profile);
-        ui.text(profile_info);
+        ui.dummy([4.0, 4.0]);
         let description = env!("CARGO_PKG_DESCRIPTION");
-        ui.text(description);
-        ui.text("If you need keybind based timer triggers, please bind the appropriate keys in the Nexus settings.");
+        ui.text_wrapped(description);
+        ui.dummy([4.0, 4.0]);
+        ui.text_wrapped("If you need keybind-based timer triggers, please bind the appropriate keys in the Nexus settings.");
         ui.separator();
         RenderState::font_text("ui", ui, "Active Phase States");
         let table_token = ui.begin_table_header(
@@ -58,9 +57,9 @@ impl InfoTabState {
         ui.table_next_column();
         for phase_state in &timer_window_state.phase_states {
             let phase = phase_state.phase.phase();
-            ui.text(phase_state.timer.hypheny_name());
+            ui.text_wrapped(phase_state.timer.hypheny_name());
             ui.table_next_column();
-            ui.text(&phase.name);
+            ui.text_wrapped(&phase.name);
             ui.table_next_column();
         }
         drop(table_token);

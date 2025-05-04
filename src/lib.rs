@@ -7,7 +7,7 @@ mod marker;
 #[cfg(feature = "space")]
 mod space;
 
-use nexus::{imgui::{MenuItem, Ui}, quick_access::add_quick_access_context_menu};
+use nexus::{imgui::{MenuItem, Ui}, quick_access::{add_quick_access_context_menu, notify_quick_access}};
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
 use {
@@ -137,8 +137,9 @@ fn load() {
     // Handle window toggling with keybind and button
     let main_window_keybind_handler = keybind_handler!(|_id, is_release| {
         if !is_release {
-            let sender = RENDER_SENDER.get().unwrap();
-            let _ = sender.try_send(RenderEvent::RenderKeybindUpdate);
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let _ =
+                sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
         }
     });
 
@@ -146,6 +147,22 @@ fn load() {
         "Taimi Window Toggle",
         main_window_keybind_handler,
         "ALT+SHIFT+M",
+    )
+    .revert_on_unload();
+
+    // Handle window toggling with keybind and button
+    let timer_window_keybind_handler = keybind_handler!(|_id, is_release| {
+        if !is_release {
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let _ =
+                sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
+        }
+    });
+
+    register_keybind_with_string(
+        "Timer Window Toggle",
+        timer_window_keybind_handler,
+        "ALT+SHIFT+K",
     )
     .revert_on_unload();
 
@@ -174,26 +191,35 @@ fn load() {
     );
     */
 
+    let same_identifier = "TAIMI_BUTTON";
+
     add_quick_access(
-        "TAIMIControl",
+        same_identifier,
         "TAIMI_ICON",
         "TAIMI_ICON_HOVER",
         "Taimi Window Toggle",
-        "Open Taimi control menu",
+        "Show/hide timers window",
     )
     .revert_on_unload();
-    
 
-    let timers_callback = render!(|_ui| {
-        let sender = CONTROLLER_SENDER.get().unwrap();
-        let _ =
-            sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
 
-    });
     add_quick_access_context_menu(
-        "TAIMIMenu",
-        Some("TAIMIControl"),
-        timers_callback
+        "TAIMI_MENU",
+        Some(same_identifier), // maybe some day
+        //None::<&str>,
+        render!(|ui| {
+            if ui.button("Timers") {
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                let _ =
+                    sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
+            }
+            if ui.button("Primary") {
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                let _ =
+                    sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
+            }
+
+    })
     )
     .revert_on_unload();
 

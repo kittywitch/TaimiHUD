@@ -1,8 +1,8 @@
 use {
-    super::GitHubSource, crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, reqwest::{Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, std::{
+    super::GitHubSource, crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, nexus::imgui::Ui, reqwest::{Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, std::{
         collections::HashMap, fmt, fs, io, path::{Path, PathBuf}, sync::Arc
     }, tokio::{
-        fs::{create_dir_all, remove_dir_all, read_to_string, try_exists, File},
+        fs::{create_dir_all, read_to_string, remove_dir_all, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
     }, tokio_tar::Archive, tokio_util::io::StreamReader
@@ -58,6 +58,19 @@ impl fmt::Display for NeedsUpdate {
     }
 }
 
+impl NeedsUpdate {
+    pub fn draw(&self, ui: &Ui) {
+        let text = self.to_string();
+        use NeedsUpdate::*;
+        match &self {
+            Unknown => ui.text_colored([1.0, 1.0, 0.0, 1.0], text),
+            Error(_e) => ui.text_colored([1.0, 0.0, 0.0, 1.0], text),
+            Known(true, _id) => ui.text_colored([1.0, 0.6, 0.0, 1.0], text),
+            Known(false, _id) => ui.text_colored([0.0, 1.0, 0.0, 1.0], text),
+        }
+    }
+}
+
 /*#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
 enum RemoteSource {
     GitHub(GitHubSource),
@@ -79,6 +92,20 @@ impl RemoteState {
         }
     }
 
+    fn update(self, description: &str) -> Self {
+        let old_source = self.source;
+        Self {
+            source: Arc::new(RemoteSource {
+                owner: old_source.owner.clone(),
+                repository: old_source.repository.clone(),
+                description: description.to_string(),
+            }),
+            installed_tag: self.installed_tag,
+            installed_path: self.installed_path,
+            needs_update: self.needs_update,
+        }
+    }
+
     pub async fn uninstall(&mut self) -> anyhow::Result<()> {
         // fuck man, be careful o:
         if let Some(path) = &self.installed_path {
@@ -95,12 +122,15 @@ impl RemoteState {
         Ok(())
     }
 
-    fn suggested_sources() -> impl Iterator<Item = Self> {
+    fn hardcoded_sources() -> Vec<(&'static str, &'static str, &'static str)> {
         let hardcoded_sources = [
             ("kittywitch", "Hero-Timers", "The author of this mod's fork of the below; changes such as Sabetha markers and others planned, specific to this addon."),
             ("QuitarHero", "Hero-Timers", "The OG timer pack for BlishHUD!")
         ];
-        hardcoded_sources
+        hardcoded_sources.into()
+    }
+    fn suggested_sources() -> impl Iterator<Item = Self> {
+        Self::hardcoded_sources()
             .into_iter()
             .map(|(owner, repository, description)| Self::new(owner, repository, description))
     }
@@ -220,6 +250,26 @@ pub struct Settings {
 }
 
 impl Settings {
+    pub fn update_sources_data(&mut self) {
+        let all_sources = RemoteState::hardcoded_sources();
+        let mut all_sources_data = RemoteState::hardcoded_sources();
+        for (owner, repository, description) in all_sources {
+            for remote in &mut self.remotes {
+                if owner == remote.source.owner && repository == remote.source.repository {
+                    *remote = remote.clone().update(description);
+                    all_sources_data.retain(|x| *x != (owner, repository, description));
+                }
+            }
+        }
+        for (owner, repository, description) in all_sources_data {
+            self.remotes.push(RemoteState::new(owner, repository, description))
+        }
+    }
+
+    pub fn count_disabled_timers(&self) -> usize {
+        self.timers.values().filter(|x| x.disabled).count()
+    }
+
     pub fn get_paths(&self) -> Vec<&PathBuf> {
         self.remotes
             .iter()
@@ -379,6 +429,7 @@ impl Settings {
             let file_data = read_to_string(settings_path).await?;
             let mut settings = serde_json::from_str::<Self>(&file_data)?;
             settings.addon_dir = addon_dir.to_path_buf();
+            settings.update_sources_data();
             return Ok(settings);
         }
         Ok(Self::new(addon_dir).await)
