@@ -23,7 +23,9 @@ impl DataSourceTabState {
             ui.open_popup(&modal_name);
         }
         if ui.is_item_hovered() {
-            ui.tooltip_text(format!("Location: {:?}", &rs.installed_path));
+            if let Some(path) = &rs.installed_path {
+                ui.tooltip_text(format!("Location: {:?}", &path));
+            }
         }
         if let Some(_token) = PopupModal::new(&modal_name)
             .always_auto_resize(true)
