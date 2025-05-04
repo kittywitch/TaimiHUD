@@ -66,7 +66,6 @@ impl TimerTabState {
             timer_window_state.reset_phases();
         }*/
         if self.category_status.len() != self.categories.keys().len() {
-            ui.same_line();
             if ui.button("Expand All") {
                 self.category_status.extend(self.categories.keys().cloned());
             }
