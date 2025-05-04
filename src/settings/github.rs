@@ -1,29 +1,17 @@
 use {
-    crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS},
-    anyhow::anyhow,
-    async_compression::tokio::bufread::GzipDecoder,
-    chrono::{DateTime, Utc},
-    futures::stream::{StreamExt, TryStreamExt},
-    reqwest::{Client, IntoUrl, Response},
-    serde::{Deserialize, Serialize},
-    serde_json::Value,
-    std::{
+    crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, reqwest::{Certificate, Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, serde_json::Value, std::{
         collections::HashMap,
         fmt, io,
         path::{Path, PathBuf},
         sync::Arc,
-    },
-    tokio::{
+    }, tokio::{
         fs::{create_dir_all, read_to_string, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
-    },
-    tokio_tar::Archive,
-    tokio_util::io::StreamReader,
-    url::Url,
+    }, tokio_tar::Archive, tokio_util::io::StreamReader, url::Url
 };
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct GitHubLatestRelease {
     url: Url,
     html_url: Url,
@@ -66,6 +54,10 @@ impl GitHubSource {
     }
 
     async fn get<U: IntoUrl>(url: U) -> anyhow::Result<Response> {
+        let settings_arc = SETTINGS
+            .get()
+            .expect("SettingsLock should've been initialized by now!");
+        let settings_lock = settings_arc.read().await;
         let name = env!("CARGO_PKG_NAME");
         let authors = env!("CARGO_PKG_AUTHORS");
         let user_agent = format!("{} by {}", name, authors);
@@ -76,7 +68,9 @@ impl GitHubSource {
     }
 
     async fn get_and_extract_tar<U: IntoUrl>(dir: &Path, url: U) -> anyhow::Result<()> {
-        let response = Self::get(url).await?;
+        let url = url.into_url()?;
+        log::debug!("Beginning to fetch and extract into {dir:?} from {:?}", url);
+        let response = Self::get(url.clone()).await?;
         let bytes_stream = response.bytes_stream().map_err(io::Error::other);
         let stream_reader = StreamReader::new(bytes_stream);
         let gzip_decoder = GzipDecoder::new(stream_reader);
@@ -88,10 +82,8 @@ impl GitHubSource {
         while let Some(file) = iterator.next().await {
             let mut f = file?;
             let path = f.path()?;
-            log::debug!("Path in tarball: {}", path.display());
             if let Some(prefix) = &containing_directory {
                 let destination_suffix = path.strip_prefix(prefix)?;
-                log::debug!("Destination suffix: {}", destination_suffix.display());
                 let destination_path = dir.join(destination_suffix);
                 if let Some(destination_parent) = destination_path.parent() {
                     create_dir_all(destination_parent).await?;
@@ -102,6 +94,7 @@ impl GitHubSource {
                 containing_directory = Some(path.into_owned());
             }
         }
+        log::debug!("Completed fetching and extracting into {dir:?} from {:?}", url);
         Ok(())
     }
 

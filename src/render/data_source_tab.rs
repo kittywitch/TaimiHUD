@@ -42,6 +42,7 @@ impl DataSourceTabState {
                         Unknown => Some("Attempt to update anyway?"),
                         Known(true, _id) => Some("Update"),
                         Known(false, _id) => None,
+                        Error(err) => None,
                     };
                     if let Some(button_text) = button_text {
                         if ui.button(button_text) {

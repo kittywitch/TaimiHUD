@@ -1,25 +1,14 @@
 use {
-    super::GitHubSource,
-    crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS},
-    anyhow::anyhow,
-    async_compression::tokio::bufread::GzipDecoder,
-    chrono::{DateTime, Utc},
-    futures::stream::{StreamExt, TryStreamExt},
-    reqwest::{Client, IntoUrl, Response},
-    serde::{Deserialize, Serialize},
-    std::{
+    super::GitHubSource, crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, reqwest::{Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, std::{
         collections::HashMap,
         fmt, io,
         path::{Path, PathBuf},
         sync::Arc,
-    },
-    tokio::{
+    }, tokio::{
         fs::{create_dir_all, read_to_string, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
-    },
-    tokio_tar::Archive,
-    tokio_util::io::StreamReader,
+    }, tokio_tar::Archive, tokio_util::io::StreamReader
 };
 
 pub type SettingsLock = Arc<RwLock<Settings>>;
@@ -56,6 +45,7 @@ pub struct RemoteState {
 pub enum NeedsUpdate {
     #[default]
     Unknown,
+    Error(String),
     Known(bool, String),
 }
 
@@ -63,7 +53,8 @@ impl fmt::Display for NeedsUpdate {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use NeedsUpdate::*;
         match &self {
-            Unknown => write!(f, "Unknown!"),
+            Unknown => write!(f, "Unknown"),
+            Error(e) => write!(f, "Error: {e}!"),
             Known(true, id) => write!(f, "Newer version, {} available!", id),
             Known(false, _id) => write!(f, "Up to date!"),
         }
@@ -99,14 +90,19 @@ impl RemoteState {
 
     pub async fn needs_update(&self) -> NeedsUpdate {
         use NeedsUpdate::*;
-        if let Ok(remote_release_id) = self.source.latest_id().await {
-            if let Some(release_id) = &self.installed_tag {
-                Known(*release_id != remote_release_id, remote_release_id)
-            } else {
-                Known(true, remote_release_id)
-            }
-        } else {
-            Unknown
+        let remote_id = self.source.latest_id().await;
+        log::debug!("{:?}", remote_id);
+        match remote_id {
+            Ok(rid) => {
+                if let Some(lid) = &self.installed_tag {
+                    Known(*lid != rid, rid)
+                } else {
+                    Known(true, rid)
+                }
+            }, Err(err) => {
+                log::error!("Update check failed: {}", err);
+                NeedsUpdate::Error(err.to_string())
+            },
         }
     }
     pub async fn commit_downloaded(
