@@ -198,7 +198,7 @@ fn load() {
         "TAIMI_ICON",
         "TAIMI_ICON_HOVER",
         "Taimi Window Toggle",
-        "Show/hide timers window",
+        "Show/hide taimi primary window",
     )
     .revert_on_unload();
 
