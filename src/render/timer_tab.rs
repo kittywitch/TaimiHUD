@@ -70,8 +70,10 @@ impl TimerTabState {
                 self.category_status.extend(self.categories.keys().cloned());
             }
         }
-        if !self.category_status.is_empty() {
+        if self.category_status.len() != self.categories.keys().len() && !self.category_status.is_empty() {
             ui.same_line();
+        }
+        if !self.category_status.is_empty() {
             if ui.button("Collapse All") {
                 self.category_status.clear();
             }
