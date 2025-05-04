@@ -3240,7 +3240,7 @@ dependencies = [
 
 [[package]]
 name = "taimi_hud"
-version = "0.2.7"
+version = "0.2.8"
 dependencies = [
  "anyhow",
  "arc-atomic",
