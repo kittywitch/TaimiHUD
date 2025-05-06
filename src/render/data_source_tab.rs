@@ -1,6 +1,7 @@
 use {
     crate::{controller::ControllerEvent, render::RenderState, settings::{NeedsUpdate, RemoteState}, CONTROLLER_SENDER, SETTINGS},
     nexus::imgui::{im_str, PopupModal, StyleColor, TableColumnSetup, TableFlags, Ui}, std::{collections::HashMap, ffi::OsStr},
+    crate::settings::Source,
 };
 
 pub struct DataSourceTabState {
@@ -17,7 +18,7 @@ impl DataSourceTabState {
     }
 
     pub fn draw_uninstall(&self, ui: &Ui, rs: &RemoteState) {
-        let source_text = &rs.source.repo_string();
+        let source_text = &rs.source.source().repo_string();
         let modal_name = format!("{}: Uninstall?", source_text);
         if ui.button("Uninstall") {
             ui.open_popup(&modal_name);
@@ -156,12 +157,17 @@ impl DataSourceTabState {
                 );
                 ui.table_next_column();
                 for download_data in &settings.remotes {
-                    let source = download_data.source.clone();
+                    let source_arc = download_data.source.clone();
+                    let source = source_arc.source();
                     let source_text = source.to_string();
                     let pushy = ui.push_id(&source_text);
                     ui.text(format!("{}", source));
                     ui.table_next_column();
-                    ui.text_wrapped(&download_data.source.description);
+                    if let Some(description) = &source.description {
+                        ui.text_wrapped(description);
+                    } else {
+                        ui.text_wrapped("No description provided.");
+                    }
                     ui.table_next_column();
                     if let Some(installed) = &download_data.installed_tag {
                         ui.text_wrapped(format!("Installed: {}", installed));
@@ -180,13 +186,12 @@ impl DataSourceTabState {
                     if let Some(button_text) = button_text {
                         if ui.button(button_text) {
                             let sender = CONTROLLER_SENDER.get().unwrap();
-                            let source = source.clone();
                             let event_send =
-                                sender.try_send(ControllerEvent::DoDataSourceUpdate { source });
+                                sender.try_send(ControllerEvent::DoDataSourceUpdate { source: source_arc });
                             drop(event_send);
                         }
                     }
-                    self.draw_open_button(ui, "Open Repository", source.repo_url());
+                    self.draw_open_button(ui, "Open Repository", source.view_url());
                     if let Some(path) = &download_data.installed_path {
                         if let Some (path) = path.to_str() {
                             self.draw_open_button(ui, "Open Folder", path.to_string());

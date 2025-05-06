@@ -1,7 +1,7 @@
 use {
-    super::GitHubSource, crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, nexus::imgui::Ui, reqwest::{Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, std::{
-        collections::HashMap, fmt, fs, io, path::{Path, PathBuf}, sync::Arc
-    }, tokio::{
+    super::{GitHubSource, ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, SourcesFile, TimerSettings}, crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS, SOURCES}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::{stream::{StreamExt, TryStreamExt}, TryFutureExt}, magic_migrate::TryMigrate, nexus::imgui::Ui, reqwest::{Client, IntoUrl, Response}, serde::{de::DeserializeOwned, Deserialize, Serialize}, std::{
+        collections::{HashMap, HashSet}, fmt::{self, Display}, fs, io, path::{Path, PathBuf}, sync::Arc
+    }, strum_macros::Display, tokio::{
         fs::{create_dir_all, read_to_string, remove_dir_all, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
@@ -9,41 +9,12 @@ use {
 };
 
 pub type SettingsLock = Arc<RwLock<Settings>>;
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
-pub struct TimerSettings {
-    #[serde(default)]
-    pub disabled: bool,
-}
-
-impl TimerSettings {
-    fn disable(&mut self) {
-        self.disabled = true;
-    }
-    fn enable(&mut self) {
-        self.disabled = false;
-    }
-    pub fn toggle(&mut self) -> bool {
-        self.disabled = !self.disabled;
-        self.disabled
-    }
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-pub struct RemoteState {
-    pub source: Arc<RemoteSource>,
-    pub installed_tag: Option<String>,
-    pub installed_path: Option<PathBuf>,
-    #[serde(skip)]
-    pub needs_update: NeedsUpdate,
-}
-
 #[derive(PartialEq, Clone, Debug, Default)]
 pub enum NeedsUpdate {
     #[default]
     Unknown,
     Error(String),
-    Known(bool, String),
+Known(bool, String),
 }
 
 impl fmt::Display for NeedsUpdate {
@@ -71,165 +42,8 @@ impl NeedsUpdate {
     }
 }
 
-/*#[derive(Deserialize, Serialize, Debug, Clone, PartialEq)]
-enum RemoteSource {
-    GitHub(GitHubSource),
-}*/
-
-pub type RemoteSource = GitHubSource;
-
-impl RemoteState {
-    fn new(owner: &str, repository: &str, description: &str) -> Self {
-        Self {
-            source: Arc::new(RemoteSource {
-                owner: owner.to_string(),
-                repository: repository.to_string(),
-                description: description.to_string(),
-            }),
-            installed_tag: Default::default(),
-            installed_path: Default::default(),
-            needs_update: Default::default(),
-        }
-    }
-
-    fn update(self, description: &str) -> Self {
-        let old_source = self.source;
-        Self {
-            source: Arc::new(RemoteSource {
-                owner: old_source.owner.clone(),
-                repository: old_source.repository.clone(),
-                description: description.to_string(),
-            }),
-            installed_tag: self.installed_tag,
-            installed_path: self.installed_path,
-            needs_update: self.needs_update,
-        }
-    }
-
-    pub async fn uninstall(&mut self) -> anyhow::Result<()> {
-        // fuck man, be careful o:
-        if let Some(path) = &self.installed_path {
-            if path.exists() {
-                log::warn!("Uninstalling: removing {path:?}!");
-                remove_dir_all(path).await?;
-            } else {
-                log::warn!("Uninstalling: {path:?} no longer exists.");
-            }
-        }
-        self.installed_tag = None;
-        self.installed_path = None;
-        self.needs_update = NeedsUpdate::Unknown;
-        Ok(())
-    }
-
-    fn hardcoded_sources() -> Vec<(&'static str, &'static str, &'static str)> {
-        let hardcoded_sources = [
-            ("kittywitch", "Hero-Timers", "The author of this mod's fork of the below; changes such as Sabetha markers and others planned, specific to this addon."),
-            ("QuitarHero", "Hero-Timers", "The OG timer pack for BlishHUD!")
-        ];
-        hardcoded_sources.into()
-    }
-    fn suggested_sources() -> impl Iterator<Item = Self> {
-        Self::hardcoded_sources()
-            .into_iter()
-            .map(|(owner, repository, description)| Self::new(owner, repository, description))
-    }
-
-    pub async fn needs_update(&self) -> NeedsUpdate {
-        use NeedsUpdate::*;
-        let remote_id = self.source.latest_id().await;
-        log::debug!("{:?}", remote_id);
-        match remote_id {
-            Ok(rid) => {
-                if let Some(lid) = &self.installed_tag {
-                    Known(*lid != rid, rid)
-                } else {
-                    Known(true, rid)
-                }
-            }, Err(err) => {
-                log::error!("Update check failed: {}", err);
-                NeedsUpdate::Error(err.to_string())
-            },
-        }
-    }
-    pub async fn commit_downloaded(
-        &mut self,
-        tag_name: String,
-        install_dir: PathBuf,
-    ) -> anyhow::Result<()> {
-        self.installed_tag = Some(tag_name);
-        self.needs_update = self.needs_update().await;
-        self.installed_path = Some(install_dir);
-        Ok(())
-    }
-}
-
-fn default_text_font() -> TextFont {
-    TextFont::Ui
-}
-
-fn default_height() -> f32 {
-    24.0
-}
-
-fn bool_true() -> bool {
-    true
-}
-#[derive(Deserialize, Serialize, Debug, Clone)]
-pub struct ProgressBarSettings {
-    #[serde(default)]
-    pub stock: bool,
-
-    #[serde(default = "default_text_font")]
-    pub font: TextFont,
-    #[serde(default = "default_height")]
-    pub height: f32,
-    #[serde(default = "bool_true")]
-    pub shadow: bool,
-    #[serde(default)]
-    pub centre_after: bool,
-}
-
-impl Default for ProgressBarSettings {
-    fn default() -> Self {
-        Self {
-            font: default_text_font(),
-            height: default_height(),
-            stock: false,
-            shadow: true,
-            centre_after: false,
-        }
-    }
-}
-
-impl ProgressBarSettings {
-    fn set_height(&mut self, height: f32) {
-        self.height = height;
-    }
-    fn set_font(&mut self, font: TextFont) {
-        self.font = font;
-    }
-    fn set_shadow(&mut self, shadow: bool) {
-        self.shadow = shadow;
-    }
-    fn toggle_shadow(&mut self) {
-        self.shadow = !self.shadow;
-    }
-    fn set_stock(&mut self, stock: bool) {
-        self.stock = stock;
-    }
-    fn toggle_stock(&mut self) {
-        self.stock = !self.stock;
-    }
-    fn set_centre_after(&mut self, centre_after: bool) {
-        self.centre_after = centre_after;
-    }
-    fn toggle_centre_after(&mut self) {
-        self.centre_after = !self.centre_after;
-    }
-}
-
-#[derive(Deserialize, Serialize, Default, Debug, Clone)]
+#[derive(Deserialize, Serialize, TryMigrate, Default, Debug, Clone)]
+#[try_migrate(from = None)]
 pub struct Settings {
     #[serde(default)]
     pub last_checked: Option<DateTime<Utc>>,
@@ -250,14 +64,44 @@ pub struct Settings {
 }
 
 impl Settings {
+
+    pub fn handle_sources_changes(&mut self) {
+        log::debug!("Preparing to handle sources changes for settings");
+        let sources = SOURCES.get().unwrap();
+        let sources_lock = sources.read().unwrap();
+        if let Some(timer_sources) = sources_lock.0.get(&SourceKind::Timers) {
+            let sources_hashset: HashSet<&RemoteSource>  = HashSet::from_iter(timer_sources.iter());
+            let mut found_sources = HashSet::new();
+            for source in timer_sources {
+                let inner_source_local = source.source();
+                if let Some(matching_remote) = self.remotes.iter_mut().find(|r| {
+                    found_sources.insert(source);
+                    let inner_source_remote = r.source();
+                    inner_source_local.owner == inner_source_remote.owner
+                    && inner_source_local.repository == inner_source_remote.repository
+                }) {
+                    if inner_source_local != matching_remote.source() {
+                            matching_remote.update(Arc::new(source.clone()));
+                    }
+                }
+            }
+            let remaining = sources_hashset.symmetric_difference(&found_sources);
+            let remaining_vec: Vec<_> = remaining.into_iter().map(|s| RemoteState::new_from_source(s)).collect();
+            self.remotes.extend(remaining_vec);
+
+        }
+        drop(sources_lock);
+    }
+
     pub fn update_sources_data(&mut self) {
         let all_sources = RemoteState::hardcoded_sources();
         let mut all_sources_data = RemoteState::hardcoded_sources();
         for (owner, repository, description) in all_sources {
             for remote in &mut self.remotes {
-                if owner == remote.source.owner && repository == remote.source.repository {
-                    *remote = remote.clone().update(description);
-                    all_sources_data.retain(|x| *x != (owner, repository, description));
+                let source = remote.source.source();
+                if owner == source.owner && repository == source.repository {
+                    //*remote = remote.clone().update(description);
+                    all_sources_data.retain(|x| *x != (owner, repository, description)); //description));
                 }
             }
         }
@@ -337,20 +181,20 @@ impl Settings {
             .find(|dd| *dd.source == *source) {
             remote.uninstall().await?;
         }
-        log::info!("Did we get this far?");
         let _ = self.save(&self.addon_dir).await;
         Ok(())
     }
 
     pub async fn download_latest(source: &RemoteSource) -> anyhow::Result<()> {
+        let underlying_source = source.source();
         let settings_arc = SETTINGS
             .get()
             .expect("SettingsLock should've been initialized by now!");
         let install_dir = {
             let settings_read_lock = settings_arc.read().await;
-            settings_read_lock.addon_dir.join(source.folder_name())
+            settings_read_lock.addon_dir.join(underlying_source.install_dir())
         };
-        let tag_name = source.download_latest(&install_dir).await?;
+        let tag_name = underlying_source.download_latest().await?;
         {
             let mut settings_write_lock = settings_arc.write().await;
             if let Some(dd_mut) = settings_write_lock.get_status_for_mut(source).await {
@@ -429,7 +273,7 @@ impl Settings {
             let file_data = read_to_string(settings_path).await?;
             let mut settings = serde_json::from_str::<Self>(&file_data)?;
             settings.addon_dir = addon_dir.to_path_buf();
-            settings.update_sources_data();
+            settings.handle_sources_changes();
             return Ok(settings);
         }
         Ok(Self::new(addon_dir).await)

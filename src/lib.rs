@@ -8,6 +8,7 @@ mod marker;
 mod space;
 
 use nexus::{imgui::{MenuItem, Ui}, quick_access::{add_quick_access_context_menu, notify_quick_access}};
+use settings::{SourcesFile};
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
 use {
@@ -67,6 +68,8 @@ nexus::export! {
 }
 
 static RENDER_STATE: OnceLock<Mutex<RenderState>> = OnceLock::new();
+
+static SOURCES: OnceLock<Arc<RwLock<SourcesFile>>> = OnceLock::new();
 static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
 #[cfg(feature = "space")]
 thread_local! {
@@ -85,6 +88,7 @@ fn load() {
 
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+
 
     let (controller_sender, controller_receiver) = channel::<ControllerEvent>(32);
     let (render_sender, render_receiver) = channel::<RenderEvent>(32);

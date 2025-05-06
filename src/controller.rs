@@ -1,6 +1,6 @@
 use {
     crate::{
-        render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS
+        render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::f32::Vec3,
@@ -10,13 +10,11 @@ use {
             get_mumble_link_ptr,
             mumble::{MumblePtr, UiState},
             MumbleLink,
-        },
-        texture::{load_texture_from_file, RawTextureReceiveCallback},
-        texture_receive,
+        }, paths::get_addon_dir, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive
     },
     relative_path::RelativePathBuf,
     std::{
-        collections::HashMap, ffi::OsStr, fs::read_to_string, path::{Path, PathBuf}, sync::Arc, time::SystemTime
+        collections::HashMap, ffi::OsStr, fs::read_to_string, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::SystemTime
     },
     strum_macros::Display,
     tokio::{
@@ -44,6 +42,7 @@ pub struct Controller {
     alert_sem: Arc<Mutex<()>>,
     pub timers: Vec<Arc<TimerFile>>,
     pub current_timers: Vec<TimerMachine>,
+    pub sources_to_timers: HashMap<Arc<RemoteSource>, Vec<Arc<TimerFile>>>,
     pub map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>>,
     settings: SettingsLock,
     last_fov: f32,
@@ -62,6 +61,9 @@ impl Controller {
         let mumble_ptr = get_mumble_link_ptr() as *mut MumbleLink;
         let mumble_link = unsafe { MumblePtr::new(mumble_ptr) };
         let evt_loop = async move {
+            let sources = SourcesFile::load().await.expect("Couldn't load sources file");
+            let sources = Arc::new(RwLock::new(sources));
+            let _ = SOURCES.set(sources);
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
                 last_fov: 0.0,
@@ -76,9 +78,14 @@ impl Controller {
                 alert_sem: Default::default(),
                 timers: Default::default(),
                 current_timers: Default::default(),
+                sources_to_timers: Default::default(),
                 map_id_to_timers: Default::default(),
             };
             let _ = SETTINGS.set(state.settings.clone());
+            let settings = SETTINGS.get().unwrap();
+            let mut settings_lock = settings.write().await;
+            settings_lock.handle_sources_changes();
+            drop(settings_lock);
             state.setup_timers().await;
             let mut taimi_interval = interval(Duration::from_millis(125));
             let mut mumblelink_interval = interval(Duration::from_millis(20));
@@ -116,52 +123,18 @@ impl Controller {
         };
         rt.block_on(evt_loop);
     }
-    async fn load_timer_file(&self, path: PathBuf) -> anyhow::Result<TimerFile> {
-        log::debug!("Attempting to load the timer file at \"{path:?}\".");
-        //let file = File::open(path)?;
-        //let timer_data: TimerFile = serde_jsonrc::from_reader(file)?;
-        let mut file_data = read_to_string(&path)?;
-        json_strip_comments::strip(&mut file_data)?;
-        let mut timer_data: TimerFile = serde_json::from_str(&file_data)?;
-        timer_data.path = Some(path);
-        Ok(timer_data)
-    }
-
-    async fn get_paths(&self, path: &Path) -> anyhow::Result<Paths> {
-        let timer_paths: Paths = glob(path.to_str().expect("Timers load pattern is unparseable"))?;
-        Ok(timer_paths)
-    }
 
     async fn load_timer_files(&self) -> Vec<Arc<TimerFile>> {
-        let mut timers = Vec::new();
         let settings_lock = self.settings.read().await;
-        let paths_to_try = settings_lock.get_paths();
-        let mut paths = Vec::new();
-        for path in paths_to_try {
-            let glob_str = path.join("**/*.bhtimer");
-            log::info!("A path to load timer files from is '{glob_str:?}'.");
-            let timer_paths: Paths = self.get_paths(&glob_str).await.unwrap();
-            paths.extend(timer_paths);
+        let mut timers = Vec::new();
+        for remote in settings_lock.remotes.iter() {
+            timers.extend(remote.load().await);
         }
         drop(settings_lock);
-        let mut total_files = 0;
-        for path in paths {
-            total_files += 1;
-            let path = path.expect("Path illegible!");
-            match self.load_timer_file(path.clone()).await {
-                Ok(data) => {
-                    log::debug!("Successfully loaded the timer file at '{path:?}'.");
-                    timers.push(Arc::new(data));
-                }
-                Err(error) => log::warn!("Failed to load the timer file at '{path:?}': {error}."),
-            };
-        }
         let timers_len = timers.len();
         log::info!(
-            "Loaded {} out of {} timers successfully. {} failed to load.",
+            "Total loaded timers: {}",
             timers_len,
-            total_files,
-            total_files - timers_len
         );
         timers
     }
@@ -170,18 +143,29 @@ impl Controller {
         log::info!("Preparing to setup timers");
         self.timers = self.load_timer_files().await;
         for timer in &self.timers {
+            if let Some(association) = &timer.association {
+                self.sources_to_timers.entry(association.clone()).or_default();
+                if let Some(val) = self.sources_to_timers.get_mut(association) {
+                    val.push(timer.clone());
+                };
+            }
             // Handle map to timers
             self.map_id_to_timers.entry(timer.map_id).or_default();
             if let Some(val) = self.map_id_to_timers.get_mut(&timer.map_id) {
                 val.push(timer.clone());
             };
+            let association = match &timer.association {
+                Some(s) => format!("{}", s),
+                None => "unassociated".to_string(),
+            };
             // Handle id to timer file allocation
             log::info!(
-                "Set up {0}: {3} for map {1}, category {2}",
+                "Set up {4} {0}: {3} for map {1}, category {2}",
                 timer.id,
                 timer.name.replace("\n", " "),
                 timer.map_id,
-                timer.category
+                timer.category,
+                association,
             );
         }
         log::info!("Set up {} timers.", self.timers.len());

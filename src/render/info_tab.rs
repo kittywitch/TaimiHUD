@@ -69,18 +69,18 @@ impl InfoTabState {
 
     #[cfg(feature = "space")]
     pub fn space_info(&self, ui: &Ui) {
-        RenderState::font_text("ui", ui, "Engine");
+        RenderState::font_text("big", ui, "Engine");
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender && ENGINE_INITIALIZED.get() {
                 ENGINE.with_borrow(|e| {
                     if let Some(engine) = e {
-                        RenderState::font_text("big", ui, "ECS Data");
+                        RenderState::font_text("ui", ui, "ECS Data");
                         let entities = engine.world.entities();
                         let used_entities = entities.used_count();
                         let total_entities = entities.total_count();
                         ui.text(format!("Used: {}", used_entities));
                         ui.text(format!("Total: {}", total_entities));
-                        RenderState::font_text("big", ui, "Object Data");
+                        RenderState::font_text("ui", ui, "Object Data");
                         let table_token = ui.begin_table_header(
                             "object_types",
                             [TableColumnSetup::new("Object Kind")],
@@ -91,7 +91,7 @@ impl InfoTabState {
                             ui.table_next_column();
                         }
                         drop(table_token);
-                        RenderState::font_text("big", ui, "Model Files");
+                        RenderState::font_text("ui", ui, "Model Files");
                         let table_token = ui.begin_table_header(
                             "model_files",
                             [
