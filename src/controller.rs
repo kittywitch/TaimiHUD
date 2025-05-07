@@ -374,12 +374,20 @@ impl Controller {
             .await;
     }
 
+    async fn reload_timers(&mut self) {
+        self.timers.clear();
+        self.sources_to_timers.clear();
+        self.map_id_to_timers.clear();
+        self.setup_timers().await;
+        self.reset_timers().await;
+    }
+
     async fn do_update(&mut self, source: &RemoteSource) {
         match Settings::download_latest(source).await {
             Ok(_) => (),
             Err(err) => log::error!("Controller.do_update() error for \"{}\": {}", source, err),
         };
-        self.setup_timers().await;
+        self.reload_timers();
     }
 
     async fn progress_bar_style(&mut self, style: ProgressBarStyleChange) {
@@ -456,6 +464,7 @@ impl Controller {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
         match event {
+            ReloadTimers => self.reload_timers().await,
             ToggleKatRender => self.toggle_katrender().await,
             OpenOpenable(key, uri) => self.open_openable(key,uri).await,
             UninstallAddon(dd) => self.uninstall_addon(&dd).await?,
@@ -507,6 +516,7 @@ pub enum ControllerEvent {
     TimerKeyTrigger(String, bool),
     LoadTexture(RelativePathBuf, PathBuf),
     CheckDataSourceUpdates,
+    ReloadTimers,
     #[allow(dead_code)]
     TimerEnable(String),
     #[allow(dead_code)]

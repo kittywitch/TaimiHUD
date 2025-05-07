@@ -63,7 +63,7 @@ impl TimerTrigger {
             _ => None,
         }
     }
-    pub fn check(&self, pos: Position, cb: CombatState, key_pressed: &TimerKeybinds) -> bool {
+    pub fn check(&self, pos: Position, cb: CombatState, key_pressed: &mut TimerKeybinds) -> bool {
         let shape = match self.polytope() {
             Some(s) => s,
             None => return false,
@@ -75,7 +75,10 @@ impl TimerTrigger {
                 if let Some(key_bind) = &self.key_bind {
                     let idx = key_bind.parse::<usize>().unwrap();
                     let flag = 1u8 << idx;
-                    key_pressed.contains(TimerKeybinds::from_bits_retain(flag))
+                    let flaggy = TimerKeybinds::from_bits_retain(flag);
+                    let result = key_pressed.contains(flaggy.clone());
+                    key_pressed.remove(flaggy);
+                    result
                 } else {
                     unreachable!("keybind not specified for a key type phase trigger");
                 }
@@ -87,7 +90,8 @@ impl TimerTrigger {
         let combat_check = combat_entered_check && combat_exited_check;
         let entry_check = !self.require_entry || position_check;
         let departure_check = !self.require_departure || !position_check;
-        entry_check && departure_check && combat_check && key_check
+        let complete = entry_check && departure_check && combat_check && key_check;
+        complete
     }
 }
 

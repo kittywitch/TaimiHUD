@@ -276,7 +276,7 @@ impl TimerMachine {
         use TimerMachineState::*;
         match &self.state {
             OnPhase(_) | FinishedPhase(_) => {
-                if trigger.check(pos, self.combat_state, &self.key_pressed) {
+                if trigger.check(pos, self.combat_state, &mut self.key_pressed) {
                     self.do_reset().await;
                 }
             }
@@ -368,7 +368,7 @@ impl TimerMachine {
             OnMap => {
                 // All timers have a start trigger and a zeroth (first) phase
                 let trigger = &self.timer.phases.first().unwrap().start;
-                if trigger.check(pos, self.combat_state, &self.key_pressed) {
+                if trigger.check(pos, self.combat_state, &mut self.key_pressed) {
                     if let Some(phase) = TimerFilePhase::new(self.timer.clone()) {
                         self.state_change(OnPhase(phase)).await;
                     }
@@ -378,7 +378,7 @@ impl TimerMachine {
             OnPhase(phase) => {
                 // handle the finish check
                 if let Some(trigger) = &phase.finish {
-                    if trigger.check(pos, self.combat_state, &self.key_pressed) {
+                    if trigger.check(pos, self.combat_state, &mut self.key_pressed) {
                         self.state_change(FinishedPhase(phase.clone())).await;
                     }
                 }
@@ -387,7 +387,7 @@ impl TimerMachine {
                 // check the next phase's start trigger
                 if let Some(next_phase) = &phase.clone().next() {
                     let trigger = &next_phase.start;
-                    if trigger.check(pos, self.combat_state, &self.key_pressed) {
+                    if trigger.check(pos, self.combat_state, &mut self.key_pressed) {
                         self.state_change(OnPhase(next_phase.clone())).await;
                     }
                 }

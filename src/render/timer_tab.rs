@@ -3,7 +3,7 @@ use {
     crate::{
         controller::ControllerEvent,
         render::{RenderState, TimerWindowState},
-        settings::TimerSettings,
+        settings::{RemoteSource, TimerSettings},
         timer::TimerFile,
         CONTROLLER_SENDER, SETTINGS,
     },
@@ -18,6 +18,7 @@ pub struct TimerTabState {
     categories: IndexMap<String, Vec<Arc<TimerFile>>>,
     timer_selection: Option<Arc<TimerFile>>,
     category_status: HashSet<String>,
+    sources_to_timers: IndexMap<Arc<RemoteSource>, Vec<Arc<TimerFile>>>,
     //search_string: String,
 }
 
@@ -28,6 +29,7 @@ impl TimerTabState {
             categories: Default::default(),
             timer_selection: Default::default(),
             category_status: Default::default(),
+            sources_to_timers: Default::default(),
         }
     }
 
@@ -221,6 +223,12 @@ impl TimerTabState {
     pub fn timers_update(&mut self, timers: Vec<Arc<TimerFile>>) {
         self.timers = timers;
         for timer in &self.timers {
+            if let Some(association) = &timer.association {
+                self.sources_to_timers.entry(association.clone()).or_default();
+                if let Some(val) = self.sources_to_timers.get_mut(association) {
+                    val.push(timer.clone());
+                };
+            }
             self.categories.entry(timer.category.clone()).or_default();
             if let Some(val) = self.categories.get_mut(&timer.category) {
                 val.push(timer.clone());

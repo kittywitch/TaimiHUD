@@ -107,6 +107,18 @@ impl DataSourceTabState {
                     let event_send = sender.try_send(ControllerEvent::CheckDataSourceUpdates);
                     drop(event_send);
                 }
+                if ui.is_item_hovered() {
+                    ui.tooltip_text("Check for updates to any data sources. We don't do this automatically to respect your choice on whether or not to make network requests.");
+                }
+                ui.same_line();
+                if ui.button("Reload data sources") {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::ReloadTimers);
+                    drop(event_send);
+                }
+                if ui.is_item_hovered() {
+                    ui.tooltip_text("Reload timers from currently installed data sources. Useful if you have changed the files within them!");
+                }
                 ui.same_line();
                 if let Some(last_checked) = &settings.last_checked {
                     ui.text(format!(

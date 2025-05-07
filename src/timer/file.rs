@@ -100,6 +100,12 @@ impl TimerFile {
     pub fn subtitle(&self) -> Option<String> {
         Some(self.name.split_once('\n')?.1.replace("\n", " - "))
     }
+    pub fn source(&self) -> String {
+        match &self.association {
+            Some(s) => s.source().to_string(),
+            None => "".to_string(),
+        }
+    }
     pub fn combined(&self) -> String {
         match self.subtitle() {
             Some(sbubby) => format!("{}\n{}", self.title(), sbubby),
