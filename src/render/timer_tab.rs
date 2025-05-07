@@ -235,6 +235,8 @@ impl TimerTabState {
     }
     pub fn timers_update(&mut self, timers: Vec<Arc<TimerFile>>) {
         self.timers = timers;
+        self.sources_to_timers.clear();
+        self.categories.clear();
         for timer in &self.timers {
             if let Some(association) = &timer.association {
                 self.sources_to_timers.entry(association.clone()).or_default();
