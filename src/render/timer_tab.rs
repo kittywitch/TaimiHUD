@@ -199,7 +199,20 @@ impl TimerTabState {
                         ui,
                         &format!("Author: {}", selected_timer.author()),
                     );
+                    RenderState::font_text(
+                        "font",
+                        ui,
+                        &format!("Source: {}", selected_timer.source())
+                    );
+                    RenderState::font_text("font", ui, &format!("ID: {}", selected_timer.id));
+                    RenderState::font_text("font", ui, &format!("Map ID: {}", selected_timer.map_id));
+                    ui.dummy([4.0; 2]);
+                    ui.separator();
+                    ui.dummy([4.0; 2]);
                     RenderState::font_text("font", ui, &selected_timer.description);
+                    ui.dummy([4.0; 2]);
+                    ui.separator();
+                    ui.dummy([4.0; 2]);
                     if let Some(settings) =
                         SETTINGS.get().and_then(|settings| settings.try_read().ok())
                     {
