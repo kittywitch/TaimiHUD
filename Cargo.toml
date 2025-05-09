@@ -81,6 +81,8 @@ open = "5.3.2"
 function_name = "0.3.0"
 magic_migrate = "1.1.0"
 toml = "0.8.22"
+serde_repr = "0.1.20"
+glamour = { version = "0.18.0", features = ["mint"] }
 
 [target.'cfg(windows)'.dependencies]
 windows-strings = { optional = true, version = "0.4.0" }
@@ -113,6 +115,9 @@ optional = true
 version = "0.61.0"
 features = [
   "System",
+  "Foundation",
+  "Win32_UI_WindowsAndMessaging",
+  "Win32_UI_Input_KeyboardAndMouse",
   "Win32_Graphics_Direct3D11",
   "Win32_Graphics_Dxgi",
   "Win32_Graphics_Dxgi_Common",

@@ -1,13 +1,12 @@
 use {
     crate::{
-        controller::ControllerEvent, render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
+        controller::ControllerEvent, marker::{atomic::MarkerInputData, format::MarkerFile}, render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
     },
     glam::Vec2,
     nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, Font, FontId, Image, Io, StyleColor, Ui, Window,
-            WindowFlags,
+            internal::RawCast, Condition, ConfigFlags, Context, Font, FontId, Image, Io, StyleColor, Ui, Window, WindowFlags
         },
         texture::get_texture,
     },
@@ -23,6 +22,7 @@ use {
 
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
+    MarkerData(Arc<MarkerFile>),
     AlertFeed(PhaseState),
     OpenableError(String, anyhow::Error),
     AlertReset(Arc<TimerFile>),
@@ -49,6 +49,7 @@ pub struct RenderState {
     timer_window: TimerWindowState,
     receiver: Receiver<RenderEvent>,
     alert: Option<TextAlert>,
+    last_display_size: Option<[f32; 2]>,
 }
 
 impl RenderState {
@@ -58,11 +59,21 @@ impl RenderState {
             alert: Default::default(),
             primary_window: PrimaryWindowState::new(),
             timer_window: TimerWindowState::new(),
+            last_display_size: Default::default(),
         }
     }
 
     pub fn draw(&mut self, ui: &Ui) {
         let io = ui.io();
+        if let Some(last_display_size) = self.last_display_size {
+            if io.display_size != last_display_size {
+                MarkerInputData::from_render(io.display_size.into());
+                self.last_display_size = Some(io.display_size);
+            }
+        } else {
+            MarkerInputData::from_render(io.display_size.into());
+            self.last_display_size = Some(io.display_size);
+        }
         match self.receiver.try_recv() {
             Ok(event) => {
                 use RenderEvent::*;
@@ -83,6 +94,9 @@ impl RenderState {
                     TimerData(timers) => {
                         self.primary_window.timer_tab.timers_update(timers);
                     }
+                    MarkerData(markers) => {
+                        self.primary_window.marker_tab.marker_update(markers);
+                    },
                     AlertStart(alert) => {
                         self.alert = Some(alert);
                     }

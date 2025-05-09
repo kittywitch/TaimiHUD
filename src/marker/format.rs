@@ -1,49 +1,75 @@
+use super::atomic::{CurrentPerspective, MinimapPlacement};
+
 use {
-    crate::timer::{BlishVec3, Polytope, Position}, chrono::{DateTime, Utc}, glam::{Mat4, Vec3}, nexus::gamebind::GameBind, serde::{Deserialize, Serialize}
+    crate::timer::{BlishVec3, Polytope, Position}, chrono::{DateTime, Utc}, glam::{Mat4, Vec3}, nexus::gamebind::GameBind, serde::{Deserialize, Serialize}, std::{path::PathBuf, sync::Arc}
 };
+use glam::{Vec2, Vec2Swizzles, Vec3Swizzles};
+use serde_repr::{Deserialize_repr, Serialize_repr};
+use strum_macros::Display;
+use tokio::fs::{create_dir_all, read_to_string, File};
+use tokio::io::AsyncWriteExt;
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct MarkerFile {
-    last_edit: DateTime<Utc>,
-    categories: Vec<MarkerCategory>,
+pub struct MarkerFile {
+    pub last_edit: DateTime<Utc>,
+    pub path: Option<PathBuf>,
+    pub categories: Vec<MarkerCategory>,
+}
+
+impl MarkerFile {
+    pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
+        log::debug!("Attempting to load the markers file at \"{path:?}\".");
+        let mut file_data = read_to_string(path).await?;
+        json_strip_comments::strip(&mut file_data)?;
+        let mut data: Self = serde_json::from_str(&file_data)?;
+        data.path = Some(path.to_path_buf());
+        log::debug!("Successfully loaded the markers file at \"{path:?}\".");
+        Ok(Arc::new(data))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct MarkerCategory {
+pub struct MarkerCategory {
     #[serde(alias="categoryName")]
-    name: String,
-    markers: Vec<MarkerSet>,
+    pub name: String,
+    pub marker_sets: Vec<MarkerSet>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-struct MarkerSet {
-    author: String,
-    name: String,
-    description: String,
-    map_id: u32,
-    trigger: BlishVec3,
-    markers: Vec<MarkerPosition>
+pub struct MarkerSet {
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    pub author: String,
+    pub name: String,
+    pub description: String,
+    pub map_id: u32,
+    pub trigger: MarkerPosition,
+    pub markers: Vec<MarkerEntry>
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct MarkerEntry {
+pub struct MarkerEntry {
     #[serde(alias="i")]
-    marker: MarkerType,
+    pub marker: MarkerType,
     #[serde(alias="d")]
-    id: String,
+    pub id: Option<String>,
     #[serde(flatten)]
-    positiion: MarkerPosition,
+    pub position: MarkerPosition,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct MarkerPosition {
-    x: f32,
-    y: f32,
-    z: f32,
+pub struct MarkerPosition {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
 }
 
 impl From<MarkerPosition> for Vec3 {
@@ -72,104 +98,11 @@ impl From<MarkerPosition> for Polytope {
     }
 }
 
-enum MinimapPlacement {
-    Top,
-    Bottom,
-}
 
-enum UiSize {
-    Small = 0,
-    Normal = 1,
-    Large = 2,
-    Larger = 3,
-}
 
-impl From<UiSize> for f32 {
-    fn from(local: UiSize) -> Self {
-        match local {
-            UiSize::Small => 0.81,
-            UiSize::Normal => 0.897,
-            UiSize::Large => 1.0,
-            UiSize::Larger => 1.103,
-        }
-    }
-}
-
-enum CurrentPerspective {
-    Global, // map_open: true,
-    Minimap, // map_open: false,
-}
-
-struct MapState {
-    perspective: CurrentPerspective,
-    width: u16,
-    height: u16,
-    rotation: f32,
-    map_scale: f32,
-    map_centre_x: f32,
-    map_centre_y: f32,
-    placement: MinimapPlacement,
-}
-
-impl MapState {
-    fn global_to_local_offset(&self, player_local: Vec3, player_global: Vec3) -> Vec3 {
-        let ft_to_m = 0.3048;
-        let global_in_local_units = player_global * ft_to_m;
-        global_in_local_units - player_local
-    }
-
-    fn local_to_global_offset(&self, player_local: Vec3, player_global: Vec3) -> Vec3 {
-        let m_to_ft = 3.2808;
-        let local_in_global_units = player_local * m_to_ft;
-        local_in_global_units - player_global
-    }
-
-    fn get_third_point_from_offset(&self, pl: Vec3, pg: Vec3, marker: Vec3) -> Vec3 {
-        let offset = self.local_to_global_offset(pl, pg);
-        marker + offset
-    }
-
-    fn meep(&self, display_size: &[f32; 2]) {
-        let [width, height] = match &self.perspective {
-            CurrentPerspective::Global => *display_size,
-            CurrentPerspective::Minimap => [self.width as f32, self.height as f32],
-        };
-        let global_width = self.map_scale * width;
-        let global_height = self.map_scale * height;
-
-        let offset_from_centre_x = global_width / 2.0;
-        let offset_from_centre_y = global_height / 2.0;
-
-        let map_left_x = self.map_centre_x - offset_from_centre_x;
-        let map_top_y = self.map_centre_y - offset_from_centre_y;
-        let map_right_x = self.map_centre_x + offset_from_centre_x;
-        let map_bottom_y = self.map_centre_y + offset_from_centre_y;
-        let camera = Mat4::orthographic_lh(
-            map_left_x,
-            map_right_x,
-            map_bottom_y,
-            map_top_y,
-            0.0,
-            1.0
-        );
-        let real_rotation = match &self.perspective {
-            CurrentPerspective::Global => Mat4::IDENTITY,
-            CurrentPerspective::Minimap => Mat4::from_rotation_y(self.rotation),
-        };
-        let combined_perspective = real_rotation * camera;
-
-    }
-    fn boundary(&self, window_size: &[f32; 2], ui_scale: UiSize) {
-        let ui_scaler: f32 = ui_scale.into();
-        let vertical_offset = match &self.placement {
-            MinimapPlacement::Top => 0,
-            MinimapPlacement::Bottom => 40,
-        };
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-enum MarkerType {
+#[derive(Serialize_repr, Deserialize_repr, Display, Debug, Clone, PartialEq)]
+#[repr(u8)]
+pub enum MarkerType {
     // Schema reference: https://github.com/manlaan/BlishHud-CommanderMarkers/blob/bhud-static/Manlaan.CommanderMarkers/README.md?plain=1#L69-L78
     // According to the schema, 0 and 9 are both Clear Markers.
     // Code reference: https://github.com/manlaan/BlishHud-CommanderMarkers/blob/7c3b2081596f7b8746e5e57d65213711aafa938c/Library/Enums/SquadMarker.cs#L6-L28
@@ -188,7 +121,7 @@ enum MarkerType {
 }
 
 impl MarkerType {
-    fn to_place_world_gamebind(&self) -> GameBind {
+    pub fn to_place_world_gamebind(&self) -> GameBind {
         match self {
             Self::Blank => panic!("i can't believe you've done this"),
             Self::Arrow => GameBind::SquadMarkerPlaceWorldArrow,
@@ -203,7 +136,7 @@ impl MarkerType {
             Self::ClearMarkers => GameBind::SquadMarkerClearAllWorld,
         }
     }
-    fn to_set_agent_gamebind(&self) -> GameBind {
+    pub fn to_set_agent_gamebind(&self) -> GameBind {
         match self {
             Self::Blank => panic!("i can't believe you've done this"),
             Self::Arrow => GameBind::SquadMarkerSetAgentArrow,

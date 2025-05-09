@@ -1,11 +1,10 @@
 use {
-    crate::{
+    super::MarkerTabState, crate::{
         render::{
             ConfigTabState, DataSourceTabState, InfoTabState, TimerTabState, TimerWindowState,
         },
         ControllerEvent, CONTROLLER_SENDER, SETTINGS,
-    },
-    nexus::imgui::{Ui, Window},
+    }, nexus::imgui::{Ui, Window}
 };
 
 pub struct PrimaryWindowState {
@@ -13,6 +12,7 @@ pub struct PrimaryWindowState {
     pub timer_tab: TimerTabState,
     pub data_sources_tab: DataSourceTabState,
     pub info_tab: InfoTabState,
+    pub marker_tab: MarkerTabState,
     open: bool,
 }
 
@@ -23,6 +23,7 @@ impl PrimaryWindowState {
             timer_tab: TimerTabState::new(),
             data_sources_tab: DataSourceTabState::new(),
             info_tab: InfoTabState::new(),
+            marker_tab: MarkerTabState::new(),
             open: false,
         }
     }
@@ -41,9 +42,9 @@ impl PrimaryWindowState {
                         if let Some(_token) = ui.tab_item("Timers") {
                             self.timer_tab.draw(ui, timer_window_state);
                         };
-                        /*if let Some(_token) = ui.tab_item("Markers") {
-                            ui.text("To-do!");
-                        }*/
+                        if let Some(_token) = ui.tab_item("Markers") {
+                            self.marker_tab.draw(ui);
+                        }
                         if let Some(_token) = ui.tab_item("Data Sources") {
                             self.data_sources_tab.draw(ui);
                         }

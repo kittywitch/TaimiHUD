@@ -1,30 +1,20 @@
 use {
     crate::{
-        render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
-    },
-    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
-    glam::f32::Vec3,
-    glob::{glob, Paths},
-    nexus::{
+        marker::{atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint}, format::{MarkerFile, MarkerType}}, render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
+    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, glamour::Point2, glob::{glob, Paths}, itertools::Itertools, nexus::{
         data_link::{
-            get_mumble_link_ptr,
-            mumble::{MumblePtr, UiState},
-            MumbleLink,
-        }, paths::get_addon_dir, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive
-    },
-    relative_path::RelativePathBuf,
-    std::{
+            get_mumble_link_ptr, get_nexus_link, mumble::{MumblePtr, UIScaling, UiState}, read_nexus_link, MumbleLink, NexusLink
+        }, gamebind::invoke_gamebind_async, imgui::{sys::{igSetCursorPos, ImVec2}, Context}, paths::get_addon_dir, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive, wnd_proc::send_wnd_proc_to_game
+    }, relative_path::RelativePathBuf, std::{
         collections::HashMap, ffi::OsStr, fs::read_to_string, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::SystemTime
-    },
-    strum_macros::Display,
-    tokio::{
+    }, strum_macros::Display, tokio::{
         runtime, select,
         sync::{
             mpsc::{Receiver, Sender},
             Mutex,
         },
-        time::{interval, Duration},
-    },
+        time::{interval, sleep, Duration},
+    }, windows::Win32::{Foundation::{LPARAM, RECT, WPARAM}, UI::{Input::KeyboardAndMouse::{GetActiveWindow, GetCapture}, WindowsAndMessaging::{GetForegroundWindow, GetWindowRect, SetCursorPos, WM_MOUSEMOVE}}}
 };
 
 #[cfg(feature = "space")]
@@ -34,9 +24,11 @@ use crate::space::dx11::PerspectiveInputData;
 pub struct Controller {
     pub agent: Option<AgentOwned>,
     pub previous_combat_state: bool,
+    pub markers: Option<Arc<MarkerFile>>,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub mumble_pointer: Option<MumblePtr>,
+    pub nexus_pointer: *const NexusLink,
     pub map_id: Option<u32>,
     pub player_position: Option<Vec3>,
     alert_sem: Arc<Mutex<()>>,
@@ -46,6 +38,7 @@ pub struct Controller {
     pub map_id_to_timers: HashMap<u32, Vec<Arc<TimerFile>>>,
     settings: SettingsLock,
     last_fov: f32,
+    scaling: f32,
 }
 
 impl Controller {
@@ -60,16 +53,19 @@ impl Controller {
     ) {
         let mumble_ptr = get_mumble_link_ptr() as *mut MumbleLink;
         let mumble_link = unsafe { MumblePtr::new(mumble_ptr) };
+        let nexus_link = get_nexus_link();
         let evt_loop = async move {
             let sources = SourcesFile::load().await.expect("Couldn't load sources file");
             let sources = Arc::new(RwLock::new(sources));
             let _ = SOURCES.set(sources);
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
+                nexus_pointer: nexus_link,
                 last_fov: 0.0,
                 previous_combat_state: Default::default(),
                 rt_sender,
                 settings,
+                markers: Default::default(),
                 agent: Default::default(),
                 cached_identity: Default::default(),
                 mumble_pointer: mumble_link,
@@ -80,6 +76,7 @@ impl Controller {
                 current_timers: Default::default(),
                 sources_to_timers: Default::default(),
                 map_id_to_timers: Default::default(),
+                scaling: 0.0f32,
             };
             let _ = SETTINGS.set(state.settings.clone());
             let settings = SETTINGS.get().unwrap();
@@ -87,6 +84,10 @@ impl Controller {
             settings_lock.handle_sources_changes();
             drop(settings_lock);
             state.setup_timers().await;
+            match state.load_markers_file().await {
+                Ok(()) => (),
+                Err(err) => log::error!("Error loading markers: {}", err),
+            }
             let mut taimi_interval = interval(Duration::from_millis(125));
             let mut mumblelink_interval = interval(Duration::from_millis(20));
             loop {
@@ -122,6 +123,17 @@ impl Controller {
             }
         };
         rt.block_on(evt_loop);
+    }
+
+    async fn load_markers_file(&mut self) -> anyhow::Result<()> {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let markers = MarkerFile::load(&addon_dir.join("Markers.json")).await?;
+        let _ = self
+            .rt_sender
+            .send(RenderEvent::MarkerData(markers.clone()))
+            .await;
+        self.markers = Some(markers.clone());
+        Ok(())
     }
 
     async fn load_timer_files(&self) -> Vec<Arc<TimerFile>> {
@@ -188,6 +200,32 @@ impl Controller {
                 let front = Vec3::from_array(camera.front);
                 let pos = Vec3::from_array(camera.position);
                 PerspectiveInputData::swap_camera(front, pos, playpos);
+            }
+            {
+                if let Some(nexus_link) = read_nexus_link() {
+                    let scaling = nexus_link.scaling;
+                    if self.scaling != scaling {
+                        MarkerInputData::from_nexus(scaling);
+                        self.scaling = scaling;
+                    }
+                }
+                let ui_state = mumble.read_ui_state();
+                let global_player_pos = Vec2::from(mumble.read_player_position());
+                let global_map = Vec2::from(mumble.read_map_center());
+                let compass_width = mumble.read_compass_width() as f32;
+                let compass_height = mumble.read_compass_height() as f32;
+                let compass_size = Vec2::new(compass_width, compass_height);
+                let compass_rotation = mumble.read_compass_rotation();
+                let map_scale = mumble.read_map_scale();
+                let perspective = CurrentPerspective::from(ui_state.contains(UiState::IS_MAP_OPEN));
+                let minimap_placement = MinimapPlacement::from(ui_state.contains(UiState::IS_COMPASS_TOP_RIGHT));
+                let rotation_enabled = ui_state.contains(UiState::DOES_COMPASS_HAVE_ROTATION_ENABLED);
+                MarkerInputData::from_tick(
+                    playpos, global_player_pos, global_map,
+                    compass_size, compass_rotation, map_scale,
+                    perspective, minimap_placement,
+                    rotation_enabled
+                );
             }
             self.player_position = Some(playpos);
             let combat_state = mumble
@@ -382,6 +420,38 @@ impl Controller {
         self.reset_timers().await;
     }
 
+    async fn set_marker(&self, point: ScreenPoint, marker_type: MarkerType) -> anyhow::Result<()> {
+        log::debug!("Point {:?}", point);
+        let hwnd = unsafe { GetForegroundWindow() };
+        let mut rect_ptr: RECT = Default::default();
+        let rect = unsafe { GetWindowRect(hwnd, &mut rect_ptr)}
+            .map_err(anyhow::Error::from)
+            .map(|()| rect_ptr)?;
+        let start_of_window = Point2::new(rect.left as f32, rect.top as f32);
+        // apparently h_wnd is ignored for this, fuck if I know? :3
+        // WM_MOUSEMOVE == 0x0200
+        /*unsafe {
+            igSetCursorPos(ImVec2::new(point.x, point.y));
+        }
+        invoke_gamebind_async(marker_type.to_place_world_gamebind(), 100i32);*/
+        let absolute_point = start_of_window + point;
+        let wait_duration = Duration::from_millis(50);
+        sleep(wait_duration).await;
+        /*let coordinates_isize = ((point.x as usize) << 16 | point.y as usize) as isize;
+        log::debug!("coordinates: {:?}, {:?}", coordinates_isize, coordinates_isize.to_ne_bytes());
+        let coordinates = LPARAM(coordinates_isize);
+        let wnd_result = send_wnd_proc_to_game(windows::Win32::Foundation::HWND::default(), WM_MOUSEMOVE, WPARAM::default(), coordinates);*/
+        match unsafe { SetCursorPos(absolute_point.x as i32, absolute_point.y as i32) } {
+            Ok(()) => (),
+            Err(err) => log::error!("Error setmarker: {:?}", err),
+        }
+        sleep(wait_duration).await;
+        // milliseconds
+        invoke_gamebind_async(marker_type.to_place_world_gamebind(), 100i32);
+        //log::debug!("set_marker result: {wnd_result:?}");
+        Ok(())
+    }
+
     async fn do_update(&mut self, source: &RemoteSource) {
         match Settings::download_latest(source).await {
             Ok(_) => (),
@@ -438,6 +508,12 @@ impl Controller {
         }
     }
 
+    async fn move_mouse(&mut self, pos: Vec2) {
+        let mut context = Context::current();
+        let io_mut = context.io_mut();
+        io_mut.mouse_pos = pos.into();
+    }
+
     async fn load_texture(&self, rel: RelativePathBuf, base: PathBuf) {
         if let Some(base) = base.parent() {
             let abs = rel.to_path(base);
@@ -475,6 +551,8 @@ impl Controller {
             TimerToggle(id) => self.toggle_timer(&id).await,
             TimerReset => self.reset_timers().await,
             CheckDataSourceUpdates => self.check_updates().await,
+            MoveMouse(pos) => self.move_mouse(pos).await,
+            SetMarker(p, t) => self.set_marker(p, t).await?,
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
             ProgressBarStyle(style) => self.progress_bar_style(style).await,
@@ -500,6 +578,8 @@ pub enum ProgressBarStyleChange {
 #[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
     OpenOpenable(String, String),
+    MoveMouse(Vec2),
+    SetMarker(ScreenPoint, MarkerType),
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     ToggleKatRender,

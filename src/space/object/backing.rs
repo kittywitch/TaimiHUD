@@ -25,7 +25,6 @@ pub struct ObjectBacking {
 impl ObjectBacking {
     pub fn create_marker(
         render_backend: &RenderBackend,
-        cat: &Model,
         marker: &TimerMarker,
         path: PathBuf,
     ) -> anyhow::Result<Self> {
@@ -41,7 +40,6 @@ impl ObjectBacking {
             render_backend.shaders.1["textured"].clone(),
         );
         let model = Model::quad()?;
-        //let model = cat.clone();
         let model_matrix = marker.model_matrix();
         let ibd = [InstanceBufferData {
             world: model_matrix,
