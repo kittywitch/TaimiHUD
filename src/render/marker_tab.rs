@@ -26,8 +26,8 @@ impl MarkerTabState {
             let sign =  mid.sign_obtainer.sign();
             let meep = SignObtainer::meters_per_feet();
             let sign_unity = sign / meep;
-            ui.text_wrapped(format!("Current scaling factor: {:.2},{:.2}", sign.x, sign.y));
-            ui.text_wrapped(format!("Scaling factor as multiple of ft per continent unit: {:.2},{:.2}", sign_unity.x, sign_unity.y));
+            ui.text_wrapped(format!("Current scaling factor: ({:.2}, {:.2})", sign.x, sign.y));
+            ui.text_wrapped(format!("Scaling factor as multiple of ft per continent unit: ({:.2}, {:.2})", sign_unity.x, sign_unity.y));
         }
 
         for marker_pack in  &self.markers {
@@ -106,7 +106,12 @@ impl MarkerTabState {
             ui.text_wrapped(format!("{}", marker.marker));
             ui.table_next_column();
             if let Some(description) = &marker.id {
-                ui.text_wrapped(description);
+                if !description.is_empty() {
+                    ui.text_wrapped(description);
+                } else {
+                ui.text_wrapped("N/A");
+                }
+
             } else {
                 ui.text_wrapped("N/A");
             }

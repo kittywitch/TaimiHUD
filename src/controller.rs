@@ -30,7 +30,7 @@ use crate::space::dx11::PerspectiveInputData;
 pub struct Controller {
     pub agent: Option<AgentOwned>,
     pub previous_combat_state: bool,
-    #[cfg(feature = "space")]
+    #[cfg(feature = "markers")]
     pub markers: Vec<Arc<RuntimeMarkers>>,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
@@ -72,7 +72,7 @@ impl Controller {
                 previous_combat_state: Default::default(),
                 rt_sender,
                 settings,
-                #[cfg(feature = "space")]
+                #[cfg(feature = "markers")]
                 markers: Default::default(),
                 agent: Default::default(),
                 cached_identity: Default::default(),
