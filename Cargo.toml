@@ -14,16 +14,28 @@ space = [
   "dep:bevy_ecs",
   "dep:bevy_utils",
   "dep:arc-atomic",
-  "dep:windows",
   "dep:windows-strings",
   "dep:windows-core",
+  "windows/Win32_UI_WindowsAndMessaging",
+  "windows/Win32_UI_Input_KeyboardAndMouse",
+  "windows/Win32_Graphics_Direct3D11",
+  "windows/Win32_Graphics_Dxgi",
+  "windows/Win32_Graphics_Dxgi_Common",
+  "windows/Win32_Graphics_Direct3D_Fxc",
+  "windows/Win32_Graphics_Hlsl",
+  "windows/Win32_System_Diagnostics_Debug"
 ]
 markers = [
   "dep:itertools",
   "dep:arc-atomic",
-  "dep:windows",
   "dep:windows-strings",
   "dep:windows-core",
+  "windows/System",
+  "windows/Foundation",
+  "windows/Foundation",
+  "windows/Win32_UI_WindowsAndMessaging",
+  "windows/Win32_UI_Input_KeyboardAndMouse",
+  "windows/Win32_Graphics_Gdi",
 ]
 
 [lib]
@@ -123,6 +135,7 @@ version = "0.61.0"
 features = [
   "System",
   "Foundation",
+  "Win32_Graphics_Gdi",
   "Win32_UI_WindowsAndMessaging",
   "Win32_UI_Input_KeyboardAndMouse",
   "Win32_Graphics_Direct3D11",
@@ -130,6 +143,5 @@ features = [
   "Win32_Graphics_Dxgi_Common",
   "Win32_Graphics_Direct3D_Fxc",
   "Win32_Graphics_Hlsl",
-  "Win32_Graphics_Gdi",
   "Win32_System_Diagnostics_Debug"
 ]
