@@ -1,5 +1,5 @@
 use {
-    arc_atomic::AtomicArc, glam::{Affine3A, Mat4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles}, glamour::{point3, Box2, Contains, Point2, Point3, Rect, Scalar, Size2, Transform2, Transform3, TransformMap, Unit, Vector2, Vector3}, itertools::Itertools, nexus::data_link::mumble::UIScaling, std::sync::{Arc, OnceLock}
+    arc_atomic::AtomicArc, glam::{Affine3A, Mat4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles}, glamour::{point3, Angle, Box2, Contains, Point2, Point3, Rect, Scalar, Size2, Transform2, Transform3, TransformMap, Unit, Vector2, Vector3}, itertools::Itertools, nexus::data_link::mumble::UIScaling, std::sync::{Arc, OnceLock}
 };
 
 pub static MARKERINPUTDATA: OnceLock<Arc<AtomicArc<MarkerInputData>>> = OnceLock::new();
@@ -105,6 +105,7 @@ impl MarkerInputData {
     // * map, local to screen
     //
     // TO-DOs:
+    // - [ ] HANDLE ROTATION
     // - [ ] cache transformations per map load
     // - [x] screen <-> fake
     // - [x] fake <-> (minimap, worldmap)
@@ -142,7 +143,7 @@ impl MarkerInputData {
     }
 
     pub fn screen_to_fake(&self) -> Transform2<ScreenSpace, FakeSpace> {
-        let screen_scaling_factor = Vector2::splat(self.scaling);
+        let screen_scaling_factor = Vector2::splat(1.0/self.scaling);
         ScreenToFake::from_scale(screen_scaling_factor)
     }
 
@@ -157,7 +158,7 @@ impl MarkerInputData {
         // unfortunately transform2 is exclusively a description of
         // matrix transformation, and cannot be used to provide
         // a scalar factor for a Size2, Rect2 or a Box2.
-        let fb_size_in_sb = screen_bound.size * self.scaling;
+        let fb_size_in_sb = screen_bound.size / self.scaling;
         let fb_size: Size2<FakeSpace> = fb_size_in_sb.cast();
         FakeBound::from_size(fb_size)
     }
@@ -198,35 +199,17 @@ impl MarkerInputData {
         // that self.compass_size, the worldmap size and the UI offsets live within
         //
         // having a way to construct *typed scalars* would be nice
-        let minimap_offset: Size2<FakeSpace> = match self.minimap_placement {
-            // when the minimap is at the top, there is no spacing between it
-            // and the top right of the display
-            MinimapPlacement::Top => {
-                Size2::new(
-                    0.0,
-                    fakebound.height()
-                )
-            },
-            // when the minimap is at the bottom of the display,
-            // at 1.0 scaling (Normal), there is ~37px of offset.
-            // since this is FakeSpace, *everything* is in Normal,
-            // or scaled as if self.scaling == 1.0
-            MinimapPlacement::Bottom => {
-                Size2::new(
-                    0.0,
-                    37.0
-
-                )
-            },
-        };
-
         let compass_size = self.compass_size();
-        // working from the bottom right with an offset
-        let common = fakebound.size - minimap_offset;
-        let min = (common - compass_size)
+
+        let max = match self.minimap_placement {
+            MinimapPlacement::Top => fakebound.size.with_height(compass_size.height),
+            MinimapPlacement::Bottom => fakebound.size - Size2::new(0.0, 37.0),
+        };
+        let min = max - compass_size;
+        let min = min
             .to_vector()
             .to_point();
-        let max = common
+        let max = max
             .to_vector()
             .to_point();
         let minimap_bound: Box2<FakeSpace> = Box2::new(
@@ -321,6 +304,7 @@ impl MarkerInputData {
                 map_centre.to_vector()
             )
     }
+    // -91.8737, 41.5246 vs -93.640, 49.25
 
     pub fn map_worldmap_to_map(&self, point: WorldmapPoint) -> MapPoint {
         // the scaling factor (map_scale) is applied uniformly to x,y
@@ -344,11 +328,18 @@ impl MarkerInputData {
         let map_centre: Point2<MapSpace> = self.global_map.into();
         let minimap_bound = self.minimap_bound();
         let minimap_centre = minimap_bound.center();
+        let minimap_rotation = Angle::from_radians(match self.rotation_enabled {
+            true => -self.compass_rotation,
+            false => 0f32,
+        });
 
         // to translate a point from worldspace into mapspace,
         MinimapToMap::from_translation(
-                -minimap_centre.to_vector()
-            ).then_scale(
+                -minimap_centre.to_vector().as_()
+            ).then_rotate(
+                minimap_rotation
+            )
+            .then_scale(
                 // scale the distance by the scaling factor to take it from
                 // worldmap to mapspace units
                 Vector2::splat(self.map_scale)

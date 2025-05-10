@@ -1,6 +1,6 @@
 use {
     crate::{
-        marker::{atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint}, format::{MarkerFile, MarkerType}}, render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
+        marker::{atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint}, format::{MarkerFile, MarkerSet, MarkerType}}, render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
     }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, glamour::Point2, glob::{glob, Paths}, itertools::Itertools, nexus::{
         data_link::{
             get_mumble_link_ptr, get_nexus_link, mumble::{MumblePtr, UIScaling, UiState}, read_nexus_link, MumbleLink, NexusLink
@@ -14,7 +14,7 @@ use {
             Mutex,
         },
         time::{interval, sleep, Duration},
-    }, windows::Win32::{Foundation::{LPARAM, RECT, WPARAM}, UI::{Input::KeyboardAndMouse::{GetActiveWindow, GetCapture}, WindowsAndMessaging::{GetForegroundWindow, GetWindowRect, SetCursorPos, WM_MOUSEMOVE}}}
+    }, windows::Win32::{Foundation::{LPARAM, POINT, RECT, WPARAM}, Graphics::Gdi::ClientToScreen, UI::{Input::KeyboardAndMouse::{GetActiveWindow, GetCapture}, WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, GetWindowRect, SetCursorPos, WM_MOUSEMOVE}}}
 };
 
 #[cfg(feature = "space")]
@@ -420,34 +420,43 @@ impl Controller {
         self.reset_timers().await;
     }
 
-    async fn set_marker(&self, point: ScreenPoint, marker_type: MarkerType) -> anyhow::Result<()> {
-        log::debug!("Point {:?}", point);
-        let hwnd = unsafe { GetForegroundWindow() };
-        let mut rect_ptr: RECT = Default::default();
-        let rect = unsafe { GetWindowRect(hwnd, &mut rect_ptr)}
+    async fn set_marker(&self, points: Vec<ScreenPoint>, markers: MarkerSet) -> anyhow::Result<()> {
+        let wait_duration = Duration::from_millis(50);
+        let mut pos_ptr: POINT = POINT::default();
+        let original_position = unsafe { GetCursorPos(&mut pos_ptr) }
             .map_err(anyhow::Error::from)
-            .map(|()| rect_ptr)?;
-        let start_of_window = Point2::new(rect.left as f32, rect.top as f32);
+            .map(|()| pos_ptr)?;
+        let hwnd = unsafe { GetForegroundWindow() };
+
+
+        let zippy = points.iter().zip(markers.markers);
+        for (point, marker) in zippy {
+            let mut my_pos: POINT = POINT { x: point.x as i32, y: point.y as i32 };
+            let absolute_point = unsafe { ClientToScreen(hwnd, &mut my_pos) };
+            sleep(wait_duration).await;
+            match unsafe { SetCursorPos(my_pos.x, my_pos.y) } {
+                Ok(()) => (),
+                Err(err) => log::error!("Error setmarker: {:?}", err),
+            }
+            sleep(wait_duration).await;
+            invoke_gamebind_async(marker.marker.to_place_world_gamebind(), 100i32);
+        }
+        sleep(wait_duration).await;
+        match unsafe { SetCursorPos(original_position.x, original_position.y) } {
+            Ok(()) => (),
+            Err(err) => log::error!("Error setmarker restore: {:?}", err),
+        }
         // apparently h_wnd is ignored for this, fuck if I know? :3
         // WM_MOUSEMOVE == 0x0200
         /*unsafe {
             igSetCursorPos(ImVec2::new(point.x, point.y));
         }
         invoke_gamebind_async(marker_type.to_place_world_gamebind(), 100i32);*/
-        let absolute_point = start_of_window + point;
-        let wait_duration = Duration::from_millis(50);
-        sleep(wait_duration).await;
         /*let coordinates_isize = ((point.x as usize) << 16 | point.y as usize) as isize;
         log::debug!("coordinates: {:?}, {:?}", coordinates_isize, coordinates_isize.to_ne_bytes());
         let coordinates = LPARAM(coordinates_isize);
         let wnd_result = send_wnd_proc_to_game(windows::Win32::Foundation::HWND::default(), WM_MOUSEMOVE, WPARAM::default(), coordinates);*/
-        match unsafe { SetCursorPos(absolute_point.x as i32, absolute_point.y as i32) } {
-            Ok(()) => (),
-            Err(err) => log::error!("Error setmarker: {:?}", err),
-        }
-        sleep(wait_duration).await;
         // milliseconds
-        invoke_gamebind_async(marker_type.to_place_world_gamebind(), 100i32);
         //log::debug!("set_marker result: {wnd_result:?}");
         Ok(())
     }
@@ -579,7 +588,7 @@ pub enum ProgressBarStyleChange {
 pub enum ControllerEvent {
     OpenOpenable(String, String),
     MoveMouse(Vec2),
-    SetMarker(ScreenPoint, MarkerType),
+    SetMarker(Vec<ScreenPoint>, MarkerSet),
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     ToggleKatRender,
