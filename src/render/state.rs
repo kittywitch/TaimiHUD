@@ -1,6 +1,6 @@
 use {
     crate::{
-        controller::ControllerEvent, marker::{atomic::MarkerInputData, format::MarkerFile}, render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
+        controller::ControllerEvent,render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
     },
     glam::Vec2,
     nexus::{
@@ -20,9 +20,15 @@ use {
     tokio::sync::mpsc::Receiver,
 };
 
+#[cfg(feature = "markers")]
+use {
+    crate::marker::{atomic::MarkerInputData, format::{MarkerFile, RuntimeMarkers}}, 
+};
+
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
-    MarkerData(Arc<MarkerFile>),
+    #[cfg(feature = "markers")]
+    MarkerData(Vec<Arc<RuntimeMarkers>>),
     AlertFeed(PhaseState),
     OpenableError(String, anyhow::Error),
     AlertReset(Arc<TimerFile>),
@@ -67,10 +73,12 @@ impl RenderState {
         let io = ui.io();
         if let Some(last_display_size) = self.last_display_size {
             if io.display_size != last_display_size {
+                #[cfg(feature = "space")]
                 MarkerInputData::from_render(io.display_size.into());
                 self.last_display_size = Some(io.display_size);
             }
         } else {
+            #[cfg(feature = "space")]
             MarkerInputData::from_render(io.display_size.into());
             self.last_display_size = Some(io.display_size);
         }
@@ -94,6 +102,7 @@ impl RenderState {
                     TimerData(timers) => {
                         self.primary_window.timer_tab.timers_update(timers);
                     }
+                    #[cfg(feature = "markers")]
                     MarkerData(markers) => {
                         self.primary_window.marker_tab.marker_update(markers);
                     },

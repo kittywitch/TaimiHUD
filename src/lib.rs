@@ -2,6 +2,8 @@ mod controller;
 mod render;
 mod settings;
 mod timer;
+
+#[cfg(feature = "markers")]
 mod marker;
 
 #[cfg(feature = "space")]

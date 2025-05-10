@@ -1,7 +1,7 @@
 use {
     crate::{
-        marker::{atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint}, format::{MarkerFile, MarkerSet, MarkerType}}, render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
-    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, glamour::Point2, glob::{glob, Paths}, itertools::Itertools, nexus::{
+        render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
+    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, glamour::Point2, glob::{glob, Paths}, nexus::{
         data_link::{
             get_mumble_link_ptr, get_nexus_link, mumble::{MumblePtr, UIScaling, UiState}, read_nexus_link, MumbleLink, NexusLink
         }, gamebind::invoke_gamebind_async, imgui::{sys::{igSetCursorPos, ImVec2}, Context}, paths::get_addon_dir, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive, wnd_proc::send_wnd_proc_to_game
@@ -14,9 +14,15 @@ use {
             Mutex,
         },
         time::{interval, sleep, Duration},
-    }, windows::Win32::{Foundation::{LPARAM, POINT, RECT, WPARAM}, Graphics::Gdi::ClientToScreen, UI::{Input::KeyboardAndMouse::{GetActiveWindow, GetCapture}, WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, GetWindowRect, SetCursorPos, WM_MOUSEMOVE}}}
+    },
 };
 
+#[cfg(feature = "markers")]
+use {
+    itertools::Itertools,
+    crate::marker::{atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint}, format::{MarkerFile, MarkerSet, MarkerType, RuntimeMarkers}},
+    windows::Win32::{Foundation::{LPARAM, POINT, RECT, WPARAM}, Graphics::Gdi::ClientToScreen, UI::{Input::KeyboardAndMouse::{GetActiveWindow, GetCapture}, WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, GetWindowRect, SetCursorPos, WM_MOUSEMOVE}}}
+};
 #[cfg(feature = "space")]
 use crate::space::dx11::PerspectiveInputData;
 
@@ -24,7 +30,8 @@ use crate::space::dx11::PerspectiveInputData;
 pub struct Controller {
     pub agent: Option<AgentOwned>,
     pub previous_combat_state: bool,
-    pub markers: Option<Arc<MarkerFile>>,
+    #[cfg(feature = "space")]
+    pub markers: Vec<Arc<RuntimeMarkers>>,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub mumble_pointer: Option<MumblePtr>,
@@ -65,6 +72,7 @@ impl Controller {
                 previous_combat_state: Default::default(),
                 rt_sender,
                 settings,
+                #[cfg(feature = "space")]
                 markers: Default::default(),
                 agent: Default::default(),
                 cached_identity: Default::default(),
@@ -84,7 +92,8 @@ impl Controller {
             settings_lock.handle_sources_changes();
             drop(settings_lock);
             state.setup_timers().await;
-            match state.load_markers_file().await {
+            #[cfg(feature = "markers")]
+            match state.load_markers_files().await {
                 Ok(()) => (),
                 Err(err) => log::error!("Error loading markers: {}", err),
             }
@@ -125,7 +134,7 @@ impl Controller {
         rt.block_on(evt_loop);
     }
 
-    async fn load_markers_file(&mut self) -> anyhow::Result<()> {
+    /*async fn load_markers_file(&mut self) -> anyhow::Result<()> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let markers = MarkerFile::load(&addon_dir.join("Markers.json")).await?;
         let _ = self
@@ -133,6 +142,18 @@ impl Controller {
             .send(RenderEvent::MarkerData(markers.clone()))
             .await;
         self.markers = Some(markers.clone());
+        Ok(())
+    }*/
+
+    #[cfg(feature = "markers")]
+    async fn load_markers_files(&mut self) -> anyhow::Result<()> {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let markers = RuntimeMarkers::load_many(&addon_dir.join("markers"), 100).await?;
+        let _ = self
+            .rt_sender
+            .send(RenderEvent::MarkerData(markers.clone()))
+            .await;
+        self.markers = markers;
         Ok(())
     }
 
@@ -201,6 +222,7 @@ impl Controller {
                 let pos = Vec3::from_array(camera.position);
                 PerspectiveInputData::swap_camera(front, pos, playpos);
             }
+            #[cfg(feature = "markers")]
             {
                 if let Some(nexus_link) = read_nexus_link() {
                     let scaling = nexus_link.scaling;
@@ -265,6 +287,8 @@ impl Controller {
         }
         let new_map_id = identity.map_id;
         if Some(new_map_id) != self.map_id {
+            #[cfg(feature = "markers")]
+            MarkerInputData::from_mapchange(new_map_id);
             for timer in &mut self.current_timers {
                 timer.cleanup().await;
             }
@@ -420,7 +444,9 @@ impl Controller {
         self.reset_timers().await;
     }
 
+    #[cfg(feature = "markers")]
     async fn set_marker(&self, points: Vec<ScreenPoint>, markers: MarkerSet) -> anyhow::Result<()> {
+        // TODO: provide configurability
         let wait_duration = Duration::from_millis(50);
         let mut pos_ptr: POINT = POINT::default();
         let original_position = unsafe { GetCursorPos(&mut pos_ptr) }
@@ -431,15 +457,15 @@ impl Controller {
 
         let zippy = points.iter().zip(markers.markers);
         for (point, marker) in zippy {
+            sleep(wait_duration).await;
             let mut my_pos: POINT = POINT { x: point.x as i32, y: point.y as i32 };
             let absolute_point = unsafe { ClientToScreen(hwnd, &mut my_pos) };
-            sleep(wait_duration).await;
             match unsafe { SetCursorPos(my_pos.x, my_pos.y) } {
                 Ok(()) => (),
                 Err(err) => log::error!("Error setmarker: {:?}", err),
             }
             sleep(wait_duration).await;
-            invoke_gamebind_async(marker.marker.to_place_world_gamebind(), 100i32);
+            invoke_gamebind_async(marker.marker.to_place_world_gamebind(), 10i32);
         }
         sleep(wait_duration).await;
         match unsafe { SetCursorPos(original_position.x, original_position.y) } {
@@ -561,6 +587,7 @@ impl Controller {
             TimerReset => self.reset_timers().await,
             CheckDataSourceUpdates => self.check_updates().await,
             MoveMouse(pos) => self.move_mouse(pos).await,
+            #[cfg(feature = "markers")]
             SetMarker(p, t) => self.set_marker(p, t).await?,
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
@@ -588,6 +615,7 @@ pub enum ProgressBarStyleChange {
 pub enum ControllerEvent {
     OpenOpenable(String, String),
     MoveMouse(Vec2),
+    #[cfg(feature = "markers")]
     SetMarker(Vec<ScreenPoint>, MarkerSet),
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),

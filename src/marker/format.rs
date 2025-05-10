@@ -1,14 +1,103 @@
+use std::{fs::exists, path::Path};
+
 use super::atomic::{CurrentPerspective, MinimapPlacement};
 
 use {
     crate::timer::{BlishVec3, Polytope, Position}, chrono::{DateTime, Utc}, glam::{Mat4, Vec3}, nexus::gamebind::GameBind, serde::{Deserialize, Serialize}, std::{path::PathBuf, sync::Arc}
 };
+use anyhow::anyhow;
 use glam::{Vec2, Vec2Swizzles, Vec3Swizzles};
+use glob::Paths;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use strum_macros::Display;
-use tokio::fs::{create_dir_all, read_to_string, File};
+use tokio::{fs::{create_dir_all, read_to_string, File}, sync::Semaphore, task::JoinSet};
 use tokio::io::AsyncWriteExt;
 
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(untagged)]
+pub enum MarkerFormats {
+    File(MarkerFile),
+    Custom(CustomMarkers),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct RuntimeMarkers {
+    pub path: Option<PathBuf>,
+    pub file: MarkerFormats,
+}
+impl RuntimeMarkers {
+    pub fn glob() -> String {
+        "**/*.markers".to_string()
+    }
+
+    pub fn path_glob(path: &Path) -> PathBuf {
+        path.join(&Self::glob())
+    }
+
+    pub fn get_paths(path: &Path) -> anyhow::Result<Paths> {
+        let pathbuf_glob = Self::path_glob(path);
+
+        let path_glob_str = pathbuf_glob.to_str()
+            .ok_or_else(|| anyhow!("Timer file loading path glob unparseable for {path:?}"))?;
+            Ok(glob::glob(path_glob_str)?)
+    }
+    pub async fn load_many(load_dir: &Path, simultaneous_limit: usize) -> anyhow::Result<Vec<Arc<Self>>> {
+        log::debug!("Beginning load_many for {load_dir:?} with a simultaneous open limit of {simultaneous_limit}.");
+        let mut marker_files = Vec::new();
+        if exists(load_dir)? {
+            let mut set = JoinSet::new();
+            let semaphore = Arc::new(Semaphore::new(simultaneous_limit));
+            let mut paths = Self::get_paths(load_dir)?;
+            while let Some(path) = paths.next() {
+                let permit = semaphore.clone().acquire_owned().await?;
+                let path = path?.clone();
+                set.spawn(async move {
+                    let marker_file = Self::load(&path).await?;
+                    drop(permit);
+                    Ok::<Arc<Self>, anyhow::Error>(marker_file)
+                });
+
+            }
+            let (mut join_errors, mut load_errors): (usize, usize) = (0, 0);
+            while let Some(marker_file) = set.join_next().await {
+                match marker_file {
+                    Ok(res) => match res {
+                        Ok(marker_file) => {
+                            marker_files.push(marker_file);
+                        },
+                        Err(err) => {
+                            load_errors += 1;
+                            log::error!("marker load_many error for {load_dir:?}: {err}");
+                        },
+                    },
+                    Err(err) => {
+                        join_errors += 1;
+                        log::error!("marker load_many join error for {load_dir:?}: {err}");
+                    },
+                }
+            }
+            log::debug!(
+                "Finished load_many for {load_dir:?}: {} succeeded, {join_errors} join errors, {load_errors} other errors.",
+                marker_files.len()
+            );
+        }
+        Ok(marker_files)
+    }
+    pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
+        log::debug!("Attempting to load the markers file at \"{path:?}\".");
+        let mut file_data = read_to_string(path).await?;
+        json_strip_comments::strip(&mut file_data)?;
+        let mut data: MarkerFormats = serde_json::from_str(&file_data)?;
+        let data = Self {
+            file: data,
+            path: Some(path.to_path_buf()),
+        };
+        log::debug!("Successfully loaded the markers file at \"{path:?}\".");
+        Ok(Arc::new(data))
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -17,6 +106,27 @@ pub struct MarkerFile {
     pub path: Option<PathBuf>,
     pub categories: Vec<MarkerCategory>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct CustomMarkers {
+    pub version: String,
+    pub path: Option<PathBuf>,
+    pub squad_marker_preset: Vec<MarkerSet>,
+}
+
+impl CustomMarkers {
+    pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
+        log::debug!("Attempting to load the markers file at \"{path:?}\".");
+        let mut file_data = read_to_string(path).await?;
+        json_strip_comments::strip(&mut file_data)?;
+        let mut data: Self = serde_json::from_str(&file_data)?;
+        data.path = Some(path.to_path_buf());
+        log::debug!("Successfully loaded the markers file at \"{path:?}\".");
+        Ok(Arc::new(data))
+    }
+}
+
 
 impl MarkerFile {
     pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
@@ -47,7 +157,7 @@ fn default_true() -> bool {
 pub struct MarkerSet {
     #[serde(default = "default_true")]
     pub enabled: bool,
-    pub author: String,
+    pub author: Option<String>,
     pub name: String,
     pub description: String,
     pub map_id: u32,

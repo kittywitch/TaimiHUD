@@ -18,6 +18,13 @@ space = [
   "dep:windows-strings",
   "dep:windows-core",
 ]
+markers = [
+  "dep:itertools",
+  "dep:arc-atomic",
+  "dep:windows",
+  "dep:windows-strings",
+  "dep:windows-core",
+]
 
 [lib]
 crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)

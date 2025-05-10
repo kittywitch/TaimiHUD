@@ -84,7 +84,7 @@ pub type MapToLocal = Transform2<MapSpace, LocalSpace>;
 
 
 
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Copy, Debug, Default, PartialEq, Clone)]
 pub struct MarkerInputData {
     pub scaling: f32,
     pub local_player_pos: Vec3,
@@ -97,9 +97,81 @@ pub struct MarkerInputData {
     pub minimap_placement: MinimapPlacement,
     pub rotation_enabled: bool,
     pub display_size: Vec2,
+    pub sign_obtainer: SignObtainer,
+    pub map_id: u32,
+}
+
+#[derive(Copy, Debug, Default, PartialEq, Clone)]
+pub struct SignObtainer {
+    point1: Option<LocalGlobalHolder>,
+    point2: Option<LocalGlobalHolder>,
+}
+
+impl SignObtainer {
+    // TODO: reset on map change
+    pub fn prepare(&mut self, local: LocalPoint, global: MapPoint) {
+        // we need to be able to figure out the axis directions, let's do this
+        // without web requests (to v2 maps api) by taking two points
+        // the one thing we don't need to check is the height, and we shouldn't let that
+        // skew our distance, either.
+        let local = local.xz();
+        if self.point2.is_none() {
+            if let Some(point1) = self.point1 {
+                // take point from 0.5m away in each direction, for accuracy
+                if (local.x - point1.local.x).abs() > 5.0 && (local.y - point1.local.y).abs() > 5.0 {
+                    self.point2 = Some(LocalGlobalHolder {
+                        local,
+                        global
+                    });
+                }
+            } else {
+                self.point1 = Some(LocalGlobalHolder {
+                    local,
+                    global
+                });
+            }
+        }
+        // once we have two points, this becomes a no-op other than the comparison
+    }
+
+    pub fn meters_per_feet() -> f32 {
+        0.3048f32
+    }
+
+    pub fn sign(&self) -> Vec2 {
+        // the most common value, held by 1009/1022 maps from the maps api endpoint is
+        // 24.0, 24.0 (2 feet per continent unit).
+        let default = Self::meters_per_feet() * 2.0;
+        let default_vec2 = Vec2::new(default, -default);
+        // if point1 and point2 are each >+/-0.5 away in x,y
+        // then its always going to be -1 or 1 for each
+        // i think it only matters if they are *different* signs
+        if let (Some(point1), Some(point2)) = (self.point1, self.point2) {
+            let difference_local: Vec2 = (point2.local - point1.local).into();
+            let difference_global: Vec2 = (point2.global - point1.global).into();
+            let result = difference_local / difference_global;
+            // the smallest map ratio is Mistlock Sanctuary with [12, 12]
+            // anything less than like... 8 is too small
+            if result.cmple(default_vec2 * 0.6).all() {
+                default_vec2
+            } else {
+                result
+            }
+        } else {
+            // until we find it out, let's just go for Sure man it's the same why not
+            default_vec2
+        }
+    }
+}
+
+#[derive(Copy, Debug, Default, PartialEq, Clone)]
+pub struct LocalGlobalHolder {
+    pub local: Point2<LocalSpace>,
+    pub global: MapPoint,
 }
 
 impl MarkerInputData {
+
     // ultimate goals:
     // * screen to local, map
     // * map, local to screen
@@ -304,7 +376,6 @@ impl MarkerInputData {
                 map_centre.to_vector()
             )
     }
-    // -91.8737, 41.5246 vs -93.640, 49.25
 
     pub fn map_worldmap_to_map(&self, point: WorldmapPoint) -> MapPoint {
         // the scaling factor (map_scale) is applied uniformly to x,y
@@ -370,7 +441,7 @@ impl MarkerInputData {
         // a foot is 0.3048 meters
         // a meter is 1/0.3048 feet
         // if we want local, we have to convert ft to m
-        let scaling_factor_meters_per_feet = 0.3048f32;
+        let signs = Vector2::from(self.sign_obtainer.sign());
 
         let map_player_pos: MapPoint = self.global_player_pos.into();
         let local_player_pos_xz: Point2<LocalSpace> = self.local_player_pos.xz().into();
@@ -381,8 +452,9 @@ impl MarkerInputData {
         ).then_scale(
                 // scale the distance by the scaling factor to take it from
                 // mapspace to localspace units
-                // local z+ is global y-, so for y scale negatively
-                Vector2::new(scaling_factor_meters_per_feet, -scaling_factor_meters_per_feet)
+                // ~~local z+ is global y-, so for y scale negatively~~
+                // THAT WAS WRONG, EVERY MAP HAS ITS OWN AXES
+                signs //* Vector2::new(scaling_factor_meters_per_feet, scaling_factor_meters_per_feet)
             ).then_translate(
                 // the player's position is used as a vector
                 // when combined with the distance vector,
@@ -525,6 +597,18 @@ impl MarkerInputData {
         }
     }
 
+    pub fn from_mapchange(map_id: u32) {
+        if let Some(data) = MARKERINPUTDATA.get() {
+            let mdata = data.load();
+            let sign_obtainer = SignObtainer::default();
+            data.store(Arc::new(MarkerInputData {
+                sign_obtainer,
+                map_id,
+                ..*mdata
+            }));
+        }
+    }
+
     pub fn from_tick(
         local_player_pos: Vec3, global_player_pos: Vec2, global_map: Vec2,
         compass_size: Vec2, compass_rotation: f32, map_scale: f32,
@@ -533,7 +617,7 @@ impl MarkerInputData {
     ) {
         if let Some(data) = MARKERINPUTDATA.get() {
             let mdata = data.load();
-            data.store(Arc::new(MarkerInputData {
+            let mut ndata = MarkerInputData {
                 local_player_pos,
                 global_player_pos,
                 global_map,
@@ -544,7 +628,9 @@ impl MarkerInputData {
                 minimap_placement,
                 rotation_enabled,
                 ..*mdata
-            }));
+            };
+            ndata.sign_obtainer.prepare(ndata.local_player_pos.into(), ndata.global_player_pos.into());
+            data.store(Arc::new(ndata));
         }
     }
 }

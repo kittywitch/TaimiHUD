@@ -182,10 +182,12 @@ impl DataSourceTabState {
                     }
                     ui.table_next_column();
                     if let Some(installed) = &download_data.installed_tag {
-                        ui.text_wrapped(format!("Installed: {}", installed));
+                        ui.text_wrapped(format!("Installed version: {}", installed));
                     } else {
                         ui.text_wrapped("Not installed");
                     }
+                    ui.text_wrapped("Update required?:");
+                    ui.same_line();
                     download_data.needs_update.draw(ui);
                     ui.table_next_column();
                     use NeedsUpdate::*;

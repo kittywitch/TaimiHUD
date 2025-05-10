@@ -5,6 +5,7 @@ pub mod primary_window;
 pub mod state;
 pub mod timer_tab;
 pub mod timer_window;
+#[cfg(feature = "space")]
 pub mod marker_tab;
 
 #[allow(unused_imports)]
@@ -16,5 +17,9 @@ pub use {
     state::{Alignment, RenderEvent, RenderState, TextFont},
     timer_tab::TimerTabState,
     timer_window::TimerWindowState,
+};
+
+#[cfg(feature = "markers")]
+pub use {
     marker_tab::MarkerTabState,
 };
