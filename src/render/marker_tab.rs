@@ -62,6 +62,7 @@ impl MarkerTabState {
     }
 
     pub fn display_marker_set(&self, ui: &Ui, mid: Option<Arc<MarkerInputData>>, marker_set: &MarkerSet) {
+        let pushy = ui.push_id(&marker_set.name);
         RenderState::font_text("ui", ui, &marker_set.name);
         if let Some(author) = &marker_set.author {
             RenderState::font_text("ui", ui, &format!("Author: {}", author));
@@ -69,7 +70,6 @@ impl MarkerTabState {
         RenderState::font_text("ui", ui, &format!("{}", &marker_set.description));
         ui.text(&format!("Map ID: {}", &marker_set.map_id));
         ui.text(&format!("Markers: {}", &marker_set.markers.len()));
-        let pushy = ui.push_id(&marker_set.name);
         let screen_positions: Vec<ScreenPoint> = marker_set.markers.iter().flat_map(|x| {
             if let Some(mid) = &mid {
                 let position: LocalPoint = Vec3::from(x.position.clone()).into();
@@ -80,13 +80,7 @@ impl MarkerTabState {
                 None
             }
         }).collect();
-        if screen_positions.len() == marker_set.markers.len() {
-                    if ui.button("Set markers") {
-                        let sender = CONTROLLER_SENDER.get().unwrap();
-                        let event_send = sender.try_send(ControllerEvent::SetMarker(screen_positions, marker_set.clone()));
-                        drop(event_send);
-                    }
-        }
+        ui.dummy([4.0; 2]);
         let table_flags = TableFlags::RESIZABLE | TableFlags::ROW_BG | TableFlags::BORDERS;
         let table_name = format!("markers_for_{}", marker_set.name);
         let table_token = ui.begin_table_header_with_flags(
@@ -137,5 +131,14 @@ impl MarkerTabState {
             }
         }
         drop(table_token);
+        if screen_positions.len() == marker_set.markers.len() {
+                ui.dummy([4.0; 2]);
+                if ui.button("Place Markers") {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::SetMarker(screen_positions, marker_set.clone()));
+                    drop(event_send);
+                }
+            pushy.pop();
+        }
     }
 }
