@@ -8,12 +8,10 @@ use {
     }, relative_path::RelativePathBuf, std::{
         collections::HashMap, ffi::OsStr, fs::{exists, read_to_string}, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::SystemTime
     }, strum_macros::Display, tokio::{
-        runtime, select,
-        sync::{
+        fs::create_dir_all, runtime, select, sync::{
             mpsc::{Receiver, Sender},
             Mutex,
-        },
-        time::{interval, sleep, Duration},
+        }, time::{interval, sleep, Duration}
     },
 };
 
@@ -181,6 +179,8 @@ impl Controller {
         if exists(&adhoc_timers_dir).expect("oh no i cant access my own addon dir") {
             let adhoc_timers = TimerFile::load_many_sourceless(&adhoc_timers_dir, 100).await.expect("wah");
             self.timers.extend(adhoc_timers);
+        } else {
+            create_dir_all(adhoc_timers_dir).await.expect("Can't create timers dir");
         }
         for timer in &self.timers {
             if let Some(association) = &timer.association {
