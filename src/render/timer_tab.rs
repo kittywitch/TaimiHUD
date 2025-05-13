@@ -199,11 +199,26 @@ impl TimerTabState {
                         ui,
                         &format!("Author: {}", selected_timer.author()),
                     );
-                    RenderState::font_text(
-                        "font",
-                        ui,
-                        &format!("Source: {}", selected_timer.source())
-                    );
+                    if !selected_timer.source().is_empty() {
+                        RenderState::font_text(
+                            "font",
+                            ui,
+                            &format!("Source: {}", selected_timer.source())
+                        );
+                    } else {
+                        RenderState::font_text(
+                            "font",
+                            ui,
+                            &format!("Source: Ad-hoc")
+                        );
+                        if let Some(path) = &selected_timer.path {
+                            RenderState::font_text(
+                                "font",
+                                ui,
+                                &format!("Path: {:?}", path)
+                            );
+                        }
+                    }
                     RenderState::font_text("font", ui, &format!("ID: {}", selected_timer.id));
                     RenderState::font_text("font", ui, &format!("Map ID: {}", selected_timer.map_id));
                     ui.dummy([4.0; 2]);

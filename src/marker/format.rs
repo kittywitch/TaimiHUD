@@ -1,4 +1,4 @@
-use std::{fs::exists, path::Path};
+use std::{collections::HashMap, fs::exists, path::Path};
 
 use super::atomic::{CurrentPerspective, MinimapPlacement};
 
@@ -9,7 +9,7 @@ use anyhow::anyhow;
 use glam::{Vec2, Vec2Swizzles, Vec3Swizzles};
 use glob::Paths;
 use serde_repr::{Deserialize_repr, Serialize_repr};
-use strum_macros::Display;
+use strum_macros::{Display, FromRepr};
 use tokio::{fs::{create_dir_all, read_to_string, File}, sync::Semaphore, task::JoinSet};
 use tokio::io::AsyncWriteExt;
 
@@ -89,13 +89,45 @@ impl RuntimeMarkers {
         log::debug!("Attempting to load the markers file at \"{path:?}\".");
         let mut file_data = read_to_string(path).await?;
         json_strip_comments::strip(&mut file_data)?;
-        let mut data: MarkerFormats = serde_json::from_str(&file_data)?;
+        let format: MarkerFormats = serde_json::from_str(&file_data)?;
         let data = Self {
-            file: data,
+            file: format,
             path: Some(path.to_path_buf()),
         };
         log::debug!("Successfully loaded the markers file at \"{path:?}\".");
         Ok(Arc::new(data))
+    }
+    pub async fn markers(marker_packs: Vec<Arc<Self>>) -> HashMap<String, Vec<Arc<MarkerSet>>> {
+        let mut finalized: HashMap<String, Vec<Arc<MarkerSet>>> = HashMap::new();
+        for pack in marker_packs {
+            log::info!("{:?}", pack);
+            match &pack.file {
+                MarkerFormats::File(f) => {
+                    for category in &f.categories {
+                        let category_name = category.name.clone();
+                        let entry = finalized.entry(category_name).or_default();
+                        for marker_set in &category.marker_sets {
+                            let mut marker_set_data = marker_set.clone();
+                            marker_set_data.path = pack.path.clone();
+                            let marker_set_arc = Arc::new(marker_set_data);
+                            entry.push(marker_set_arc);
+                        }
+                    }
+                },
+                MarkerFormats::Custom(c) => {
+                    let category_name = "Custom".to_string();
+                    let entry = finalized.entry(category_name).or_default();
+                    for marker_set in &c.squad_marker_preset {
+                            let mut marker_set_data = marker_set.clone();
+                            marker_set_data.path = pack.path.clone();
+                            let marker_set_arc = Arc::new(marker_set_data);
+                            entry.push(marker_set_arc);
+                    }
+
+                },
+            }
+        }
+        finalized
     }
 }
 
@@ -162,7 +194,19 @@ pub struct MarkerSet {
     pub description: String,
     pub map_id: u32,
     pub trigger: MarkerPosition,
-    pub markers: Vec<MarkerEntry>
+    pub markers: Vec<MarkerEntry>,
+    #[serde(default)]
+    pub path: Option<PathBuf>,
+}
+
+impl MarkerSet {
+    pub fn combined(&self) -> String {
+        if let Some(author) = &self.author {
+            format!("{}\nAuthor: {}", self.name.clone(), author.clone())
+        } else {
+            format!("{}\nUnknown Author", self.name.clone())
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -210,7 +254,7 @@ impl From<MarkerPosition> for Polytope {
 
 
 
-#[derive(Serialize_repr, Deserialize_repr, Display, Debug, Clone, PartialEq)]
+#[derive(Serialize_repr, Deserialize_repr, FromRepr, Display, Debug, Clone, PartialEq)]
 #[repr(u8)]
 pub enum MarkerType {
     // Schema reference: https://github.com/manlaan/BlishHud-CommanderMarkers/blob/bhud-static/Manlaan.CommanderMarkers/README.md?plain=1#L69-L78
@@ -231,6 +275,10 @@ pub enum MarkerType {
 }
 
 impl MarkerType {
+    pub fn iter_real_values() -> impl Iterator<Item = Self> {
+        (1..9).flat_map(|i| Self::from_repr(i))
+    }
+
     pub fn to_place_world_gamebind(&self) -> GameBind {
         match self {
             Self::Blank => panic!("i can't believe you've done this"),

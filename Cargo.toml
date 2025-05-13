@@ -102,6 +102,7 @@ magic_migrate = "1.1.0"
 toml = "0.8.22"
 serde_repr = "0.1.20"
 glamour = { version = "0.18.0", features = ["mint"] }
+rust-i18n = "3.1.4"
 
 [target.'cfg(windows)'.dependencies]
 windows-strings = { optional = true, version = "0.4.0" }
@@ -114,6 +115,8 @@ features = [
   "log_filter",
   "mumble",
   "arc",
+  "rtapi",
+  "serde",
   "extras",
 ]
 
@@ -145,3 +148,7 @@ features = [
   "Win32_Graphics_Hlsl",
   "Win32_System_Diagnostics_Debug"
 ]
+
+[package.metadata.i18n]
+available-locales = ["en"]
+default-locale = "en"

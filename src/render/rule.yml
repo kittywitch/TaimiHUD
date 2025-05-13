@@ -1,0 +1,5 @@
+id: mew
+language: rust
+rule:
+  any:
+    - kind: string_literal

@@ -6,7 +6,7 @@ use {
             get_mumble_link_ptr, get_nexus_link, mumble::{MumblePtr, UIScaling, UiState}, read_nexus_link, MumbleLink, NexusLink
         }, gamebind::invoke_gamebind_async, imgui::{sys::{igSetCursorPos, ImVec2}, Context}, paths::get_addon_dir, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive, wnd_proc::send_wnd_proc_to_game
     }, relative_path::RelativePathBuf, std::{
-        collections::HashMap, ffi::OsStr, fs::read_to_string, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::SystemTime
+        collections::HashMap, ffi::OsStr, fs::{exists, read_to_string}, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::SystemTime
     }, strum_macros::Display, tokio::{
         runtime, select,
         sync::{
@@ -31,7 +31,7 @@ pub struct Controller {
     pub agent: Option<AgentOwned>,
     pub previous_combat_state: bool,
     #[cfg(feature = "markers")]
-    pub markers: Vec<Arc<RuntimeMarkers>>,
+    pub markers: HashMap<String, Vec<Arc<MarkerSet>>>,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub mumble_pointer: Option<MumblePtr>,
@@ -149,6 +149,7 @@ impl Controller {
     async fn load_markers_files(&mut self) -> anyhow::Result<()> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let markers = RuntimeMarkers::load_many(&addon_dir.join("markers"), 100).await?;
+        let markers = RuntimeMarkers::markers(markers).await;
         let _ = self
             .rt_sender
             .send(RenderEvent::MarkerData(markers.clone()))
@@ -175,6 +176,12 @@ impl Controller {
     async fn setup_timers(&mut self) {
         log::info!("Preparing to setup timers");
         self.timers = self.load_timer_files().await;
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let adhoc_timers_dir = addon_dir.join("timers");
+        if exists(&adhoc_timers_dir).expect("oh no i cant access my own addon dir") {
+            let adhoc_timers = TimerFile::load_many_sourceless(&adhoc_timers_dir, 100).await.expect("wah");
+            self.timers.extend(adhoc_timers);
+        }
         for timer in &self.timers {
             if let Some(association) = &timer.association {
                 self.sources_to_timers.entry(association.clone()).or_default();
@@ -445,8 +452,8 @@ impl Controller {
     }
 
     #[cfg(feature = "markers")]
-    async fn set_marker(&self, points: Vec<ScreenPoint>, markers: MarkerSet) -> anyhow::Result<()> {
-        // TODO: provide configurability
+    async fn set_marker(&self, points: Vec<ScreenPoint>, markers: Arc<MarkerSet>) -> anyhow::Result<()> {
+        // TODO: provide configurability of wait_duration and invoke gamebind duration?
         let wait_duration = Duration::from_millis(50);
         let mut pos_ptr: POINT = POINT::default();
         let original_position = unsafe { GetCursorPos(&mut pos_ptr) }
@@ -455,11 +462,11 @@ impl Controller {
         let hwnd = unsafe { GetForegroundWindow() };
 
 
-        let zippy = points.iter().zip(markers.markers);
+        let zippy = points.iter().zip(markers.markers.clone());
         for (point, marker) in zippy {
             sleep(wait_duration).await;
             let mut my_pos: POINT = POINT { x: point.x as i32, y: point.y as i32 };
-            let absolute_point = unsafe { ClientToScreen(hwnd, &mut my_pos) };
+            unsafe { ClientToScreen(hwnd, &mut my_pos) };
             match unsafe { SetCursorPos(my_pos.x, my_pos.y) } {
                 Ok(()) => (),
                 Err(err) => log::error!("Error setmarker: {:?}", err),
@@ -616,7 +623,7 @@ pub enum ControllerEvent {
     OpenOpenable(String, String),
     MoveMouse(Vec2),
     #[cfg(feature = "markers")]
-    SetMarker(Vec<ScreenPoint>, MarkerSet),
+    SetMarker(Vec<ScreenPoint>, Arc<MarkerSet>),
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     ToggleKatRender,

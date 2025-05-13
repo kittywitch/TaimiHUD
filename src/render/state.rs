@@ -1,34 +1,28 @@
 use {
     crate::{
         controller::ControllerEvent,render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
-    },
-    glam::Vec2,
-    nexus::{
+    }, glam::Vec2, nexus::{
         data_link::read_nexus_link,
         imgui::{
             internal::RawCast, Condition, ConfigFlags, Context, Font, FontId, Image, Io, StyleColor, Ui, Window, WindowFlags
         },
         texture::get_texture,
-    },
-    relative_path::RelativePathBuf,
-    serde::{Deserialize, Serialize},
-    std::{
-        path::PathBuf,
-        sync::{Arc, MutexGuard},
-    },
-    strum_macros::{Display, EnumIter},
-    tokio::sync::mpsc::Receiver,
+    }, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, std::{
+        collections::HashMap, path::PathBuf, sync::{Arc, MutexGuard}
+    }, strum_macros::{Display, EnumIter}, tokio::sync::mpsc::Receiver
 };
 
 #[cfg(feature = "markers")]
 use {
     crate::marker::{atomic::MarkerInputData, format::{MarkerFile, RuntimeMarkers}}, 
+super::marker_window::EditMarkerWindowState,
+    marker::format::MarkerSet,
 };
 
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
     #[cfg(feature = "markers")]
-    MarkerData(Vec<Arc<RuntimeMarkers>>),
+    MarkerData(HashMap<String, Vec<Arc<MarkerSet>>>),
     AlertFeed(PhaseState),
     OpenableError(String, anyhow::Error),
     AlertReset(Arc<TimerFile>),
@@ -36,6 +30,8 @@ pub enum RenderEvent {
     AlertEnd(Arc<TimerFile>),
     CheckingForUpdates(bool),
     RenderKeybindUpdate,
+    #[cfg(feature = "markers")]
+    OpenEditMarkers,
     ProgressBarUpdate(ProgressBarSettings),
 }
 
@@ -52,6 +48,8 @@ pub enum TextFont {
 
 pub struct RenderState {
     pub primary_window: PrimaryWindowState,
+    #[cfg(feature = "markers")]
+    pub edit_marker_window: EditMarkerWindowState,
     timer_window: TimerWindowState,
     receiver: Receiver<RenderEvent>,
     alert: Option<TextAlert>,
@@ -65,6 +63,8 @@ impl RenderState {
             alert: Default::default(),
             primary_window: PrimaryWindowState::new(),
             timer_window: TimerWindowState::new(),
+    #[cfg(feature = "markers")]
+            edit_marker_window: EditMarkerWindowState::new(),
             last_display_size: Default::default(),
         }
     }
@@ -86,6 +86,10 @@ impl RenderState {
             Ok(event) => {
                 use RenderEvent::*;
                 match event {
+                    #[cfg(feature = "markers")]
+                    OpenEditMarkers => {
+                        self.edit_marker_window.open(ui);
+                    },
                     OpenableError(key, err) => {
                         self.primary_window.data_sources_tab.state_errors.insert(key, err);
                     }
@@ -129,6 +133,8 @@ impl RenderState {
         self.handle_alert(ui, io);
         self.timer_window.draw(ui);
         self.primary_window.draw(ui, &mut self.timer_window);
+        #[cfg(feature = "markers")]
+        self.edit_marker_window.draw(ui);
     }
     pub fn icon(
         ui: &Ui,

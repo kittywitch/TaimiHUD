@@ -9,10 +9,13 @@ mod marker;
 #[cfg(feature = "space")]
 mod space;
 
-use nexus::{imgui::{MenuItem, Ui}, quick_access::{add_quick_access_context_menu, notify_quick_access}};
+use std::ffi::{c_char, CString};
+
+use nexus::{event::arc::ACCOUNT_NAME, imgui::{MenuItem, Ui}, quick_access::{add_quick_access_context_menu, notify_quick_access}};
 use settings::{SourcesFile};
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
+use tokio::sync::OnceCell;
 use {
     crate::{
         controller::{Controller, ControllerEvent},
@@ -37,6 +40,7 @@ use {
         collections::HashMap,
         path::PathBuf,
         ptr,
+        ffi::CStr,
         sync::{Arc, Mutex, OnceLock, RwLock},
         thread::{self, JoinHandle},
     },
@@ -52,6 +56,7 @@ static TEXTURES: OnceLock<RwLock<HashMap<PathBuf, Arc<Texture>>>> = OnceLock::ne
 static IMGUI_TEXTURES: OnceLock<RwLock<HashMap<String, Arc<NexusTexture>>>> = OnceLock::new();
 static CONTROLLER_SENDER: OnceLock<Sender<ControllerEvent>> = OnceLock::new();
 static RENDER_SENDER: OnceLock<Sender<RenderEvent>> = OnceLock::new();
+static ACCOUNT_NAME_CELL: OnceLock<String> = OnceLock::new();
 
 #[cfg(feature = "space")]
 static SPACE_SENDER: OnceLock<Sender<SpaceEvent>> = OnceLock::new();
@@ -228,6 +233,20 @@ fn load() {
     })
     )
     .revert_on_unload();
+
+    ACCOUNT_NAME
+        .subscribe(event_consume!(<c_char> |name| {
+            if let Some(name) = name {
+                let name = unsafe {CStr::from_ptr(name as *const c_char)};
+                let name = name.to_string_lossy().to_string();
+                log::info!("Received account name: {name:?}");
+                match ACCOUNT_NAME_CELL.set(name) {
+                    Ok(_) => (),
+                    Err(err) => log::error!("Error with account name cell: {err}"),
+                }
+            }
+        }))
+        .revert_on_unload();
 
     let combat_callback = event_consume!(|cdata: Option<&CombatData>| {
         let sender = CONTROLLER_SENDER.get().unwrap();

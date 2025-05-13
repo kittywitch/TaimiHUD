@@ -597,6 +597,18 @@ impl MarkerInputData {
         }
     }
 
+
+    pub fn reset_signobtainer() {
+        if let Some(data) = MARKERINPUTDATA.get() {
+            let mdata = data.load();
+            let sign_obtainer = SignObtainer::default();
+            data.store(Arc::new(MarkerInputData {
+                sign_obtainer,
+                ..*mdata
+            }));
+        }
+    }
+
     pub fn from_mapchange(map_id: u32) {
         if let Some(data) = MARKERINPUTDATA.get() {
             let mdata = data.load();
