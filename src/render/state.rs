@@ -73,12 +73,12 @@ impl RenderState {
         let io = ui.io();
         if let Some(last_display_size) = self.last_display_size {
             if io.display_size != last_display_size {
-                #[cfg(feature = "space")]
+                #[cfg(feature = "markers")]
                 MarkerInputData::from_render(io.display_size.into());
                 self.last_display_size = Some(io.display_size);
             }
         } else {
-            #[cfg(feature = "space")]
+            #[cfg(feature = "markers")]
             MarkerInputData::from_render(io.display_size.into());
             self.last_display_size = Some(io.display_size);
         }
