@@ -275,7 +275,7 @@ impl TimerMachine {
         let trigger = &self.timer.reset;
         use TimerMachineState::*;
         match &self.state {
-            OnPhase(_) | FinishedPhase(_) => {
+            OnPhase(_) | FinishedPhase(_) | Finished => {
                 if trigger.check(pos, self.combat_state, &mut self.key_pressed) {
                     self.do_reset().await;
                 }
