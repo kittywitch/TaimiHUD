@@ -3737,6 +3737,7 @@ dependencies = [
  "tokio-tar",
  "tokio-util",
  "toml 0.8.22",
+ "unic-langid-impl",
  "url",
  "webpki-root-certs",
  "windows 0.61.1",

@@ -106,6 +106,7 @@ i18n-embed = { version = "0.15.4", features = ["autoreload", "fluent-system"] }
 fluent = "0.16.1"
 rust-embed = { version = "8.7.1", features = [ "debug-embed" ] }
 i18n-embed-fl = "0.9.4"
+unic-langid-impl = "0.9.6"
 
 [target.'cfg(windows)'.dependencies]
 windows-strings = { optional = true, version = "0.4.0" }

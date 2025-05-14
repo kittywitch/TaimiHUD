@@ -11,7 +11,7 @@ mod space;
 
 use std::ffi::{c_char, CString};
 
-use nexus::{event::arc::ACCOUNT_NAME, imgui::{MenuItem, Ui}, quick_access::{add_quick_access_context_menu, notify_quick_access}};
+use nexus::{event::arc::ACCOUNT_NAME, imgui::{MenuItem, Ui}, localization::translate, quick_access::{add_quick_access_context_menu, notify_quick_access}};
 use settings::{SourcesFile};
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
@@ -25,6 +25,7 @@ use {
     arcdps::AgentOwned,
     nexus::{
         event::{
+            Event,
             arc::{CombatData, COMBAT_LOCAL},
             event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
@@ -50,6 +51,7 @@ use i18n_embed::{
     fluent::{fluent_language_loader, FluentLanguageLoader},
     DefaultLocalizer, LanguageLoader, RustEmbedNotifyAssets,
 };
+use unic_langid_impl::LanguageIdentifier;
 //use i18n_embed_fl::fl;
 use rust_embed::RustEmbed;
 
@@ -64,11 +66,10 @@ pub static LOCALIZATIONS: LazyLock<RustEmbedNotifyAssets<LocalizationsEmbed>> = 
 
 static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     let loader: FluentLanguageLoader = fluent_language_loader!();
-
     // Load the fallback langauge by default so that users of the
     // library don't need to if they don't care about localization.
     loader
-        .load_fallback_language(&*LOCALIZATIONS)
+        .load_available_languages(&*LOCALIZATIONS)
         .expect("Error while loading fallback language");
 
     loader
@@ -138,6 +139,7 @@ fn load() {
     // Set up the thread
     let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
 
+    reload_language();
 
     let (controller_sender, controller_receiver) = channel::<ControllerEvent>(32);
     let (render_sender, render_receiver) = channel::<RenderEvent>(32);
@@ -321,6 +323,47 @@ fn load() {
             }
         }))
         .revert_on_unload();
+
+    pub const EV_LANGUAGE_CHANGED: Event<()> = unsafe { Event::new("EV_LANGUAGE_CHANGED") };
+
+    // I don't want to store the localization data in either Nexus or communicate it with Nexus,
+    // because this would mean entirely being beholden to Nexus as the addon's loader for the
+    // rest of all time.
+    EV_LANGUAGE_CHANGED.subscribe(event_consume!(
+        <()> |_| {
+            reload_language();
+        }
+    )).revert_on_unload();
+}
+
+fn detect_language() -> String {
+    let index_to_check = "KB_CHANGELOG";
+    let mut language_map = HashMap::new();
+    language_map.insert("Registro de Alterações", "pt-br");
+    language_map.insert("更新日志", "cn");
+    language_map.insert("Seznam změn", "cz");
+    language_map.insert("Änderungsprotokoll", "de");
+    language_map.insert("Changelog", "en");
+    language_map.insert("Notas del parche", "es");
+    language_map.insert("Journal des modifications", "fr");
+    language_map.insert("Registro modifiche", "it");
+    language_map.insert("Lista zmian", "pl");
+    language_map.insert("Список изменений", "ru");
+    let translated_index = translate(index_to_check).expect("Couldn't translate string");
+    let language = language_map.get(&translated_index.as_str());
+    if let Some(language) = language {
+        return language.to_string()
+    } else {
+        return "en".to_string()
+    }
+}
+
+fn reload_language() {
+    let detected_language = detect_language();
+    log::info!("Detected language {detected_language} for internationalization");
+    let detected_language_identifier: LanguageIdentifier = detected_language.parse().expect("Cannot parse detected language");
+    let get_language = vec![detected_language_identifier];
+    i18n_embed::select(&*LANGUAGE_LOADER, &*LOCALIZATIONS, get_language.as_slice()).expect("Couldn't load language!");
 }
 
 fn unload() {
