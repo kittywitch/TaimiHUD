@@ -66,11 +66,10 @@ pub static LOCALIZATIONS: LazyLock<RustEmbedNotifyAssets<LocalizationsEmbed>> = 
 
 static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     let loader: FluentLanguageLoader = fluent_language_loader!();
-    // Load the fallback langauge by default so that users of the
-    // library don't need to if they don't care about localization.
     loader
         .load_available_languages(&*LOCALIZATIONS)
         .expect("Error while loading fallback language");
+    loader.set_use_isolating(false);
 
     loader
 });
@@ -364,6 +363,7 @@ fn reload_language() {
     let detected_language_identifier: LanguageIdentifier = detected_language.parse().expect("Cannot parse detected language");
     let get_language = vec![detected_language_identifier];
     i18n_embed::select(&*LANGUAGE_LOADER, &*LOCALIZATIONS, get_language.as_slice()).expect("Couldn't load language!");
+    (&*LANGUAGE_LOADER).set_use_isolating(false);
 }
 
 fn unload() {
