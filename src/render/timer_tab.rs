@@ -1,6 +1,7 @@
 use {
     super::Alignment,
     crate::{
+        fl,
         controller::ControllerEvent,
         render::{RenderState, TimerWindowState},
         settings::{RemoteSource, TimerSettings},
@@ -68,7 +69,7 @@ impl TimerTabState {
             timer_window_state.reset_phases();
         }*/
         if self.category_status.len() != self.categories.keys().len() {
-            if ui.button("Expand All") {
+            if ui.button(&fl!("expand-all")) {
                 self.category_status.extend(self.categories.keys().cloned());
             }
         }
@@ -76,7 +77,7 @@ impl TimerTabState {
             ui.same_line();
         }
         if !self.category_status.is_empty() {
-            if ui.button("Collapse All") {
+            if ui.button(&fl!("collapse-all")) {
                 self.category_status.clear();
             }
         }
@@ -152,10 +153,10 @@ impl TimerTabState {
             let settings_for_timer = settings.timers.get(&timer.id);
             ui.same_line();
             let (color, text) = match settings_for_timer {
-                Some(TimerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], "Disabled"),
-                _ => ([0.0, 1.0, 0.0, 1.0], "Enabled"),
+                Some(TimerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], &fl!("disabled")),
+                _ => ([0.0, 1.0, 0.0, 1.0], &fl!("enabled")),
             };
-            let text_size = Vec2::from(ui.calc_text_size(text));
+            let text_size = Vec2::from(ui.calc_text_size(&text));
             Alignment::set_cursor(
                 ui,
                 Alignment::RIGHT_MIDDLE,
@@ -197,30 +198,31 @@ impl TimerTabState {
                     RenderState::font_text(
                         "font",
                         ui,
-                        &format!("Author: {}", selected_timer.author()),
+                        &fl!("author-arg", author = selected_timer.author()),
                     );
                     if !selected_timer.source().is_empty() {
                         RenderState::font_text(
                             "font",
                             ui,
-                            &format!("Source: {}", selected_timer.source())
+                            &fl!("source-arg", source = selected_timer.source())
                         );
                     } else {
                         RenderState::font_text(
                             "font",
                             ui,
-                            &format!("Source: Ad-hoc")
+                            &fl!("source-adhoc")
                         );
                         if let Some(path) = &selected_timer.path {
+                            let path_display = format!("{:?}", path);
                             RenderState::font_text(
                                 "font",
                                 ui,
-                                &format!("Path: {:?}", path)
+                                &fl!("location", path = path_display)
                             );
                         }
                     }
-                    RenderState::font_text("font", ui, &format!("ID: {}", selected_timer.id));
-                    RenderState::font_text("font", ui, &format!("Map ID: {}", selected_timer.map_id));
+                    RenderState::font_text("font", ui, &fl!("id-arg", id = selected_timer.id.clone()));
+                    RenderState::font_text("font", ui, &fl!("map-id-arg", id = selected_timer.map_id.clone()));
                     ui.dummy([4.0; 2]);
                     ui.separator();
                     ui.dummy([4.0; 2]);
@@ -233,8 +235,8 @@ impl TimerTabState {
                     {
                         let settings_for_timer = settings.timers.get(&selected_timer.id);
                         let button_text = match settings_for_timer {
-                            Some(TimerSettings { disabled: true, .. }) => "Enable",
-                            _ => "Disable",
+                            Some(TimerSettings { disabled: true, .. }) => &fl!("enable"),
+                            _ => &fl!("disable"),
                         };
                         if ui.button(button_text) {
                             let sender = CONTROLLER_SENDER.get().unwrap();
@@ -244,7 +246,7 @@ impl TimerTabState {
                         }
                     }
                 } else {
-                    ui.text("Please select a timer to configure!");
+                    ui.text(&fl!("select-a-timer"));
                 }
             });
     }

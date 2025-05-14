@@ -1,5 +1,6 @@
 use {
     super::RenderState, crate::{
+        fl,
         marker::{atomic::MarkerInputData, format::MarkerType}, settings::RemoteState, timer::{PhaseState, TimerAlert, TimerFile}, ControllerEvent, ACCOUNT_NAME_CELL, CONTROLLER_SENDER, SETTINGS
     }, glam::{Vec2, Vec3}, nexus::{imgui::{Id, InputTextFlags, ProgressBar, StyleColor, TableColumnFlags, TableColumnSetup, TableFlags, Ui, Window}, paths::get_addon_dir, rtapi::{GroupType, RealTimeApi}}, relative_path::{RelativePath, RelativePathBuf}, std::{f32, path::Path, sync::Arc}
 };
@@ -78,22 +79,22 @@ impl EditMarkerWindowState {
     pub fn draw(&mut self, ui: &Ui) {
         let mut open = self.open;
         if open {
-            let closed = Window::new("Markers")
+            let closed = Window::new(&fl!("markers"))
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
                 .opened(&mut open).build(ui, || {
-                    let title_input = ui.input_text("Title", &mut self.title);
+                    let title_input = ui.input_text(&fl!("title"), &mut self.title);
                     title_input.build();
-                    let author_input = ui.input_text("Author", &mut self.author);
+                    let author_input = ui.input_text(&fl!("author"), &mut self.author);
                     author_input.build();
-                    let map_id_input = ui.input_int("Map ID", &mut self.map_id);
+                    let map_id_input = ui.input_int(&fl!("map-id"), &mut self.map_id);
                     map_id_input.build();
-                    if ui.button("Set Map ID to current map") {
+                    if ui.button(&fl!("set-map-id")) {
                         if let Some(mid) = MarkerInputData::read() {
                             self.map_id = mid.map_id as i32;
                         }
                     }
                     let description_input = ui.input_text_multiline(
-                        "Description",
+                        &fl!("description"),
                         &mut self.description,
                         [0.0, 0.0]);
                     description_input.build();
@@ -102,7 +103,7 @@ impl EditMarkerWindowState {
                             if let Some(group) = rtapi.read_group() {
                                 let is_squad = matches!(group.group_type, Ok(GroupType::Squad | GroupType::RaidSquad));
                                 if is_squad {
-                                if ui.button("Take from current squad markers") {
+                                if ui.button(&fl!("take-squad-markers")) {
                                     for (i, marker) in group.squad_markers.iter().enumerate() {
                                         if *marker != [f32::INFINITY; 3] {
                                             self.markers[i].set_position(Vec3::from_array(*marker));
@@ -110,37 +111,37 @@ impl EditMarkerWindowState {
                                     }
                                 }
                                 } else {
-                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], "Cannot take from current squad markers; not in a squad.");
+                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], &fl!("cannot-take-squad-markers"));
                                 }
                             } else {
-                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], "Cannot take from current squad markers; not in a squad.");
+                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], &fl!("cannot-take-squad-markers"));
                             }
                     } else {
-                        ui.text_colored([1.0, 1.0, 0.0, 1.0], "RTAPI is required for taking squad marker locations.");
+                        ui.text_colored([1.0, 1.0, 0.0, 1.0], &fl!("rt-api-required-squad-markers"));
                     }
                     ui.dummy([4.0; 2]);
                     let table_flags = TableFlags::RESIZABLE | TableFlags::ROW_BG | TableFlags::BORDERS;
                     let table = ui.begin_table_header_with_flags("edit_markers", [
                         TableColumnSetup {
-                            name: "Icon",
+                            name: &fl!("icon"),
                             flags: TableColumnFlags::WIDTH_FIXED,
                             init_width_or_weight: 0.0,
                             user_id: Id::Str("marker_icon"),
                         },
                         TableColumnSetup {
-                            name: "Description",
+                            name: &fl!("description"),
                             flags: TableColumnFlags::WIDTH_STRETCH,
                             init_width_or_weight: 0.0,
                             user_id: Id::Str("marker_desc"),
                         },
                         TableColumnSetup {
-                            name: "Position (XYZ)",
+                            name: &fl!("local-header"),
                             flags: TableColumnFlags::WIDTH_STRETCH,
                             init_width_or_weight: 0.0,
                             user_id: Id::Str("marker_pos"),
                         },
                         TableColumnSetup {
-                            name: "Controls",
+                            name: &fl!("controls"),
                             flags: TableColumnFlags::WIDTH_STRETCH,
                             init_width_or_weight: 0.0,
                             user_id: Id::Str("marker_pos"),
@@ -166,7 +167,7 @@ impl EditMarkerWindowState {
                             &label,
                             &mut self.markers[i].description);
                         description_input
-                            .hint("No description provided")
+                            .hint(&fl!("no-description"))
                             .build();
                         label_size.pop(ui);
                         meep.pop();
@@ -174,17 +175,17 @@ impl EditMarkerWindowState {
                         if let Some(position) = self.markers[i].position {
                             ui.text_wrapped(format!("({}, {}, {})", position.x, position.y, position.z));
                         } else {
-                            ui.text_wrapped("No position provided.");
+                            ui.text_wrapped(&fl!("no-position"));
                         }
                         ui.table_next_column();
-                            if ui.button("Get current position") {
+                            if ui.button(&fl!("position-get")) {
                                 if let Some(mid) = MarkerInputData::read() {
                                     log::info!("debug");
 
                                     self.markers[i].set_position(mid.local_player_pos);
                                 }
                             }
-                            if ui.button("Set manually") {
+                            if ui.button(&fl!("set-manually")) {
                             }
                         ui.table_next_column();
                         pushy.pop();
@@ -193,7 +194,7 @@ impl EditMarkerWindowState {
                         token.end();
                     }
                     ui.dummy([4.0; 2]);
-                    if ui.button("Save") {
+                    if ui.button(&fl!("save")) {
                         return true
                     }
                     false

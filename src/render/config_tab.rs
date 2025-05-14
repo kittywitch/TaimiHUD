@@ -1,5 +1,6 @@
 use {
     super::TimerWindowState, crate::{
+        fl,
         controller::ProgressBarStyleChange, render::TextFont, ControllerEvent, CONTROLLER_SENDER,
         SETTINGS,
     }, nexus::imgui::{ComboBox, Condition, Selectable, Slider, TreeNode, TreeNodeFlags, Ui}, strum::IntoEnumIterator
@@ -34,7 +35,7 @@ impl ConfigTabState {
                 timer_window_state.progress_bar.stock = settings.progress_bar.stock;
             };
             if ui.checkbox(
-                "Stock Imgui Progress Bar",
+                &fl!("stock-imgui-progress-bar"),
                 &mut timer_window_state.progress_bar.stock,
             ) {
                 let sender = CONTROLLER_SENDER.get().unwrap();
@@ -43,7 +44,7 @@ impl ConfigTabState {
                 ));
                 drop(event_send);
             };
-            if ui.checkbox("Shadow", &mut timer_window_state.progress_bar.shadow) {
+            if ui.checkbox(&fl!("shadow"), &mut timer_window_state.progress_bar.shadow) {
                 let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::ProgressBarStyle(
                     ProgressBarStyleChange::Shadow(timer_window_state.progress_bar.shadow),
@@ -51,7 +52,7 @@ impl ConfigTabState {
                 drop(event_send);
             }
             if ui.checkbox(
-                "Centre text after icon",
+                &fl!("centre-text-after-icon"),
                 &mut timer_window_state.progress_bar.centre_after,
             ) {
                 let sender = CONTROLLER_SENDER.get().unwrap();
@@ -60,7 +61,7 @@ impl ConfigTabState {
                 ));
                 drop(event_send);
             }
-            if Slider::new("Height", 8.0, 256.0)
+            if Slider::new(&fl!("height"), 8.0, 256.0)
                 .display_format("%.0f")
                 .build(ui, &mut timer_window_state.progress_bar.height)
             {
@@ -87,12 +88,12 @@ impl ConfigTabState {
                 }
                 selected
             };
-            if let Some(selection) = ComboBox::new("Font")
+            if let Some(selection) = ComboBox::new(&fl!("font"))
                 .preview_value(&timer_window_state.progress_bar.font.to_string())
                 .build(ui, font_closure)
             {}
         };
-        let timers_window = TreeNode::new("Timers Window")
+        let timers_window = TreeNode::new(&fl!("timer-window"))
             .flags(TreeNodeFlags::FRAMED)
             .opened(true, Condition::Once)
             .tree_push_on_open(true)

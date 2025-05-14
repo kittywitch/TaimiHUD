@@ -1,6 +1,6 @@
 use {
     super::TimerWindowState,
-    crate::{built_info, render::RenderState, SETTINGS},
+    crate::{fl, built_info, render::RenderState, SETTINGS},
     nexus::imgui::{TableColumnSetup, Ui},
 };
 
@@ -44,14 +44,14 @@ impl InfoTabState {
         let description = env!("CARGO_PKG_DESCRIPTION");
         ui.text_wrapped(description);
         ui.dummy([4.0, 4.0]);
-        ui.text_wrapped("If you need keybind-based timer triggers, please bind the appropriate keys in the Nexus settings.");
+        ui.text_wrapped(&fl!("keybind-triggers"));
         ui.separator();
-        RenderState::font_text("ui", ui, "Active Phase States");
+        RenderState::font_text("ui", ui, &fl!("active-timer-phases"));
         let table_token = ui.begin_table_header(
             "phase_states",
             [
-                TableColumnSetup::new("Timer"),
-                TableColumnSetup::new("Phase"),
+                TableColumnSetup::new(&fl!("timer")),
+                TableColumnSetup::new(&fl!("phase")),
             ],
         );
         ui.table_next_column();
@@ -69,21 +69,21 @@ impl InfoTabState {
 
     #[cfg(feature = "space")]
     pub fn space_info(&self, ui: &Ui) {
-        RenderState::font_text("big", ui, "Engine");
+        RenderState::font_text("big", ui, &fl!("engine"));
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if settings.enable_katrender && ENGINE_INITIALIZED.get() {
                 ENGINE.with_borrow(|e| {
                     if let Some(engine) = e {
-                        RenderState::font_text("ui", ui, "ECS Data");
+                        RenderState::font_text("ui", ui, &fl!("ecs-data"));
                         let entities = engine.world.entities();
                         let used_entities = entities.used_count();
                         let total_entities = entities.total_count();
                         ui.text(format!("Used: {}", used_entities));
                         ui.text(format!("Total: {}", total_entities));
-                        RenderState::font_text("ui", ui, "Object Data");
+                        RenderState::font_text("ui", ui, &fl!("object-data"));
                         let table_token = ui.begin_table_header(
                             "object_types",
-                            [TableColumnSetup::new("Object Kind")],
+                            [TableColumnSetup::new(&fl!("object-kind"))],
                         );
                         ui.table_next_column();
                         for object in engine.object_kinds.keys() {
@@ -91,13 +91,13 @@ impl InfoTabState {
                             ui.table_next_column();
                         }
                         drop(table_token);
-                        RenderState::font_text("ui", ui, "Model Files");
+                        RenderState::font_text("ui", ui, &fl!("model-files"));
                         let table_token = ui.begin_table_header(
                             "model_files",
                             [
-                                TableColumnSetup::new("Name"),
-                                TableColumnSetup::new("Path"),
-                                TableColumnSetup::new("Vertices"),
+                                TableColumnSetup::new(&fl!("name")),
+                                TableColumnSetup::new(&fl!("path")),
+                                TableColumnSetup::new(&fl!("vertices")),
                             ],
                         );
                         ui.table_next_column();
@@ -116,9 +116,7 @@ impl InfoTabState {
                 });
                 let tex_store = TEXTURES.get().unwrap();
                 let tex_lock = tex_store.read().unwrap();
-                ui.text(format!("Textures: {}", tex_lock.keys().len()));
-                ui.text(format!("Mouse Location: {:?}", ui.io().mouse_pos));
-                ui.text(format!("Window Size: {:?}", ui.io().display_size));
+                ui.text(&fl!("textures", count = tex_lock.keys().len()));
             }
         }
     }

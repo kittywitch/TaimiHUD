@@ -2,6 +2,7 @@ use {
     crate::{controller::ControllerEvent, render::RenderState, settings::{NeedsUpdate, RemoteState}, CONTROLLER_SENDER, SETTINGS},
     nexus::imgui::{im_str, PopupModal, StyleColor, TableColumnSetup, TableFlags, Ui}, std::{collections::HashMap, ffi::OsStr},
     crate::settings::Source,
+    crate::fl,
 };
 
 pub struct DataSourceTabState {
@@ -19,38 +20,39 @@ impl DataSourceTabState {
 
     pub fn draw_uninstall(&self, ui: &Ui, rs: &RemoteState) {
         let source_text = &rs.source.source().repo_string();
-        let modal_name = format!("{}: Uninstall?", source_text);
-        if ui.button("Uninstall") {
+        let modal_name = fl!("addon-uninstall-modal-title", source = source_text);
+        if ui.button(&fl!("addon-uninstall-modal-button")) {
             ui.open_popup(&modal_name);
         }
         if ui.is_item_hovered() {
             if let Some(path) = &rs.installed_path {
-                ui.tooltip_text(format!("Location: {:?}", &path));
+                let path_string = format!("{:?}", &path);
+                ui.tooltip_text(fl!("location", path = path_string));
             }
         }
         if let Some(_token) = PopupModal::new(&modal_name)
             .always_auto_resize(true)
             .begin_popup(ui) {
-            ui.text_wrapped(format!("Uninstall {source_text}?"));
+            ui.text_wrapped(fl!("addon-uninstall-modal-title"));
             ui.dummy([4.0, 4.0]);
             if let Some(path) = &rs.installed_path {
-                ui.text(format!("Installed folder: {path:?}."));
+                let path_string = format!("{:?}", &path);
+                ui.text(&fl!("location", path = path_string));
             }
             ui.dummy([4.0, 4.0]);
             let token = ui.push_style_color(StyleColor::Text, [1.0, 0.0, 0.0, 1.0]);
-            ui.text("Please be careful! This will delete the folder and anything it contains.");
+            ui.text(fl!("addon-uninstall-modal-description"));
             token.pop();
             ui.dummy([4.0, 4.0]);
-            if ui.button("Uninstall") {
+            if ui.button(fl!("addon-uninstall-modal-button")) {
                 let sender = CONTROLLER_SENDER.get().unwrap();
                 let event_send = sender.try_send(ControllerEvent::UninstallAddon(rs.source.clone()
                 ));
                 drop(event_send);
-                
                 ui.close_current_popup();
             }
             ui.same_line();
-            if ui.button("Close") {
+            if ui.button(fl!("close")) {
                 ui.close_current_popup();
             }
         }
@@ -59,8 +61,9 @@ impl DataSourceTabState {
     pub fn draw_open_button<
             S: AsRef<str> + std::fmt::Display,
         >(&mut self, ui: &Ui, text: S, openable: String) {
-        let entry_name = format!("{text}: {openable:?}");
-        let modal_name = format!("{entry_name} Error");
+        let openable_display = format!("{:?}", openable);
+        let text_display = text.to_string();
+        let entry_name = fl!("open-error", kind = text_display.clone(), path = openable_display.clone());
         if ui.button(&text) {
             log::info!("Triggered open {openable:?} for {text}");
             let sender = CONTROLLER_SENDER.get().unwrap();
@@ -76,18 +79,18 @@ impl DataSourceTabState {
             }
         }
         if ui.is_item_hovered() {
-            ui.tooltip_text(format!("Location: {:?}", openable));
+            ui.tooltip_text(fl!("location", path = openable_display));
         }
         if let Some(errory) = &self.state_errors.get(&entry_name) {
-            ui.open_popup(&modal_name);
-            if let Some(_token) = PopupModal::new(&modal_name)
+            ui.open_popup(&entry_name);
+            if let Some(_token) = PopupModal::new(&entry_name)
             .always_auto_resize(true)
             .begin_popup(ui) {
-                ui.text_wrapped(format!("Open error for {text}, {openable:?}!"));
+                ui.text_wrapped(&entry_name);
                 ui.dummy([4.0, 4.0]);
                 ui.text_wrapped(format!("{:?}", errory));
                 ui.dummy([4.0, 4.0]);
-                if ui.button("OK") {
+                if ui.button(fl!("okay")) {
                     self.state_errors.remove(&entry_name);
                     ui.close_current_popup();
                 }
@@ -100,70 +103,47 @@ impl DataSourceTabState {
     pub fn draw(&mut self, ui: &Ui) {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             if self.checking_for_updates {
-                ui.text("Checking for updates! Please hold.")
+                ui.text(fl!("checking-for-updates"))
             } else {
-                if ui.button("Check for updates") {
+                if ui.button(fl!("check-for-updates")) {
                     let sender = CONTROLLER_SENDER.get().unwrap();
                     let event_send = sender.try_send(ControllerEvent::CheckDataSourceUpdates);
                     drop(event_send);
                 }
                 if ui.is_item_hovered() {
-                    ui.tooltip_text("Check for updates to any data sources. We don't do this automatically to respect your choice on whether or not to make network requests.");
+                    ui.tooltip_text(fl!("check-for-updates-tooltip"));
                 }
                 ui.same_line();
-                if ui.button("Reload data sources") {
+                if ui.button(fl!("reload-data-sources")) {
                     let sender = CONTROLLER_SENDER.get().unwrap();
                     let event_send = sender.try_send(ControllerEvent::ReloadTimers);
                     drop(event_send);
                 }
                 if ui.is_item_hovered() {
-                    ui.tooltip_text("Reload timers from currently installed data sources. Useful if you have changed the files within them!");
+                    ui.tooltip_text(fl!("reload-data-sources-tooltip"));
                 }
                 ui.same_line();
                 if let Some(last_checked) = &settings.last_checked {
-                    ui.text(format!(
-                        "Last checked for updates: {}",
-                        last_checked.format("%F %T %Z")
+                    let time_display = last_checked.format("%F %T %Z").to_string();
+                    ui.text(fl!(
+                        "checked-for-updates-last",
+                        time=time_display
                     ));
                 } else {
-                    ui.text("Last checked for updates: Never");
+                    ui.text(fl!(
+                        "checked-for-updates-last",
+                        time="Never"
+                    ));
                 }
                 ui.dummy([8.0, 8.0]);
-                ui.text_wrapped("I suggest only installing one of the two options for Hero-Timers. Please do your research to determine which you would prefer.");
-                ui.dummy([8.0, 8.0]);
-                /*for download_data in &settings.remotes {
-                    let source = download_data.source.clone();
-                    let source_text = source.to_string();
-                    RenderState::font_text("big", ui, &source_text);
-                    ui.text(format!("Status: {}", download_data.needs_update));
-                    ui.dummy([4.0, 4.0]);
-                    ui.text_wrapped(format!("Description: {}", download_data.source.description));
-                    ui.dummy([4.0, 4.0]);
-                    use NeedsUpdate::*;
-                    let button_text = match &download_data.needs_update {
-                        Unknown => Some("Attempt to update anyway?"),
-                        Known(true, _id) => Some("Update"),
-                        Known(false, _id) => None,
-                        Error(err) => None,
-                    };
-                    if let Some(button_text) = button_text {
-                        if ui.button(button_text) {
-                            let sender = CONTROLLER_SENDER.get().unwrap();
-                            let source = source.clone();
-                            let event_send =
-                                sender.try_send(ControllerEvent::DoDataSourceUpdate { source });
-                            drop(event_send);
-                        }
-                    }
-                }*/
                 let table_flags = TableFlags::RESIZABLE | TableFlags::ROW_BG | TableFlags::BORDERS;
                 let table_token = ui.begin_table_header_with_flags(
                     "remotes",
                     [
-                        TableColumnSetup::new("Remote"),
-                        TableColumnSetup::new("Description"),
-                        TableColumnSetup::new("Update Status"),
-                        TableColumnSetup::new("Actions"),
+                        TableColumnSetup::new(fl!("remote")),
+                        TableColumnSetup::new(fl!("description")),
+                        TableColumnSetup::new(fl!("update-status")),
+                        TableColumnSetup::new(fl!("actions")),
                     ],
                     table_flags,
                 );
@@ -178,22 +158,20 @@ impl DataSourceTabState {
                     if let Some(description) = &source.description {
                         ui.text_wrapped(description);
                     } else {
-                        ui.text_wrapped("No description provided.");
+                        ui.text_wrapped(fl!("no-description"));
                     }
                     ui.table_next_column();
                     if let Some(installed) = &download_data.installed_tag {
-                        ui.text_wrapped(format!("Installed version: {}", installed));
+                        ui.text_wrapped(fl!("version-installed", version = installed));
                     } else {
-                        ui.text_wrapped("Not installed");
+                        ui.text_wrapped(fl!("version-not-installed"));
                     }
-                    ui.text_wrapped("Update required?:");
-                    ui.same_line();
                     download_data.needs_update.draw(ui);
                     ui.table_next_column();
                     use NeedsUpdate::*;
                     let button_text = match &download_data.needs_update {
-                        Unknown => Some("Attempt to update anyway?"),
-                        Known(true, _id) => Some("Update"),
+                        Unknown => Some(fl!("attempt-update")),
+                        Known(true, _id) => Some(fl!("update")),
                         Known(false, _id) => None,
                         Error(_err) => None,
                     };
@@ -205,10 +183,10 @@ impl DataSourceTabState {
                             drop(event_send);
                         }
                     }
-                    self.draw_open_button(ui, "Open Repository", source.view_url());
+                    self.draw_open_button(ui, fl!("open-button", kind = "repository"), source.view_url());
                     if let Some(path) = &download_data.installed_path {
                         if let Some (path) = path.to_str() {
-                            self.draw_open_button(ui, "Open Folder", path.to_string());
+                            self.draw_open_button(ui, fl!("open-button", kind = "folder"), path.to_string());
                         }
                         self.draw_uninstall(ui, download_data);
                     }
@@ -219,7 +197,7 @@ impl DataSourceTabState {
                 drop(table_token);
             }
         } else {
-            ui.text("SettingsLock have not yet loaded!");
+            ui.text(fl!("settings-unloaded"));
         }
     }
 }

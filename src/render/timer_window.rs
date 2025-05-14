@@ -1,6 +1,7 @@
 use {
     super::RenderState,
     crate::{
+        fl,
         settings::ProgressBarSettings,
         timer::{PhaseState, TimerAlert, TimerFile},
         ControllerEvent, CONTROLLER_SENDER, SETTINGS,
@@ -47,7 +48,7 @@ impl TimerWindowState {
                     ui.dummy([4.0; 2]);
                 }
                 else {
-                    ui.text_wrapped("No phases currently active, no timers running.");
+                    ui.text_wrapped(&fl!("no-phases-active"));
                 }
                 for ps in &self.phase_states {
                     for alert in ps.alerts.iter() {
