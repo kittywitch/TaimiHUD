@@ -15,8 +15,11 @@ use {
 #[cfg(feature = "markers")]
 use {
     crate::marker::{atomic::MarkerInputData, format::{MarkerFile, RuntimeMarkers}}, 
-super::marker_window::EditMarkerWindowState,
     crate::marker::format::MarkerSet,
+};
+#[cfg(feature = "markers-edit")]
+use {
+super::marker_window::EditMarkerWindowState,
 };
 
 pub enum RenderEvent {
@@ -30,7 +33,7 @@ pub enum RenderEvent {
     AlertEnd(Arc<TimerFile>),
     CheckingForUpdates(bool),
     RenderKeybindUpdate,
-    #[cfg(feature = "markers")]
+    #[cfg(feature = "markers-edit")]
     OpenEditMarkers,
     ProgressBarUpdate(ProgressBarSettings),
 }
@@ -48,7 +51,7 @@ pub enum TextFont {
 
 pub struct RenderState {
     pub primary_window: PrimaryWindowState,
-    #[cfg(feature = "markers")]
+    #[cfg(feature = "markers-edit")]
     pub edit_marker_window: EditMarkerWindowState,
     timer_window: TimerWindowState,
     receiver: Receiver<RenderEvent>,
@@ -63,7 +66,7 @@ impl RenderState {
             alert: Default::default(),
             primary_window: PrimaryWindowState::new(),
             timer_window: TimerWindowState::new(),
-    #[cfg(feature = "markers")]
+            #[cfg(feature = "markers-edit")]
             edit_marker_window: EditMarkerWindowState::new(),
             last_display_size: Default::default(),
         }
@@ -86,7 +89,7 @@ impl RenderState {
             Ok(event) => {
                 use RenderEvent::*;
                 match event {
-                    #[cfg(feature = "markers")]
+                    #[cfg(feature = "markers-edit")]
                     OpenEditMarkers => {
                         self.edit_marker_window.open(ui);
                     },
@@ -133,7 +136,7 @@ impl RenderState {
         self.handle_alert(ui, io);
         self.timer_window.draw(ui);
         self.primary_window.draw(ui, &mut self.timer_window);
-        #[cfg(feature = "markers")]
+        #[cfg(feature = "markers-edit")]
         self.edit_marker_window.draw(ui);
     }
     pub fn icon(

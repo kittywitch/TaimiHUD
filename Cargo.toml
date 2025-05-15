@@ -37,6 +37,9 @@ markers = [
   "windows/Win32_UI_Input_KeyboardAndMouse",
   "windows/Win32_Graphics_Gdi",
 ]
+markers-edit = [
+  "markers"
+]
 
 [lib]
 crate-type = ["cdylib"] # nexus addons are dynamic system libraries (dll)

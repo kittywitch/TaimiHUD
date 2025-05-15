@@ -7,6 +7,7 @@ pub mod marker;
 pub mod phase;
 pub mod state_machine;
 pub mod trigger;
+pub mod direction;
 
 #[allow(unused_imports)]
 pub use {

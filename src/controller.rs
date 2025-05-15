@@ -146,7 +146,11 @@ impl Controller {
     #[cfg(feature = "markers")]
     async fn load_markers_files(&mut self) -> anyhow::Result<()> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
-        let markers = RuntimeMarkers::load_many(&addon_dir.join("markers"), 100).await?;
+        let markers_dir = addon_dir.join("markers");
+        if !exists(&markers_dir).expect("Can't check if directory exists") {
+            create_dir_all(&markers_dir);
+        }
+        let markers = RuntimeMarkers::load_many(&markers_dir, 100).await?;
         let markers = RuntimeMarkers::markers(markers).await;
         let _ = self
             .rt_sender

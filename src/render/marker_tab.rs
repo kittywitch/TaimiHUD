@@ -34,8 +34,8 @@ impl MarkerTabState {
         self.draw_sidebar_child(ui);
     }
     fn draw_sidebar_header(&mut self, ui: &Ui) {
+        #[cfg(feature = "markers-edit")]
         if ui.button("Create Marker Set") {
-            
             let _ = RENDER_SENDER.get()
                 .unwrap()
                 .try_send(RenderEvent::OpenEditMarkers);

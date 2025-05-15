@@ -7,7 +7,7 @@ pub mod timer_tab;
 pub mod timer_window;
 #[cfg(feature = "markers")]
 pub mod marker_tab;
-#[cfg(feature = "markers")]
+#[cfg(feature = "markers-edit")]
 pub mod marker_window;
 
 #[allow(unused_imports)]
