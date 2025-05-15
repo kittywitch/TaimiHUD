@@ -1,5 +1,5 @@
 use {
-    super::{Alignment, RenderEvent}, crate::{
+    super::{Alignment, RenderEvent}, crate::{fl,
         controller::ControllerEvent, marker::{atomic::{LocalPoint, MapPoint, MarkerInputData, ScreenPoint, SignObtainer}, format::{MarkerFile, MarkerFormats, MarkerSet, RuntimeMarkers}}, render::{RenderState, TimerWindowState}, settings::{RemoteSource, TimerSettings}, timer::TimerFile, CONTROLLER_SENDER, RENDER_SENDER, SETTINGS
     }, glam::{Vec2, Vec3}, glamour::TransformMap, indexmap::IndexMap, nexus::{gamebind::invoke_gamebind_async, imgui::{ChildWindow, Condition, ConfigFlags, Context, Selectable, TableColumnSetup, TableFlags, TreeNode, TreeNodeFlags, Ui, WindowFlags}, wnd_proc::send_wnd_proc_to_game}, std::{collections::{HashMap, HashSet}, sync::Arc}, windows::Win32::{Foundation::WPARAM, UI::WindowsAndMessaging::WM_MOUSEMOVE}
 };
@@ -172,11 +172,11 @@ impl MarkerTabState {
                         }
                         if let Some(path) = &selected_marker_set.path {
                             let path_display = format!("{:?}", path);
-                            ui.text_wrapped(fl("location", path = path_display));
+                            ui.text_wrapped(&fl!("location", path = path_display));
                         }
                         RenderState::font_text("ui", ui, &format!("{}", &selected_marker_set.description));
-                        ui.text(&fl!("map-id-arg", id = &selected_marker_set.map_id));
-                        ui.text(&fl!("markers-arg", count = &selected_marker_set.markers.len()));
+                        ui.text(&fl!("map-id-arg", id = selected_marker_set.map_id.clone()));
+                        ui.text(&fl!("markers-arg", count = selected_marker_set.markers.len()));
                         let screen_positions: Vec<ScreenPoint> = selected_marker_set.markers.iter().flat_map(|x| {
                             if let Some(mid) = &mid {
                                 let position: LocalPoint = Vec3::from(x.position.clone()).into();

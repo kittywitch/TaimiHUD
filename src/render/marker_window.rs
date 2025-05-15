@@ -82,19 +82,23 @@ impl EditMarkerWindowState {
             let closed = Window::new(&fl!("markers"))
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
                 .opened(&mut open).build(ui, || {
-                    let title_input = ui.input_text(&fl!("title"), &mut self.title);
+                    let title_title = fl!("title");
+                    let title_input = ui.input_text(&title_title, &mut self.title);
                     title_input.build();
-                    let author_input = ui.input_text(&fl!("author"), &mut self.author);
+                    let author_title = fl!("author");
+                    let author_input = ui.input_text(&author_title, &mut self.author);
                     author_input.build();
-                    let map_id_input = ui.input_int(&fl!("map-id"), &mut self.map_id);
+                    let map_id_title = fl!("map-id");
+                    let map_id_input = ui.input_int(&map_id_title, &mut self.map_id);
                     map_id_input.build();
                     if ui.button(&fl!("set-map-id")) {
                         if let Some(mid) = MarkerInputData::read() {
                             self.map_id = mid.map_id as i32;
                         }
                     }
+                    let description_title = fl!("description");
                     let description_input = ui.input_text_multiline(
-                        &fl!("description"),
+                        &description_title,
                         &mut self.description,
                         [0.0, 0.0]);
                     description_input.build();
