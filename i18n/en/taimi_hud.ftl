@@ -43,6 +43,7 @@ reset = Reset
 timer = Timer
 timers = { timer }s
 experimental-notice = Hi! This feature is (mostly) experimental. Some things may be confusing and it might require more thought and effort to use than the less experimental features. My apologies to any problems you have; feel free to reach out on Discord. - Kat
+
 ## Addon
 
 primary-window-toggle = Taimi Window Toggle

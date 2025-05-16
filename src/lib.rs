@@ -337,24 +337,20 @@ fn load() {
 
 fn detect_language() -> String {
     let index_to_check = "KB_CHANGELOG";
-    let mut language_map = HashMap::new();
-    language_map.insert("Registro de Alterações", "pt-br");
-    language_map.insert("更新日志", "cn");
-    language_map.insert("Seznam změn", "cz");
-    language_map.insert("Änderungsprotokoll", "de");
-    language_map.insert("Changelog", "en");
-    language_map.insert("Notas del parche", "es");
-    language_map.insert("Journal des modifications", "fr");
-    language_map.insert("Registro modifiche", "it");
-    language_map.insert("Lista zmian", "pl");
-    language_map.insert("Список изменений", "ru");
-    let translated_index = translate(index_to_check).expect("Couldn't translate string");
-    let language = language_map.get(&translated_index.as_str());
-    if let Some(language) = language {
-        return language.to_string()
-    } else {
-        return "en".to_string()
-    }
+    let language = match &translate(index_to_check).expect("Couldn't translate string")[..] {
+        "Registro de Alterações" => "pt-br",
+        "更新日志" => "cn",
+        "Seznam změn" => "cz",
+        "Änderungsprotokoll" => "de",
+        "Changelog" => "en",
+        "Notas del parche" => "es",
+        "Journal des modifications" => "fr",
+        "Registro modifiche" => "it",
+        "Lista zmian" => "pl",
+        "Список изменений" => "ru",
+        _ => "en",
+    };
+    language.to_string()
 }
 
 fn reload_language() {

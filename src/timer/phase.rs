@@ -1,5 +1,5 @@
 use {
-    super::{BlishMarker, TimerMarker},
+    super::{direction::BlishDirection, BlishMarker, TimerMarker},
     crate::timer::{BlishAlert, TimerAction, TimerAlert, TimerTrigger},
     serde::{
         de::{self, Deserializer, Error as _, MapAccess, SeqAccess, Visitor},
@@ -28,7 +28,7 @@ pub struct TimerPhase {
      */
     #[serde(skip, default)]
     #[allow(dead_code)]
-    directions: Value,
+    directions: Vec<BlishDirection>,
     #[serde(flatten, default)]
     pub markers: BlishMarkers,
     #[serde(skip, default)]
