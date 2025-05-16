@@ -114,8 +114,8 @@ impl SignObtainer {
         // without web requests (to v2 maps api) by taking two points
         // the one thing we don't need to check is the height, and we shouldn't let that
         // skew our distance, either.
-        let local = local.xz();
         if self.point2.is_none() {
+            let local = local.xz();
             if let Some(point1) = self.point1 {
                 // take point from 0.5m away in each direction, for accuracy
                 if (local.x - point1.local.x).abs() > 5.0 && (local.y - point1.local.y).abs() > 5.0 {
@@ -123,6 +123,12 @@ impl SignObtainer {
                         local,
                         global
                     });
+                    // though, if it's less than a minimum, wipe it and try again
+                    let test_sign = self.sign();
+                    if test_sign.cmple(Vec2::new(Self::meters_per_feet(), Self::meters_per_feet())).all() {
+                        self.point1 = None;
+                        self.point2 = None;
+                    }
                 }
             } else {
                 self.point1 = Some(LocalGlobalHolder {
@@ -132,12 +138,6 @@ impl SignObtainer {
             }
         }
         // once we have two points, this becomes a no-op other than the comparison
-        // though, if it's less than a minimum, wipe it and try again
-        let test_sign = self.sign();
-        if test_sign.cmple(Vec2::new(Self::meters_per_feet(), Self::meters_per_feet())).all() {
-            self.point1 = None;
-            self.point2 = None;
-        }
     }
 
     pub fn meters_per_feet() -> f32 {
