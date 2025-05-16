@@ -1,8 +1,8 @@
 [package]
 name = "taimi_hud"
 authors = [ "kittywitch" ]
-description = "Timers and eventually much more for RaidcoreGG Nexus"
-version = "0.2.18"
+description = "Timers, commander's markers and eventually much more for RaidcoreGG Nexus"
+version = "0.2.19"
 edition = "2021"
 build = "build.rs"
 
