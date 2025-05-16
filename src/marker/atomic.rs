@@ -132,6 +132,12 @@ impl SignObtainer {
             }
         }
         // once we have two points, this becomes a no-op other than the comparison
+        // though, if it's less than a minimum, wipe it and try again
+        let test_sign = self.sign();
+        if test_sign.cmple(Vec2::new(Self::meters_per_feet(), Self::meters_per_feet())).all() {
+            self.point1 = None;
+            self.point2 = None;
+        }
     }
 
     pub fn meters_per_feet() -> f32 {

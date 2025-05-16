@@ -19,9 +19,9 @@ impl ConfigTabState {
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             self.katrender = settings.enable_katrender;
         };
-        ui.text_wrapped("You can control-click on a slider element, or such, to be able to directly input data to it. Remember to press enter after inputting the value.");
+        ui.text_wrapped(&fl!("imgui-notice"));
         ui.dummy([4.0, 4.0]);
-        ui.text_wrapped("If you need keybind-based timer triggers, please bind the appropriate keys in the Nexus settings.");
+        ui.text_wrapped(&fl!("keybind-triggers"));
         ui.dummy([4.0, 4.0]);
         #[cfg(feature = "space")]
         if ui.checkbox("Experimental KatRender", &mut self.katrender) {

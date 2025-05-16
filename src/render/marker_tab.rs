@@ -151,6 +151,9 @@ impl MarkerTabState {
             .size([0.0, 0.0])
             .build(ui, || {
                 ui.text_wrapped(&fl!("experimental-notice"));
+                ui.dummy([4.0; 2]);
+                ui.separator();
+                ui.dummy([4.0; 2]);
                 let mid = MarkerInputData::read();
                 if let Some(mid) = &mid {
                     let sign =  mid.sign_obtainer.sign();
