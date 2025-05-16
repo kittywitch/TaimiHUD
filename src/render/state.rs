@@ -1,10 +1,11 @@
 use {
     crate::{
+        fl,
         controller::ControllerEvent,render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
     }, glam::Vec2, nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, ConfigFlags, Context, Font, FontId, Image, Io, StyleColor, Ui, Window, WindowFlags
+            internal::RawCast, Condition, ConfigFlags, Context, Font, FontId, Image, Io, StyleColor, Ui, Window, WindowFlags, PopupModal
         },
         texture::get_texture,
     }, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, std::{
@@ -57,6 +58,7 @@ pub struct RenderState {
     receiver: Receiver<RenderEvent>,
     alert: Option<TextAlert>,
     last_display_size: Option<[f32; 2]>,
+    pub state_errors: HashMap<String, anyhow::Error>,
 }
 
 impl RenderState {
@@ -69,6 +71,7 @@ impl RenderState {
             #[cfg(feature = "markers-edit")]
             edit_marker_window: EditMarkerWindowState::new(),
             last_display_size: Default::default(),
+            state_errors: Default::default(),
         }
     }
 
@@ -94,7 +97,7 @@ impl RenderState {
                         self.edit_marker_window.open(ui);
                     },
                     OpenableError(key, err) => {
-                        self.primary_window.data_sources_tab.state_errors.insert(key, err);
+                        self.state_errors.insert(key, err);
                     }
                     RenderKeybindUpdate => {
                         self.primary_window.keybind_handler();
@@ -135,7 +138,7 @@ impl RenderState {
         }
         self.handle_alert(ui, io);
         self.timer_window.draw(ui);
-        self.primary_window.draw(ui, &mut self.timer_window);
+        self.primary_window.draw(ui, &mut self.timer_window, &mut self.state_errors);
         #[cfg(feature = "markers-edit")]
         self.edit_marker_window.draw(ui);
     }
@@ -169,6 +172,48 @@ impl RenderState {
             }
         };
     }
+    pub fn draw_open_button<
+            S: AsRef<str> + std::fmt::Display,
+        >(state_errors: &mut HashMap<String, anyhow::Error>, ui: &Ui, text: S, openable: String) {
+        let openable_display = format!("{:?}", openable);
+        let text_display = text.to_string();
+        let entry_name = fl!("open-error", kind = text_display.clone(), path = openable_display.clone());
+        if ui.button(&text) {
+            log::info!("Triggered open {openable:?} for {text}");
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(
+                ControllerEvent::OpenOpenable(entry_name.clone(), openable.clone()));
+            drop(event_send);
+            match open::that(&openable) {
+                Ok(_) => {
+                },
+                Err(err) => {
+                    state_errors.insert(entry_name.clone(), err.into());
+                }
+            }
+        }
+        if ui.is_item_hovered() {
+            ui.tooltip_text(fl!("location", path = openable_display));
+        }
+        if let Some(errory) = state_errors.get(&entry_name) {
+            ui.open_popup(&entry_name);
+            if let Some(_token) = PopupModal::new(&entry_name)
+            .always_auto_resize(true)
+            .begin_popup(ui) {
+                ui.text_wrapped(&entry_name);
+                ui.dummy([4.0, 4.0]);
+                ui.text_wrapped(format!("{:?}", errory));
+                ui.dummy([4.0, 4.0]);
+                if ui.button(fl!("okay")) {
+                    state_errors.remove(&entry_name);
+                    ui.close_current_popup();
+                }
+            } else {
+                ui.close_current_popup();
+            }
+        }
+    }
+
     pub fn font_text(font: &str, ui: &Ui, text: &str) {
         let mut font_handles = Vec::new();
         let nexus_link = read_nexus_link().unwrap();

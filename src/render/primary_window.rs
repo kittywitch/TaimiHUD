@@ -5,7 +5,8 @@ use {
             ConfigTabState, DataSourceTabState, InfoTabState, TimerTabState, TimerWindowState,
         },
         ControllerEvent, CONTROLLER_SENDER, SETTINGS,
-    }, nexus::imgui::{Ui, Window}
+    }, nexus::imgui::{Ui, Window},
+    std::collections::HashMap,
 };
 
 #[cfg(feature = "markers")]
@@ -36,7 +37,7 @@ impl PrimaryWindowState {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
+    pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
         let mut open = self.open;
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             open = settings.primary_window_open;
@@ -48,16 +49,16 @@ impl PrimaryWindowState {
                 .build(ui, || {
                     if let Some(_token) = ui.tab_bar("modules") {
                         if let Some(_token) = ui.tab_item(&fl!("timer-tab")) {
-                            self.timer_tab.draw(ui, timer_window_state);
+                            self.timer_tab.draw(ui, timer_window_state, state_errors);
                         };
                         #[cfg(feature = "markers")]
                         {
                         if let Some(_token) = ui.tab_item(&fl!("marker-tab")) {
-                            self.marker_tab.draw(ui);
+                            self.marker_tab.draw(ui, state_errors);
                         }
                         }
                         if let Some(_token) = ui.tab_item(&fl!("data-sources-tab")) {
-                            self.data_sources_tab.draw(ui);
+                            self.data_sources_tab.draw(ui, state_errors);
                         }
                         if let Some(_token) = ui.tab_item(&fl!("config-tab")) {
                             self.config_tab.draw(ui, timer_window_state);

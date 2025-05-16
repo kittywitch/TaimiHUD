@@ -1,7 +1,6 @@
 use {
-    super::{Alignment, RenderEvent}, crate::{fl,
-        controller::ControllerEvent, marker::{atomic::{LocalPoint, MapPoint, MarkerInputData, ScreenPoint, SignObtainer}, format::{MarkerFile, MarkerFormats, MarkerSet, RuntimeMarkers}}, render::{RenderState, TimerWindowState}, settings::{RemoteSource, TimerSettings}, timer::TimerFile, CONTROLLER_SENDER, RENDER_SENDER, SETTINGS
-    }, glam::{Vec2, Vec3}, glamour::TransformMap, indexmap::IndexMap, nexus::{gamebind::invoke_gamebind_async, imgui::{ChildWindow, Condition, ConfigFlags, Context, Selectable, TableColumnSetup, TableFlags, TreeNode, TreeNodeFlags, Ui, WindowFlags}, wnd_proc::send_wnd_proc_to_game}, std::{collections::{HashMap, HashSet}, sync::Arc}, windows::Win32::{Foundation::WPARAM, UI::WindowsAndMessaging::WM_MOUSEMOVE}
+    super::{Alignment, RenderEvent}, crate::{controller::ControllerEvent, fl, marker::{atomic::{LocalPoint, MapPoint, MarkerInputData, ScreenPoint, SignObtainer}, format::{MarkerFile, MarkerFormats, MarkerSet, RuntimeMarkers}}, render::{RenderState, TimerWindowState}, settings::{RemoteSource, TimerSettings}, timer::TimerFile, CONTROLLER_SENDER, RENDER_SENDER, SETTINGS
+    }, glam::{Vec2, Vec3}, glamour::TransformMap, indexmap::IndexMap, nexus::{gamebind::invoke_gamebind_async, imgui::{ChildWindow, Condition, ConfigFlags, Context, Selectable, TableColumnSetup, TableFlags, TreeNode, TreeNodeFlags, Ui, WindowFlags}, paths::get_addon_dir, wnd_proc::send_wnd_proc_to_game}, std::{collections::{HashMap, HashSet}, sync::Arc}, windows::Win32::{Foundation::WPARAM, UI::WindowsAndMessaging::WM_MOUSEMOVE}
 };
 
 pub struct MarkerTabState {
@@ -21,19 +20,24 @@ impl MarkerTabState {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui) {
+    pub fn draw(&mut self, ui: &Ui, state_errors: &mut HashMap<String, anyhow::Error>) {
         ui.columns(2, "marker_tab_start", true);
-        self.draw_sidebar(ui);
+        self.draw_sidebar(ui, state_errors);
         ui.next_column();
         self.draw_main(ui);
         ui.columns(1, "marker_tab_end", false)
     }
 
-    fn draw_sidebar(&mut self, ui: &Ui) {
-        self.draw_sidebar_header(ui);
+    fn draw_sidebar(&mut self, ui: &Ui, state_errors: &mut HashMap<String, anyhow::Error>) {
+        self.draw_sidebar_header(ui, state_errors);
         self.draw_sidebar_child(ui);
     }
-    fn draw_sidebar_header(&mut self, ui: &Ui) {
+    fn draw_sidebar_header(&mut self, ui: &Ui, state_errors: &mut HashMap<String, anyhow::Error>) {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let markers_dir = addon_dir.join("markers");
+        let markers_dir = markers_dir.to_string_lossy().to_string();
+        RenderState::draw_open_button(state_errors, ui, fl!("open-button", kind = "folder"), markers_dir);
+        ui.same_line();
         #[cfg(feature = "markers-edit")]
         if ui.button("Create Marker Set") {
             let _ = RENDER_SENDER.get()
@@ -146,6 +150,7 @@ impl MarkerTabState {
             .flags(child_window_flags)
             .size([0.0, 0.0])
             .build(ui, || {
+                ui.text_wrapped(&fl!("experimental-notice"));
                 let mid = MarkerInputData::read();
                 if let Some(mid) = &mid {
                     let sign =  mid.sign_obtainer.sign();

@@ -10,8 +10,9 @@ use {
     },
     glam::Vec2,
     indexmap::IndexMap,
+    nexus::paths::get_addon_dir,
     nexus::imgui::{ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags},
-    std::{collections::HashSet, sync::Arc},
+    std::{collections::{HashMap, HashSet}, sync::Arc},
 };
 
 pub struct TimerTabState {
@@ -34,20 +35,25 @@ impl TimerTabState {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
+    pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
         ui.columns(2, "timers_tab_start", true);
-        self.draw_sidebar(ui, timer_window_state);
+        self.draw_sidebar(ui, timer_window_state, state_errors);
         ui.next_column();
         self.draw_main(ui);
         ui.columns(1, "timers_tab_end", false)
     }
 
-    fn draw_sidebar(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
-        self.draw_sidebar_header(ui, timer_window_state);
+    fn draw_sidebar(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
+        self.draw_sidebar_header(ui, timer_window_state, state_errors);
         self.draw_sidebar_child(ui);
     }
 
-    fn draw_sidebar_header(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
+    fn draw_sidebar_header(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let timers_dir = addon_dir.join("timers");
+        let timers_dir = timers_dir.to_string_lossy().to_string();
+        RenderState::draw_open_button(state_errors, ui, fl!("open-button", kind = "ad-hoc folder"), timers_dir);
+        ui.same_line();
         /*let button_text = match timer_window_state.open {
             true => "Close Timers",
             false => "Open Timers",
