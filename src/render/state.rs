@@ -200,7 +200,7 @@ impl RenderState {
             if let Some(_token) = PopupModal::new(&entry_name)
             .always_auto_resize(true)
             .begin_popup(ui) {
-                ui.text_wrapped(&entry_name);
+                ui.text(&entry_name);
                 ui.dummy([4.0, 4.0]);
                 ui.text_wrapped(format!("{:?}", errory));
                 ui.dummy([4.0, 4.0]);

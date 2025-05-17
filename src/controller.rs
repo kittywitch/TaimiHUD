@@ -148,7 +148,7 @@ impl Controller {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let markers_dir = addon_dir.join("markers");
         if !exists(&markers_dir).expect("Can't check if directory exists") {
-            create_dir_all(&markers_dir);
+            create_dir_all(&markers_dir).await;
         }
         let markers = RuntimeMarkers::load_many(&markers_dir, 100).await?;
         let markers = RuntimeMarkers::markers(markers).await;
@@ -453,6 +453,7 @@ impl Controller {
         self.map_id_to_timers.clear();
         self.setup_timers().await;
         self.reset_timers().await;
+        self.load_markers_files().await.expect("markers load failed");
     }
 
     #[cfg(feature = "markers")]
