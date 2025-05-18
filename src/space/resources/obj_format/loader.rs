@@ -32,6 +32,7 @@ impl ObjFile {
         }
         Ok(model_files)
     }
+    #[allow(dead_code)]
     pub fn load_list(&self, device: &ID3D11Device, idxs: Vec<usize>) -> Vec<ObjInstance> {
         idxs.iter()
             .map(|idx| self.load_idx(device, *idx, false))

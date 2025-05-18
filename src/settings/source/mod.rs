@@ -29,6 +29,7 @@ impl RemoteSource {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn download_latest(&self) -> anyhow::Result<String> {
         match self {
             RemoteSource::GitHub(gs) => Ok(gs.download_latest().await?),
@@ -38,9 +39,10 @@ impl RemoteSource {
 
 impl fmt::Display for RemoteSource {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let inner = match self {
+        let RemoteSource::GitHub(inner) = self;
+        /*let inner = match self {
             RemoteSource::GitHub(gs) => gs,
-        };
+        };*/
 
         write!(f, "{}", inner)
     }

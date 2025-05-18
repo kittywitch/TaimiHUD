@@ -49,6 +49,7 @@ impl SourcesFile {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub async fn reload(&mut self) -> anyhow::Result<()> {
         *self = Self::load().await?;
         Ok(())
@@ -68,6 +69,7 @@ impl SourcesFile {
         Ok(data)
     }
 
+    #[allow(dead_code)]
     pub fn get_by_kind(&self, kind: SourceKind) -> Option<&Vec<RemoteSource>> {
         self.0.get(&kind)
     }

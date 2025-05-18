@@ -51,19 +51,10 @@ impl ProgressBarSettings {
     pub fn set_shadow(&mut self, shadow: bool) {
         self.shadow = shadow;
     }
-    pub fn toggle_shadow(&mut self) {
-        self.shadow = !self.shadow;
-    }
     pub fn set_stock(&mut self, stock: bool) {
         self.stock = stock;
     }
-    pub fn toggle_stock(&mut self) {
-        self.stock = !self.stock;
-    }
     pub fn set_centre_after(&mut self, centre_after: bool) {
         self.centre_after = centre_after;
-    }
-    pub fn toggle_centre_after(&mut self) {
-        self.centre_after = !self.centre_after;
     }
 }

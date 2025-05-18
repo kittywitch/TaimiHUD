@@ -19,6 +19,7 @@ pub struct ObjectRenderBacking {
     pub shaders: ShaderPair,
 }
 
+#[allow(unused)]
 pub struct ObjectRenderMetadata {
     pub model: Model,
     pub material: ObjMaterial,

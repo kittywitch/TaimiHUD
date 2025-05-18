@@ -44,6 +44,8 @@ impl EventMapper {
 
     #[cfg(feature = "space")]
     async fn send_space(&self) {
+        use crate::SETTINGS;
+
         match self {
             Self::Feed(ps) => {
                 if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok())
@@ -51,7 +53,7 @@ impl EventMapper {
                     if settings.enable_katrender {
                         let space_sender = SPACE_SENDER.get().unwrap();
                         let _ = space_sender.send(SpaceEvent::MarkerFeed(ps.clone())).await;
-                        drop(space_sender);
+                        let _ = space_sender;
                     }
                 }
             }
@@ -61,7 +63,7 @@ impl EventMapper {
                     if settings.enable_katrender {
                         let space_sender = SPACE_SENDER.get().unwrap();
                         let _ = space_sender.send(SpaceEvent::MarkerReset(tf.clone())).await;
-                        drop(space_sender);
+                        let _ = space_sender;
                     }
                 }
             }
@@ -72,14 +74,14 @@ impl EventMapper {
             Self::Feed(ps) => {
                 let render_sender = RENDER_SENDER.get().unwrap();
                 let _ = render_sender.send(RenderEvent::AlertFeed(ps.clone())).await;
-                drop(render_sender);
+                let _ = render_sender;
             }
             Self::Reset(tf) => {
                 let render_sender = RENDER_SENDER.get().unwrap();
                 let _ = render_sender
                     .send(RenderEvent::AlertReset(tf.clone()))
                     .await;
-                drop(render_sender);
+                let _ = render_sender;
             }
         }
     }

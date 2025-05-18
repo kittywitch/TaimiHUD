@@ -2,7 +2,6 @@ use {
     super::{
         dx11::{perspective_input_data::PERSPECTIVEINPUTDATA, InstanceBufferData, RenderBackend},
         object::{ObjectBacking, ObjectLoader},
-        resources::Texture,
     },
     crate::{
         space::resources::ObjFile,
@@ -16,11 +15,11 @@ use {
     std::{
         collections::HashMap,
         path::PathBuf,
-        sync::{Arc, OnceLock, RwLock},
+        sync::Arc,
     },
     tokio::{
         sync::mpsc::Receiver,
-        time::{Duration, Instant},
+        time::Instant,
     },
 };
 
@@ -34,6 +33,7 @@ struct Render {
 struct Position(Vec3);
 
 #[derive(Component)]
+#[allow(unused)]
 struct Marker {
     phase: Arc<PhaseState>,
     start: Instant,
@@ -74,7 +74,6 @@ fn handle_marker_timings(mut commands: Commands, mut query: Query<(Entity, &Mark
 
 pub struct Engine {
     receiver: Receiver<SpaceEvent>,
-    addon_dir: PathBuf,
     pub render_backend: RenderBackend,
     pub model_files: HashMap<PathBuf, ObjFile>,
     pub object_kinds: HashMap<String, Arc<ObjectBacking>>,
@@ -105,7 +104,7 @@ impl Engine {
             &render_backend.shaders.1,
         );
 
-        let mut world = World::new();
+        let world = World::new();
 
         let mut schedule = Schedule::default();
 
@@ -114,7 +113,6 @@ impl Engine {
         let mut engine = Engine {
             model_files,
             receiver,
-            addon_dir,
             render_backend,
             object_kinds,
             schedule,
@@ -186,6 +184,7 @@ impl Engine {
         self.phase_states.retain(|p| !Arc::ptr_eq(&p.timer, &timer));
         Ok(())
     }
+    #[allow(dead_code)]
     pub fn reset_phases(&mut self) {
         for entities in self.associated_entities.values() {
             for entity in entities {
@@ -210,7 +209,11 @@ impl Engine {
         Ok(())
     }
 
-    pub fn check_phase_ends() {}
+
+    #[allow(dead_code)]
+    pub fn check_phase_ends() {
+        todo!("this is supposed to terminate a phase when there are no more markers, ideally we should actually make something that finds the latest timestamp between sounds, directions, markers, alerts etc");
+    }
 
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;
@@ -225,7 +228,7 @@ impl Engine {
         backend.depth_handler.setup(&device_context);
         backend.blending_handler.set(&device_context);
         let mut query = self.world.query::<(&mut Render, &Position)>();
-        for (k, c) in &query
+        for (_k, c) in &query
             .iter(&self.world)
             .chunk_by(|(r, _p)| r.backing.name.clone())
         {
@@ -265,6 +268,7 @@ impl Engine {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn cleanup(&self) {
         todo!("Please clean up the engine when the program quits");
     }

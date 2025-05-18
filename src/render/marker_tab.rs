@@ -1,5 +1,7 @@
 use {
     crate::{
+        RENDER_SENDER,
+        RenderEvent,
         controller::ControllerEvent,
         fl,
         marker::{
@@ -71,6 +73,8 @@ impl MarkerTabState {
                 .unwrap()
                 .try_send(RenderEvent::OpenEditMarkers);
         }
+        #[allow(clippy::collapsible_if)]
+
         if self.category_status.len() != self.markers.keys().len() {
             if ui.button("Expand All") {
                 self.category_status.extend(self.markers.keys().cloned());
@@ -81,6 +85,7 @@ impl MarkerTabState {
         {
             ui.same_line();
         }
+        #[allow(clippy::collapsible_if)]
         if !self.category_status.is_empty() {
             if ui.button("Collapse All") {
                 self.category_status.clear();
@@ -95,15 +100,13 @@ impl MarkerTabState {
             .build(ui, || {
                 let header_flags = TreeNodeFlags::FRAMED;
                 // interface design is my passion
-                let height = Vec2::from_array(ui.calc_text_size("U\nI"));
-                let height = height.y;
                 for idx in 0..self.markers.len() {
-                    self.draw_category(ui, header_flags, height, idx);
+                    self.draw_category(ui, header_flags, idx);
                 }
             });
     }
 
-    fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, height: f32, idx: usize) {
+    fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, idx: usize) {
         let (category_name, category) = self
             .markers
             .get_index(idx)
@@ -116,7 +119,7 @@ impl MarkerTabState {
                     selected = Arc::ptr_eq(selected_marker, marker);
                 }
                 let element_selected =
-                    Self::draw_marker_set_in_sidebar(ui, height, marker, selected);
+                    Self::draw_marker_set_in_sidebar(ui, marker, selected);
                 if element_selected && element_selected != selected {
                     self.marker_selection = Some(marker.clone());
                 }
@@ -142,15 +145,11 @@ impl MarkerTabState {
 
     fn draw_marker_set_in_sidebar(
         ui: &Ui,
-        height: f32,
         marker: &Arc<MarkerSet>,
         selected_in: bool,
     ) -> bool {
         let mut selected = selected_in;
         let group_token = ui.begin_group();
-        let widget_pos = Vec2::from(ui.cursor_pos());
-        let window_size = Vec2::from(ui.window_content_region_max());
-        let widget_size = window_size.with_y(height);
         if Selectable::new(&marker.combined())
             .selected(selected)
             .build(ui)

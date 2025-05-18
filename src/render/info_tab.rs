@@ -1,6 +1,6 @@
 use {
     super::TimerWindowState,
-    crate::{built_info, fl, render::RenderState},
+    crate::{SETTINGS, built_info, fl, render::RenderState},
     nexus::imgui::{TableColumnSetup, Ui},
 };
 
@@ -17,7 +17,6 @@ impl InfoTabState {
     pub fn draw(&self, ui: &Ui, timer_window_state: &TimerWindowState) {
         let name = env!("CARGO_PKG_NAME");
         let authors = env!("CARGO_PKG_AUTHORS");
-        let version = env!("CARGO_PKG_VERSION");
         let version = env!("CARGO_PKG_VERSION");
         let profile = match () {
             #[cfg(debug_assertions)]

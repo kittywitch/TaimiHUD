@@ -3,7 +3,7 @@ use {
     crate::{
         controller::ControllerEvent,
         fl,
-        render::{RenderState, TimerWindowState},
+        render::RenderState,
         settings::{RemoteSource, TimerSettings},
         timer::TimerFile,
         CONTROLLER_SENDER, SETTINGS,
@@ -43,11 +43,10 @@ impl TimerTabState {
     pub fn draw(
         &mut self,
         ui: &Ui,
-        timer_window_state: &mut TimerWindowState,
         state_errors: &mut HashMap<String, anyhow::Error>,
     ) {
         ui.columns(2, "timers_tab_start", true);
-        self.draw_sidebar(ui, timer_window_state, state_errors);
+        self.draw_sidebar(ui, state_errors);
         ui.next_column();
         self.draw_main(ui);
         ui.columns(1, "timers_tab_end", false)
@@ -56,17 +55,15 @@ impl TimerTabState {
     fn draw_sidebar(
         &mut self,
         ui: &Ui,
-        timer_window_state: &mut TimerWindowState,
         state_errors: &mut HashMap<String, anyhow::Error>,
     ) {
-        self.draw_sidebar_header(ui, timer_window_state, state_errors);
+        self.draw_sidebar_header(ui, state_errors);
         self.draw_sidebar_child(ui);
     }
 
     fn draw_sidebar_header(
         &mut self,
         ui: &Ui,
-        timer_window_state: &mut TimerWindowState,
         state_errors: &mut HashMap<String, anyhow::Error>,
     ) {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");

@@ -8,11 +8,13 @@ use {
     nexus::imgui::{InputFloat3, StyleColor, Ui},
 };
 
+#[allow(dead_code)]
 pub trait UiExt {
     fn help_marker<F: FnOnce()>(&self, f: F) -> bool;
     fn attention_marker<F: FnOnce()>(&self, f: F) -> bool;
     fn link(&self, label: impl AsRef<str>, url: impl AsRef<str>);
 }
+
 impl UiExt for Ui<'_> {
     fn help_marker<F: FnOnce()>(&self, f: F) -> bool {
         let mut clicked = false;

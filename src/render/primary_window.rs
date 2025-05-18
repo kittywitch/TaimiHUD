@@ -53,7 +53,7 @@ impl PrimaryWindowState {
                 .build(ui, || {
                     if let Some(_token) = ui.tab_bar("modules") {
                         if let Some(_token) = ui.tab_item(&fl!("timer-tab")) {
-                            self.timer_tab.draw(ui, timer_window_state, state_errors);
+                            self.timer_tab.draw(ui, state_errors);
                         };
                         #[cfg(feature = "markers")]
                         {

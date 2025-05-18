@@ -108,6 +108,7 @@ impl Settings {
         drop(sources_lock);
     }
 
+    #[allow(dead_code)]
     pub fn update_sources_data(&mut self) {
         let all_sources = RemoteState::hardcoded_sources();
         let mut all_sources_data = RemoteState::hardcoded_sources();
@@ -127,10 +128,12 @@ impl Settings {
         }
     }
 
+    #[allow(dead_code)]
     pub fn count_disabled_timers(&self) -> usize {
         self.timers.values().filter(|x| x.disabled).count()
     }
 
+    #[allow(dead_code)]
     pub fn get_paths(&self) -> Vec<&PathBuf> {
         self.remotes
             .iter()

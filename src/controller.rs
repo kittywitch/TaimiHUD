@@ -26,10 +26,9 @@ use {
         data_link::{
             get_mumble_link_ptr, get_nexus_link,
             mumble::{MumblePtr, UiState},
-            read_nexus_link, MumbleLink, NexusLink,
+            read_nexus_link, MumbleLink,
         },
         gamebind::invoke_gamebind_async,
-        imgui::Context,
         paths::get_addon_dir,
         texture::{load_texture_from_file, RawTextureReceiveCallback},
         texture_receive,
@@ -67,7 +66,6 @@ pub struct Controller {
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub mumble_pointer: Option<MumblePtr>,
-    pub nexus_pointer: *const NexusLink,
     pub map_id: Option<u32>,
     pub player_position: Option<Vec3>,
     alert_sem: Arc<Mutex<()>>,
@@ -92,7 +90,6 @@ impl Controller {
     ) {
         let mumble_ptr = get_mumble_link_ptr() as *mut MumbleLink;
         let mumble_link = unsafe { MumblePtr::new(mumble_ptr) };
-        let nexus_link = get_nexus_link();
         let evt_loop = async move {
             let sources = SourcesFile::load()
                 .await
@@ -101,7 +98,6 @@ impl Controller {
             let _ = SOURCES.set(sources);
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
-                nexus_pointer: nexus_link,
                 last_fov: 0.0,
                 previous_combat_state: Default::default(),
                 rt_sender,
@@ -184,7 +180,7 @@ impl Controller {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let markers_dir = addon_dir.join("markers");
         if !exists(&markers_dir).expect("Can't check if directory exists") {
-            create_dir_all(&markers_dir).await;
+            create_dir_all(&markers_dir).await?;
         }
         let markers = RuntimeMarkers::load_many(&markers_dir, 100).await?;
         let markers = RuntimeMarkers::markers(markers).await;
@@ -525,7 +521,7 @@ impl Controller {
                 x: point.x as i32,
                 y: point.y as i32,
             };
-            unsafe { ClientToScreen(hwnd, &mut my_pos) };
+            unsafe { let _ = ClientToScreen(hwnd, &mut my_pos); };
             match unsafe { SetCursorPos(my_pos.x, my_pos.y) } {
                 Ok(()) => (),
                 Err(err) => log::error!("Error setmarker: {:?}", err),
@@ -558,7 +554,7 @@ impl Controller {
             Ok(_) => (),
             Err(err) => log::error!("Controller.do_update() error for \"{}\": {}", source, err),
         };
-        self.reload_timers();
+        self.reload_timers().await;
     }
 
     async fn progress_bar_style(&mut self, style: ProgressBarStyleChange) {
@@ -609,12 +605,6 @@ impl Controller {
         }
     }
 
-    async fn move_mouse(&mut self, pos: Vec2) {
-        let mut context = Context::current();
-        let io_mut = context.io_mut();
-        io_mut.mouse_pos = pos.into();
-    }
-
     async fn load_texture(&self, rel: RelativePathBuf, base: PathBuf) {
         if let Some(base) = base.parent() {
             let abs = rel.to_path(base);
@@ -654,7 +644,6 @@ impl Controller {
             TimerToggle(id) => self.toggle_timer(&id).await,
             TimerReset => self.reset_timers().await,
             CheckDataSourceUpdates => self.check_updates().await,
-            MoveMouse(pos) => self.move_mouse(pos).await,
             #[cfg(feature = "markers")]
             SetMarker(p, t) => self.set_marker(p, t).await?,
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
@@ -682,7 +671,6 @@ pub enum ProgressBarStyleChange {
 #[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
     OpenOpenable(String, String),
-    MoveMouse(Vec2),
     #[cfg(feature = "markers")]
     SetMarker(Vec<ScreenPoint>, Arc<MarkerSet>),
     UninstallAddon(Arc<RemoteSource>),

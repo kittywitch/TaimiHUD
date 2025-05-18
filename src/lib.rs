@@ -41,8 +41,10 @@ use {
     settings::SourcesFile,
     std::{
         collections::HashMap,
+        cell::{RefCell, Cell},
         ffi::{c_char, CStr},
         ptr,
+        path::PathBuf,
         sync::{Arc, LazyLock, Mutex, OnceLock, RwLock},
         thread::{self, JoinHandle},
     },
@@ -125,9 +127,9 @@ thread_local! {
 }
 
 fn load() {
-    IMGUI_TEXTURES.set(RwLock::new(HashMap::new()));
+    let _ = IMGUI_TEXTURES.set(RwLock::new(HashMap::new()));
     #[cfg(feature = "space")]
-    TEXTURES.set(RwLock::new(HashMap::new()));
+    let _ = TEXTURES.set(RwLock::new(HashMap::new()));
     // Say hi to the world :o
     let name = env!("CARGO_PKG_NAME");
     let authors = env!("CARGO_PKG_AUTHORS");

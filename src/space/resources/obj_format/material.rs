@@ -7,15 +7,18 @@ use {
     windows::Win32::Graphics::Direct3D11::ID3D11Device,
 };
 
+#[allow(unused)]
 pub struct ColouredMaterialTexture {
     pub texture: Arc<Texture>,
     pub colour: Vec3,
 }
+#[allow(unused)]
 pub struct AttributedMaterialTexture {
     pub texture: Arc<Texture>,
     pub attribute: f32,
 }
 
+#[allow(unused)]
 #[derive(Default)]
 pub struct ObjMaterial {
     pub ambient: Option<ColouredMaterialTexture>,

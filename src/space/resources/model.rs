@@ -24,12 +24,6 @@ impl Model {
         Self(vertices)
     }
 
-    pub fn swizzle(&mut self) {
-        for v in &mut self.0 {
-            v.position = v.position.xzy();
-        }
-    }
-
     pub fn quad() -> anyhow::Result<Self> {
         let mut vertices = Vec::new();
         let height = 1.0;

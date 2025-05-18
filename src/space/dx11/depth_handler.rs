@@ -20,6 +20,7 @@ use {
     },
 };
 
+#[allow(unused)]
 pub struct DepthHandler {
     pub framebuffer: ID3D11Texture2D,
     viewport: D3D11_VIEWPORT,

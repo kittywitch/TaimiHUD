@@ -15,6 +15,7 @@ use {
     },
 };
 
+#[allow(unused)]
 pub struct RenderBackend {
     pub depth_handler: DepthHandler,
     pub perspective_handler: PerspectiveHandler,

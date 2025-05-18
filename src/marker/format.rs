@@ -156,30 +156,6 @@ pub struct CustomMarkers {
     pub squad_marker_preset: Vec<MarkerSet>,
 }
 
-impl CustomMarkers {
-    pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
-        log::debug!("Attempting to load the markers file at \"{path:?}\".");
-        let mut file_data = read_to_string(path).await?;
-        json_strip_comments::strip(&mut file_data)?;
-        let mut data: Self = serde_json::from_str(&file_data)?;
-        data.path = Some(path.to_path_buf());
-        log::debug!("Successfully loaded the markers file at \"{path:?}\".");
-        Ok(Arc::new(data))
-    }
-}
-
-impl MarkerFile {
-    pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
-        log::debug!("Attempting to load the markers file at \"{path:?}\".");
-        let mut file_data = read_to_string(path).await?;
-        json_strip_comments::strip(&mut file_data)?;
-        let mut data: Self = serde_json::from_str(&file_data)?;
-        data.path = Some(path.to_path_buf());
-        log::debug!("Successfully loaded the markers file at \"{path:?}\".");
-        Ok(Arc::new(data))
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkerCategory {
@@ -314,6 +290,8 @@ impl MarkerType {
             Self::ClearMarkers => GameBind::SquadMarkerClearAllWorld,
         }
     }
+
+    #[allow(dead_code)]
     pub fn to_set_agent_gamebind(&self) -> GameBind {
         match self {
             Self::Blank => panic!("i can't believe you've done this"),

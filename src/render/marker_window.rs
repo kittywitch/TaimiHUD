@@ -6,22 +6,19 @@ use {
             atomic::MarkerInputData,
             format::{MarkerEntry, MarkerSet, MarkerType},
         },
-        settings::RemoteState,
-        timer::{PhaseState, TimerAlert, TimerFile},
-        util::{PositionInput, UiExt},
-        ControllerEvent, ACCOUNT_NAME_CELL, CONTROLLER_SENDER, SETTINGS,
+        util::PositionInput, ACCOUNT_NAME_CELL,
     },
-    glam::{Vec2, Vec3},
+    glam::Vec3,
     nexus::{
         imgui::{
-            Id, InputTextFlags, ProgressBar, StyleColor, TableColumnFlags, TableColumnSetup,
+            Id, TableColumnFlags, TableColumnSetup,
             TableFlags, Ui, Window,
         },
         paths::get_addon_dir,
         rtapi::{GroupType, RealTimeApi},
     },
-    relative_path::{RelativePath, RelativePathBuf},
-    std::{f32, path::Path, sync::Arc},
+    relative_path::RelativePathBuf,
+    std::{f32, path::Path},
 };
 
 pub struct EditMarkerWindowState {
@@ -51,9 +48,11 @@ impl IndividualMarkerState {
     pub fn set_position(&mut self, pos: Vec3) {
         self.position.position = Some(pos);
     }
+    #[allow(dead_code)]
     pub fn set_description(&mut self, desc: String) {
         self.description = desc;
     }
+    #[allow(dead_code)]
     pub fn to_marker_entry(&self, marker: MarkerType) -> Option<MarkerEntry> {
         let id = match self.description.is_empty() {
             true => None,
@@ -80,6 +79,7 @@ impl EditMarkerWindowState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn to_marker_set(&self) -> Option<MarkerSet> {
         let marker_types = MarkerType::iter_real_values();
         let enabled = true;
@@ -99,7 +99,7 @@ impl EditMarkerWindowState {
         })
     }
 
-    pub fn open(&mut self, ui: &Ui) {
+    pub fn open(&mut self) {
         *self = Self::new();
         if !self.open {
             let author = match ACCOUNT_NAME_CELL.get() {

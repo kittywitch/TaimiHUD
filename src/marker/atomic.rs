@@ -2,8 +2,8 @@ use {
     arc_atomic::AtomicArc,
     glam::{Vec2, Vec3, Vec3Swizzles},
     glamour::{
-        point3, Angle, Box2, Contains, Point2, Point3, Rect, Scalar, Size2, Transform2, Transform3,
-        TransformMap, Unit, Vector2, Vector3,
+        point3, Angle, Box2, Contains, Point2, Point3, Rect, Scalar, Size2, Transform2,
+        TransformMap, Unit, Vector2,
     },
     itertools::Itertools,
     std::sync::{Arc, OnceLock},
@@ -59,13 +59,10 @@ impl Unit for FakeSpace {
 }
 
 pub type MapPoint = Point2<MapSpace>;
-pub type MapVector = Vector2<MapSpace>;
 
 pub type LocalPoint = Point3<LocalSpace>;
-pub type LocalVector = Vector3<LocalSpace>;
 
 pub type ScreenPoint = Point2<ScreenSpace>;
-pub type ScreenVector = Vector2<ScreenSpace>;
 pub type ScreenBound = Rect<ScreenSpace>;
 
 pub type FakePoint = Point2<FakeSpace>;
@@ -78,7 +75,6 @@ pub type MinimapBound = Rect<MinimapSpace>;
 pub type WorldmapBound = Rect<WorldmapSpace>;
 
 pub type ScreenToFake = Transform2<ScreenSpace, FakeSpace>;
-pub type FakeToScreen = Transform2<FakeSpace, ScreenSpace>;
 
 pub type FakeToMinimap = Transform2<FakeSpace, MinimapSpace>;
 pub type FakeToWorldmap = Transform2<FakeSpace, WorldmapSpace>;
@@ -86,7 +82,6 @@ pub type FakeToWorldmap = Transform2<FakeSpace, WorldmapSpace>;
 pub type MinimapToMap = Transform2<MinimapSpace, MapSpace>;
 pub type WorldmapToMap = Transform2<WorldmapSpace, MapSpace>;
 
-pub type LocalToMap = Transform3<LocalSpace, MapSpace>;
 pub type MapToLocal = Transform2<MapSpace, LocalSpace>;
 
 #[derive(Copy, Debug, Default, PartialEq, Clone)]
@@ -179,6 +174,7 @@ pub struct LocalGlobalHolder {
     pub global: MapPoint,
 }
 
+#[allow(dead_code)]
 impl MarkerInputData {
     // ultimate goals:
     // * screen to local, map

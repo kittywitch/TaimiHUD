@@ -44,6 +44,7 @@ pub enum RenderEvent {
     AlertStart(TextAlert),
     AlertEnd(Arc<TimerFile>),
     CheckingForUpdates(bool),
+    #[allow(dead_code)]
     RenderKeybindUpdate,
     #[cfg(feature = "markers-edit")]
     OpenEditMarkers,
@@ -105,7 +106,7 @@ impl RenderState {
                 match event {
                     #[cfg(feature = "markers-edit")]
                     OpenEditMarkers => {
-                        self.edit_marker_window.open(ui);
+                        self.edit_marker_window.open();
                     }
                     OpenableError(key, err) => {
                         self.state_errors.insert(key, err);

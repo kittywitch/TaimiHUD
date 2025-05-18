@@ -5,6 +5,7 @@ use {
 };
 
 #[derive(PartialEq, Clone, Debug, Default)]
+#[allow(dead_code)]
 pub enum NeedsUpdate {
     #[default]
     Unknown,
@@ -37,6 +38,7 @@ impl fmt::Display for NeedsUpdate {
 }
 
 impl NeedsUpdate {
+    #[allow(dead_code)]
     pub fn draw(&self, ui: &Ui) {
         let text = self.to_string();
         ui.text_wrapped(text);

@@ -7,22 +7,24 @@ use {
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct BlishDirection {
     name: String,
     destination: BlishVec3,
     texture: RelativePathBuf,
-    animSpeed: f32,
+    anim_speed: f32,
     duration: f32,
     timestamps: Vec<f32>,
 }
 
+#[allow(dead_code)]
 impl BlishDirection {
     fn direction(&self, timestamp: f32) -> TimerDirection {
         let destination = self.destination.to_vec3();
         TimerDirection {
             name: self.name.clone(),
             texture: self.texture.clone(),
-            animSpeed: self.animSpeed,
+            anim_speed: self.anim_speed,
             duration: self.duration,
             destination,
             timestamp,
@@ -38,15 +40,17 @@ impl BlishDirection {
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct TimerDirection {
     name: String,
     destination: Vec3,
     texture: RelativePathBuf,
-    animSpeed: f32,
+    anim_speed: f32,
     duration: f32,
     timestamp: f32,
 }
 
+#[allow(dead_code)]
 impl TimerDirection {
     pub fn raw_timestamp(&self) -> Duration {
         Duration::from_secs_f32(self.timestamp)

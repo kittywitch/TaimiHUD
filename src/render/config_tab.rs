@@ -90,12 +90,12 @@ impl ConfigTabState {
                 }
                 selected
             };
-            if let Some(selection) = ComboBox::new(&fl!("font"))
+            if let Some(_selection) = ComboBox::new(&fl!("font"))
                 .preview_value(&timer_window_state.progress_bar.font.to_string())
                 .build(ui, font_closure)
             {}
         };
-        let timers_window = TreeNode::new(&fl!("timer-window"))
+        let _timers_window = TreeNode::new(&fl!("timer-window"))
             .flags(TreeNodeFlags::FRAMED)
             .opened(true, Condition::Once)
             .tree_push_on_open(true)

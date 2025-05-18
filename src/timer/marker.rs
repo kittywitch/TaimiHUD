@@ -71,6 +71,7 @@ pub enum RotationType {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct TimerMarker {
     pub kind: RotationType,
     pub position: Vec3,
@@ -99,6 +100,8 @@ impl TimerMarker {
     pub fn start(&self, start: Instant) -> Instant {
         start + self.timestamp()
     }
+
+    #[allow(dead_code)]
     pub fn remaining(&self, start: Instant) -> Duration {
         self.end(start).saturating_duration_since(Instant::now())
     }
