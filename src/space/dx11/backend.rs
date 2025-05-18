@@ -3,7 +3,6 @@ use {
     crate::space::resources::ShaderLoader,
     anyhow::anyhow,
     glam::Vec4,
-    itertools::Itertools,
     nexus::AddonApi,
     std::path::Path,
     windows::Win32::Graphics::{

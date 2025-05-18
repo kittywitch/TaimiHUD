@@ -1,7 +1,6 @@
 use {
     super::InstanceBufferData,
     anyhow::anyhow,
-    bevy_ecs::prelude::*,
     windows::Win32::Graphics::Direct3D11::{
         ID3D11Buffer, ID3D11Device, ID3D11DeviceContext, D3D11_BIND_VERTEX_BUFFER,
         D3D11_BUFFER_DESC, D3D11_SUBRESOURCE_DATA, D3D11_USAGE_DEFAULT,

@@ -2,7 +2,6 @@ use {
     super::{ObjectBacking, ObjectDescription},
     crate::space::resources::{ObjFile, PixelShaders, VertexShaders},
     glob::Paths,
-    itertools::Itertools,
     std::{
         collections::HashMap,
         path::{Path, PathBuf},

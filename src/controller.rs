@@ -4,7 +4,6 @@ use {
         atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint},
         format::{MarkerSet, RuntimeMarkers},
     },
-    itertools::Itertools,
     windows::Win32::{
         Foundation::POINT,
         Graphics::Gdi::ClientToScreen,

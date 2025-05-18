@@ -4,7 +4,6 @@ use {
         timer::{TimerPhase, TimerTrigger},
     },
     anyhow::anyhow,
-    futures::StreamExt,
     glob::Paths,
     relative_path::RelativePathBuf,
     serde::{Deserialize, Serialize},

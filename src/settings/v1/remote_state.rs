@@ -3,7 +3,6 @@ use {
         settings::{source::Source, GitHubSource, NeedsUpdate, RemoteSource},
         timer::TimerFile,
     },
-    futures::stream::StreamExt,
     serde::{Deserialize, Serialize},
     std::{
         path::PathBuf,

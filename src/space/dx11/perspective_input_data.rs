@@ -1,7 +1,6 @@
 use {
     arc_atomic::AtomicArc,
     glam::Vec3,
-    itertools::Itertools,
     std::sync::{Arc, OnceLock},
 };
 

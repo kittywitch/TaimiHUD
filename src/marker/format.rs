@@ -40,7 +40,7 @@ impl RuntimeMarkers {
     }
 
     pub fn path_glob(path: &Path) -> PathBuf {
-        path.join(&Self::glob())
+        path.join(Self::glob())
     }
 
     pub fn get_paths(path: &Path) -> anyhow::Result<Paths> {

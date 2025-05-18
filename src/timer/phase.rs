@@ -2,7 +2,7 @@ use {
     super::{direction::BlishDirection, BlishMarker, TimerMarker},
     crate::timer::{BlishAlert, TimerAction, TimerAlert, TimerTrigger},
     serde::{
-        de::{self, Deserializer, Error as _, MapAccess, Visitor},
+        de::{self, Error as _, MapAccess, Visitor},
         Deserialize, Serialize,
     },
     serde_json::Value,

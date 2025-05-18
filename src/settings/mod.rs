@@ -1,13 +1,13 @@
 mod needs_update;
 mod progress_bar_config;
-mod settings;
+mod settings_struct;
 mod source;
 mod sources;
 mod v1;
 
 pub use {
     progress_bar_config::ProgressBarSettings,
-    settings::{NeedsUpdate, Settings, SettingsLock},
+    settings_struct::{NeedsUpdate, Settings, SettingsLock},
     source::{GitHubSource, RemoteSource, Source},
     sources::{SourceKind, SourcesFile},
     v1::{RemoteState, TimerSettings},

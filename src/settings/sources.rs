@@ -1,5 +1,5 @@
 use {
-    crate::settings::{GitHubSource, RemoteSource, Source},
+    crate::settings::{GitHubSource, RemoteSource},
     nexus::paths::get_addon_dir,
     serde::{Deserialize, Serialize},
     std::collections::HashMap,
