@@ -12,15 +12,8 @@ use {
     glam::{Mat4, Vec3, Vec3Swizzles},
     itertools::Itertools,
     nexus::{imgui::Ui, paths::get_addon_dir},
-    std::{
-        collections::HashMap,
-        path::PathBuf,
-        sync::Arc,
-    },
-    tokio::{
-        sync::mpsc::Receiver,
-        time::Instant,
-    },
+    std::{collections::HashMap, path::PathBuf, sync::Arc},
+    tokio::{sync::mpsc::Receiver, time::Instant},
 };
 
 #[derive(Component)]
@@ -208,7 +201,6 @@ impl Engine {
         }
         Ok(())
     }
-
 
     #[allow(dead_code)]
     pub fn check_phase_ends() {

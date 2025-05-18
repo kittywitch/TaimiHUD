@@ -1,7 +1,5 @@
 use {
     crate::{
-        RENDER_SENDER,
-        RenderEvent,
         controller::ControllerEvent,
         fl,
         marker::{
@@ -9,14 +7,14 @@ use {
             format::MarkerSet,
         },
         render::RenderState,
-        CONTROLLER_SENDER,
+        RenderEvent, CONTROLLER_SENDER, RENDER_SENDER,
     },
     glam::Vec3,
     indexmap::IndexMap,
     nexus::{
         imgui::{
-            ChildWindow, Condition, Selectable, TableColumnSetup, TableFlags,
-            TreeNode, TreeNodeFlags, Ui, WindowFlags,
+            ChildWindow, Condition, Selectable, TableColumnSetup, TableFlags, TreeNode,
+            TreeNodeFlags, Ui, WindowFlags,
         },
         paths::get_addon_dir,
     },
@@ -74,7 +72,6 @@ impl MarkerTabState {
                 .try_send(RenderEvent::OpenEditMarkers);
         }
         #[allow(clippy::collapsible_if)]
-
         if self.category_status.len() != self.markers.keys().len() {
             if ui.button("Expand All") {
                 self.category_status.extend(self.markers.keys().cloned());
@@ -118,8 +115,7 @@ impl MarkerTabState {
                 if let Some(selected_marker) = &self.marker_selection {
                     selected = Arc::ptr_eq(selected_marker, marker);
                 }
-                let element_selected =
-                    Self::draw_marker_set_in_sidebar(ui, marker, selected);
+                let element_selected = Self::draw_marker_set_in_sidebar(ui, marker, selected);
                 if element_selected && element_selected != selected {
                     self.marker_selection = Some(marker.clone());
                 }
@@ -143,11 +139,7 @@ impl MarkerTabState {
         }
     }
 
-    fn draw_marker_set_in_sidebar(
-        ui: &Ui,
-        marker: &Arc<MarkerSet>,
-        selected_in: bool,
-    ) -> bool {
+    fn draw_marker_set_in_sidebar(ui: &Ui, marker: &Arc<MarkerSet>, selected_in: bool) -> bool {
         let mut selected = selected_in;
         let group_token = ui.begin_group();
         if Selectable::new(&marker.combined())

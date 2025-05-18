@@ -14,11 +14,7 @@ use {
         sync::Arc,
     },
     strum_macros::{Display, FromRepr},
-    tokio::{
-        fs::read_to_string,
-        sync::Semaphore,
-        task::JoinSet,
-    },
+    tokio::{fs::read_to_string, sync::Semaphore, task::JoinSet},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

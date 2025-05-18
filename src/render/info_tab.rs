@@ -1,6 +1,6 @@
 use {
     super::TimerWindowState,
-    crate::{SETTINGS, built_info, fl, render::RenderState},
+    crate::{built_info, fl, render::RenderState, SETTINGS},
     nexus::imgui::{TableColumnSetup, Ui},
 };
 

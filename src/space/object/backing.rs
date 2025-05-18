@@ -5,8 +5,8 @@ use {
             dx11::{InstanceBuffer, RenderBackend},
             object::PrimitiveTopology,
             resources::{
-                obj_format::material::ColouredMaterialTexture, Model, ObjMaterial,
-                ShaderPair, Texture,
+                obj_format::material::ColouredMaterialTexture, Model, ObjMaterial, ShaderPair,
+                Texture,
             },
         },
         timer::TimerMarker,

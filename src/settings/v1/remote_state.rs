@@ -4,10 +4,7 @@ use {
         timer::TimerFile,
     },
     serde::{Deserialize, Serialize},
-    std::{
-        path::PathBuf,
-        sync::Arc,
-    },
+    std::{path::PathBuf, sync::Arc},
     tokio::fs::remove_dir_all,
 };
 

@@ -4,7 +4,8 @@ use {
     reqwest::{Client, IntoUrl, Response},
     serde::{Deserialize, Serialize},
     std::{
-        fmt::{self, Display}, io,
+        fmt::{self, Display},
+        io,
         path::{Path, PathBuf},
     },
     tokio::fs::{create_dir_all, remove_dir_all},

@@ -2,8 +2,8 @@ use {
     arc_atomic::AtomicArc,
     glam::{Vec2, Vec3, Vec3Swizzles},
     glamour::{
-        point3, Angle, Box2, Contains, Point2, Point3, Rect, Size2, Transform2,
-        TransformMap, Unit, Vector2,
+        point3, Angle, Box2, Contains, Point2, Point3, Rect, Size2, Transform2, TransformMap, Unit,
+        Vector2,
     },
     std::sync::{Arc, OnceLock},
 };

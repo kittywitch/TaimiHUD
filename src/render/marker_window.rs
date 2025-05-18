@@ -6,14 +6,12 @@ use {
             atomic::MarkerInputData,
             format::{MarkerEntry, MarkerSet, MarkerType},
         },
-        util::PositionInput, ACCOUNT_NAME_CELL,
+        util::PositionInput,
+        ACCOUNT_NAME_CELL,
     },
     glam::Vec3,
     nexus::{
-        imgui::{
-            Id, TableColumnFlags, TableColumnSetup,
-            TableFlags, Ui, Window,
-        },
+        imgui::{Id, TableColumnFlags, TableColumnSetup, TableFlags, Ui, Window},
         paths::get_addon_dir,
         rtapi::{GroupType, RealTimeApi},
     },

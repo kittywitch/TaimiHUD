@@ -11,7 +11,6 @@ mod marker;
 mod space;
 
 //use i18n_embed_fl::fl;
-use rust_embed::RustEmbed;
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
 use {
@@ -38,13 +37,14 @@ use {
         texture::Texture as NexusTexture,
         AddonFlags, UpdateProvider,
     },
+    rust_embed::RustEmbed,
     settings::SourcesFile,
     std::{
+        cell::{Cell, RefCell},
         collections::HashMap,
-        cell::{RefCell, Cell},
         ffi::{c_char, CStr},
-        ptr,
         path::PathBuf,
+        ptr,
         sync::{Arc, LazyLock, Mutex, OnceLock, RwLock},
         thread::{self, JoinHandle},
     },

@@ -1,7 +1,5 @@
 use {
-    super::{
-        ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, TimerSettings,
-    },
+    super::{ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, TimerSettings},
     crate::{controller::ProgressBarStyleChange, SETTINGS, SOURCES},
     anyhow::anyhow,
     chrono::{DateTime, Utc},

@@ -7,9 +7,7 @@ use {
     windows::Win32::{
         Foundation::POINT,
         Graphics::Gdi::ClientToScreen,
-        UI::WindowsAndMessaging::{
-                GetCursorPos, GetForegroundWindow, SetCursorPos,
-            },
+        UI::WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, SetCursorPos},
     },
 };
 use {
@@ -520,7 +518,9 @@ impl Controller {
                 x: point.x as i32,
                 y: point.y as i32,
             };
-            unsafe { let _ = ClientToScreen(hwnd, &mut my_pos); };
+            unsafe {
+                let _ = ClientToScreen(hwnd, &mut my_pos);
+            };
             match unsafe { SetCursorPos(my_pos.x, my_pos.y) } {
                 Ok(()) => (),
                 Err(err) => log::error!("Error setmarker: {:?}", err),

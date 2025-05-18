@@ -1,8 +1,5 @@
 #[cfg(feature = "markers")]
-use {
-    crate::marker::format::MarkerSet,
-    crate::marker::atomic::MarkerInputData,
-};
+use {crate::marker::atomic::MarkerInputData, crate::marker::format::MarkerSet};
 use {
     crate::{
         controller::ControllerEvent,
@@ -16,8 +13,8 @@ use {
     nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, Font, FontId, Image, Io,
-            PopupModal, StyleColor, Ui, Window, WindowFlags,
+            internal::RawCast, Condition, Font, FontId, Image, Io, PopupModal, StyleColor, Ui,
+            Window, WindowFlags,
         },
     },
     relative_path::RelativePathBuf,
