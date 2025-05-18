@@ -1,5 +1,21 @@
 use {
-    crate::timer::{TimerPhase, TimerTrigger}, anyhow::anyhow, futures::{future::{join_all, try_join_all}, stream, FutureExt, StreamExt}, glob::Paths, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, std::{path::{Path, PathBuf}, sync::Arc}, tokio::{fs::read_to_string, sync::Semaphore, task::JoinSet}, crate::settings::RemoteSource,
+    crate::{
+        settings::RemoteSource,
+        timer::{TimerPhase, TimerTrigger},
+    },
+    anyhow::anyhow,
+    futures::{
+        future::{join_all, try_join_all},
+        stream, FutureExt, StreamExt,
+    },
+    glob::Paths,
+    relative_path::RelativePathBuf,
+    serde::{Deserialize, Serialize},
+    std::{
+        path::{Path, PathBuf},
+        sync::Arc,
+    },
+    tokio::{fs::read_to_string, sync::Semaphore, task::JoinSet},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -33,12 +49,16 @@ impl TimerFile {
     pub fn get_paths(path: &Path) -> anyhow::Result<Paths> {
         let pathbuf_glob = Self::path_glob(path);
 
-        let path_glob_str = pathbuf_glob.to_str()
+        let path_glob_str = pathbuf_glob
+            .to_str()
             .ok_or_else(|| anyhow!("Timer file loading path glob unparseable for {path:?}"))?;
-            Ok(glob::glob(path_glob_str)?)
+        Ok(glob::glob(path_glob_str)?)
     }
 
-    pub async fn load(path: &PathBuf, source: Option<Arc<RemoteSource>>) -> anyhow::Result<Arc<Self>> {
+    pub async fn load(
+        path: &PathBuf,
+        source: Option<Arc<RemoteSource>>,
+    ) -> anyhow::Result<Arc<Self>> {
         log::debug!("Attempting to load the timer file at \"{path:?}\".");
         let mut file_data = read_to_string(path).await?;
         json_strip_comments::strip(&mut file_data)?;
@@ -49,7 +69,10 @@ impl TimerFile {
         Ok(Arc::new(data))
     }
 
-    pub async fn load_many_sourceless(load_dir: &Path, simultaneous_limit: usize) -> anyhow::Result<Vec<Arc<Self>>> {
+    pub async fn load_many_sourceless(
+        load_dir: &Path,
+        simultaneous_limit: usize,
+    ) -> anyhow::Result<Vec<Arc<Self>>> {
         log::debug!("Beginning load_many for {load_dir:?} with a simultaneous open limit of {simultaneous_limit}.");
         let mut set = JoinSet::new();
         let semaphore = Arc::new(Semaphore::new(simultaneous_limit));
@@ -62,7 +85,6 @@ impl TimerFile {
                 drop(permit);
                 Ok::<Arc<TimerFile>, anyhow::Error>(timer_file)
             });
-
         }
         let mut timer_files = Vec::new();
         let (mut join_errors, mut load_errors): (usize, usize) = (0, 0);
@@ -71,16 +93,16 @@ impl TimerFile {
                 Ok(res) => match res {
                     Ok(timer_file) => {
                         timer_files.push(timer_file);
-                    },
+                    }
                     Err(err) => {
                         load_errors += 1;
                         log::error!("Timer load_many error for {load_dir:?}: {err}");
-                    },
+                    }
                 },
                 Err(err) => {
                     join_errors += 1;
                     log::error!("Timer load_many join error for {load_dir:?}: {err}");
-                },
+                }
             }
         }
         log::debug!(
@@ -90,7 +112,11 @@ impl TimerFile {
         Ok(timer_files)
     }
 
-    pub async fn load_many(load_dir: &Path, source: Arc<RemoteSource> ,simultaneous_limit: usize) -> anyhow::Result<Vec<Arc<Self>>> {
+    pub async fn load_many(
+        load_dir: &Path,
+        source: Arc<RemoteSource>,
+        simultaneous_limit: usize,
+    ) -> anyhow::Result<Vec<Arc<Self>>> {
         log::debug!("Beginning load_many for {load_dir:?} with a simultaneous open limit of {simultaneous_limit}.");
         let mut set = JoinSet::new();
         let semaphore = Arc::new(Semaphore::new(simultaneous_limit));
@@ -104,7 +130,6 @@ impl TimerFile {
                 drop(permit);
                 Ok::<Arc<TimerFile>, anyhow::Error>(timer_file)
             });
-
         }
         let mut timer_files = Vec::new();
         let (mut join_errors, mut load_errors): (usize, usize) = (0, 0);
@@ -113,16 +138,16 @@ impl TimerFile {
                 Ok(res) => match res {
                     Ok(timer_file) => {
                         timer_files.push(timer_file);
-                    },
+                    }
                     Err(err) => {
                         load_errors += 1;
                         log::error!("Timer load_many error for {load_dir:?}: {err}");
-                    },
+                    }
                 },
                 Err(err) => {
                     join_errors += 1;
                     log::error!("Timer load_many join error for {load_dir:?}: {err}");
-                },
+                }
             }
         }
         log::debug!(

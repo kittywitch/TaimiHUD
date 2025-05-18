@@ -1,13 +1,13 @@
 pub mod action;
 pub mod alert;
 pub mod blishcolour;
+pub mod direction;
 pub mod file;
 pub mod geometry;
 pub mod marker;
 pub mod phase;
 pub mod state_machine;
 pub mod trigger;
-pub mod direction;
 
 #[allow(unused_imports)]
 pub use {

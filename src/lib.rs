@@ -1,8 +1,8 @@
 mod controller;
 mod render;
-mod util;
 mod settings;
 mod timer;
+mod util;
 
 #[cfg(feature = "markers")]
 mod marker;
@@ -10,13 +10,10 @@ mod marker;
 #[cfg(feature = "space")]
 mod space;
 
-use std::ffi::{c_char, CString};
-
-use nexus::{event::arc::ACCOUNT_NAME, imgui::{MenuItem, Ui}, localization::translate, quick_access::{add_quick_access_context_menu, notify_quick_access}};
-use settings::{SourcesFile};
+//use i18n_embed_fl::fl;
+use rust_embed::RustEmbed;
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
-use tokio::sync::OnceCell;
 use {
     crate::{
         controller::{Controller, ControllerEvent},
@@ -24,46 +21,52 @@ use {
         settings::SettingsLock,
     },
     arcdps::AgentOwned,
+    i18n_embed::{
+        fluent::{fluent_language_loader, FluentLanguageLoader},
+        DefaultLocalizer, LanguageLoader, RustEmbedNotifyAssets,
+    },
     nexus::{
         event::{
-            Event,
-            arc::{CombatData, COMBAT_LOCAL},
-            event_consume, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
+            arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL},
+            event_consume, Event, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
+        imgui::{MenuItem, Ui},
         keybind::{keybind_handler, register_keybind_with_string},
+        localization::translate,
         paths::get_addon_dir,
-        quick_access::add_quick_access,
+        quick_access::{add_quick_access, add_quick_access_context_menu, notify_quick_access},
         texture::Texture as NexusTexture,
         AddonFlags, UpdateProvider,
     },
+    settings::SourcesFile,
     std::{
         cell::{Cell, RefCell},
         collections::HashMap,
+        ffi::{c_char, CStr, CString},
         path::PathBuf,
         ptr,
-        ffi::CStr,
-        sync::{Arc, Mutex, OnceLock, RwLock, LazyLock},
+        sync::{Arc, LazyLock, Mutex, OnceLock, RwLock},
         thread::{self, JoinHandle},
     },
-    tokio::sync::mpsc::{channel, Sender},
+    tokio::sync::{
+        mpsc::{channel, Sender},
+        OnceCell,
+    },
+    unic_langid_impl::LanguageIdentifier,
 };
-use i18n_embed::{
-    fluent::{fluent_language_loader, FluentLanguageLoader},
-    DefaultLocalizer, LanguageLoader, RustEmbedNotifyAssets,
-};
-use unic_langid_impl::LanguageIdentifier;
-//use i18n_embed_fl::fl;
-use rust_embed::RustEmbed;
 
 // https://github.com/kellpossible/cargo-i18n/blob/95634c35eb68643d4a08ff4cd17406645e428576/i18n-embed/examples/library-fluent/src/lib.rs
 #[derive(RustEmbed)]
 #[folder = "i18n/"]
 pub struct LocalizationsEmbed;
 
-pub static LOCALIZATIONS: LazyLock<RustEmbedNotifyAssets<LocalizationsEmbed>> = LazyLock::new(|| {
-    RustEmbedNotifyAssets::new(std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("i18n/"))
-});
+pub static LOCALIZATIONS: LazyLock<RustEmbedNotifyAssets<LocalizationsEmbed>> =
+    LazyLock::new(|| {
+        RustEmbedNotifyAssets::new(
+            std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("i18n/"),
+        )
+    });
 
 static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     let loader: FluentLanguageLoader = fluent_language_loader!();
@@ -193,8 +196,7 @@ fn load() {
     let main_window_keybind_handler = keybind_handler!(|_id, is_release| {
         if !is_release {
             let sender = CONTROLLER_SENDER.get().unwrap();
-            let _ =
-                sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
+            let _ = sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
         }
     });
 
@@ -209,8 +211,7 @@ fn load() {
     let timer_window_keybind_handler = keybind_handler!(|_id, is_release| {
         if !is_release {
             let sender = CONTROLLER_SENDER.get().unwrap();
-            let _ =
-                sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
+            let _ = sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
         }
     });
 
@@ -257,7 +258,6 @@ fn load() {
     )
     .revert_on_unload();
 
-
     add_quick_access_context_menu(
         "TAIMI_MENU",
         Some(same_identifier), // maybe some day
@@ -265,16 +265,13 @@ fn load() {
         render!(|ui| {
             if ui.button("Timers") {
                 let sender = CONTROLLER_SENDER.get().unwrap();
-                let _ =
-                    sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
+                let _ = sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
             }
             if ui.button("Primary") {
                 let sender = CONTROLLER_SENDER.get().unwrap();
-                let _ =
-                    sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
+                let _ = sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
             }
-
-    })
+        }),
     )
     .revert_on_unload();
 
@@ -329,11 +326,13 @@ fn load() {
     // I don't want to store the localization data in either Nexus or communicate it with Nexus,
     // because this would mean entirely being beholden to Nexus as the addon's loader for the
     // rest of all time.
-    EV_LANGUAGE_CHANGED.subscribe(event_consume!(
-        <()> |_| {
-            reload_language();
-        }
-    )).revert_on_unload();
+    EV_LANGUAGE_CHANGED
+        .subscribe(event_consume!(
+            <()> |_| {
+                reload_language();
+            }
+        ))
+        .revert_on_unload();
 }
 
 fn detect_language() -> String {
@@ -357,9 +356,12 @@ fn detect_language() -> String {
 fn reload_language() {
     let detected_language = detect_language();
     log::info!("Detected language {detected_language} for internationalization");
-    let detected_language_identifier: LanguageIdentifier = detected_language.parse().expect("Cannot parse detected language");
+    let detected_language_identifier: LanguageIdentifier = detected_language
+        .parse()
+        .expect("Cannot parse detected language");
     let get_language = vec![detected_language_identifier];
-    i18n_embed::select(&*LANGUAGE_LOADER, &*LOCALIZATIONS, get_language.as_slice()).expect("Couldn't load language!");
+    i18n_embed::select(&*LANGUAGE_LOADER, &*LOCALIZATIONS, get_language.as_slice())
+        .expect("Couldn't load language!");
     (&*LANGUAGE_LOADER).set_use_isolating(false);
 }
 

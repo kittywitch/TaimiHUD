@@ -5,14 +5,13 @@ use {
             ConfigTabState, DataSourceTabState, InfoTabState, TimerTabState, TimerWindowState,
         },
         ControllerEvent, CONTROLLER_SENDER, SETTINGS,
-    }, nexus::imgui::{Ui, Window},
+    },
+    nexus::imgui::{Ui, Window},
     std::collections::HashMap,
 };
 
 #[cfg(feature = "markers")]
-use {
-    super::MarkerTabState, 
-};
+use super::MarkerTabState;
 
 pub struct PrimaryWindowState {
     pub config_tab: ConfigTabState,
@@ -37,7 +36,12 @@ impl PrimaryWindowState {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
+    pub fn draw(
+        &mut self,
+        ui: &Ui,
+        timer_window_state: &mut TimerWindowState,
+        state_errors: &mut HashMap<String, anyhow::Error>,
+    ) {
         let mut open = self.open;
         if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
             open = settings.primary_window_open;
@@ -53,9 +57,9 @@ impl PrimaryWindowState {
                         };
                         #[cfg(feature = "markers")]
                         {
-                        if let Some(_token) = ui.tab_item(&fl!("marker-tab")) {
-                            self.marker_tab.draw(ui, state_errors);
-                        }
+                            if let Some(_token) = ui.tab_item(&fl!("marker-tab")) {
+                                self.marker_tab.draw(ui, state_errors);
+                            }
                         }
                         if let Some(_token) = ui.tab_item(&fl!("data-sources-tab")) {
                             self.data_sources_tab.draw(ui, state_errors);
@@ -71,8 +75,10 @@ impl PrimaryWindowState {
         }
         if open != self.open {
             let sender = CONTROLLER_SENDER.get().unwrap();
-            let event_send =
-                sender.try_send(ControllerEvent::WindowState("primary".to_string(), Some(open)));
+            let event_send = sender.try_send(ControllerEvent::WindowState(
+                "primary".to_string(),
+                Some(open),
+            ));
             drop(event_send);
             self.open = open;
         }

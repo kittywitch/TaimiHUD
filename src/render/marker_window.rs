@@ -1,7 +1,27 @@
 use {
-    super::RenderState, crate::{
-        fl, marker::{atomic::MarkerInputData, format::{MarkerEntry, MarkerSet, MarkerType}}, settings::RemoteState, timer::{PhaseState, TimerAlert, TimerFile}, util::{PositionInput, UiExt}, ControllerEvent, ACCOUNT_NAME_CELL, CONTROLLER_SENDER, SETTINGS
-    }, glam::{Vec2, Vec3}, nexus::{imgui::{Id, InputTextFlags, ProgressBar, StyleColor, TableColumnFlags, TableColumnSetup, TableFlags, Ui, Window}, paths::get_addon_dir, rtapi::{GroupType, RealTimeApi}}, relative_path::{RelativePath, RelativePathBuf}, std::{f32, path::Path, sync::Arc}
+    super::RenderState,
+    crate::{
+        fl,
+        marker::{
+            atomic::MarkerInputData,
+            format::{MarkerEntry, MarkerSet, MarkerType},
+        },
+        settings::RemoteState,
+        timer::{PhaseState, TimerAlert, TimerFile},
+        util::{PositionInput, UiExt},
+        ControllerEvent, ACCOUNT_NAME_CELL, CONTROLLER_SENDER, SETTINGS,
+    },
+    glam::{Vec2, Vec3},
+    nexus::{
+        imgui::{
+            Id, InputTextFlags, ProgressBar, StyleColor, TableColumnFlags, TableColumnSetup,
+            TableFlags, Ui, Window,
+        },
+        paths::get_addon_dir,
+        rtapi::{GroupType, RealTimeApi},
+    },
+    relative_path::{RelativePath, RelativePathBuf},
+    std::{f32, path::Path, sync::Arc},
 };
 
 pub struct EditMarkerWindowState {
@@ -63,9 +83,10 @@ impl EditMarkerWindowState {
     pub fn to_marker_set(&self) -> Option<MarkerSet> {
         let marker_types = MarkerType::iter_real_values();
         let enabled = true;
-        let markers = marker_types.enumerate().flat_map(|(i, k)| {
-            self.markers[i].to_marker_entry(k)
-        }).collect();
+        let markers = marker_types
+            .enumerate()
+            .flat_map(|(i, k)| self.markers[i].to_marker_entry(k))
+            .collect();
         Some(MarkerSet {
             enabled,
             markers,
@@ -90,7 +111,7 @@ impl EditMarkerWindowState {
                         } else {
                             "".to_string()
                         }
-                    },
+                    }
                     None => "".to_string(),
                 },
             };
@@ -110,7 +131,8 @@ impl EditMarkerWindowState {
         if open {
             let closed = Window::new(&fl!("markers"))
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
-                .opened(&mut open).build(ui, || {
+                .opened(&mut open)
+                .build(ui, || {
                     let name_name = fl!("name");
                     let name_input = ui.input_text(&name_name, &mut self.name);
                     name_input.build();
@@ -131,16 +153,20 @@ impl EditMarkerWindowState {
                     let description_input = ui.input_text_multiline(
                         &description_name,
                         &mut self.description,
-                        [0.0, 0.0]);
+                        [0.0, 0.0],
+                    );
                     description_input.build();
                     self.trigger.draw_display(ui, true);
                     self.trigger.draw_take_current(ui);
                     self.trigger.draw_edit_manual(ui);
                     ui.dummy([4.0; 2]);
                     if let Some(rtapi) = RealTimeApi::get() {
-                            if let Some(group) = rtapi.read_group() {
-                                let is_squad = matches!(group.group_type, Ok(GroupType::Squad | GroupType::RaidSquad));
-                                if is_squad {
+                        if let Some(group) = rtapi.read_group() {
+                            let is_squad = matches!(
+                                group.group_type,
+                                Ok(GroupType::Squad | GroupType::RaidSquad)
+                            );
+                            if is_squad {
                                 if ui.button(&fl!("take-squad-markers")) {
                                     for (i, marker) in group.squad_markers.iter().enumerate() {
                                         if *marker != [f32::INFINITY; 3] {
@@ -148,42 +174,54 @@ impl EditMarkerWindowState {
                                         }
                                     }
                                 }
-                                } else {
-                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], &fl!("cannot-take-squad-markers"));
-                                }
                             } else {
-                                    ui.text_colored([1.0, 1.0, 0.0, 1.0], &fl!("cannot-take-squad-markers"));
+                                ui.text_colored(
+                                    [1.0, 1.0, 0.0, 1.0],
+                                    &fl!("cannot-take-squad-markers"),
+                                );
                             }
+                        } else {
+                            ui.text_colored(
+                                [1.0, 1.0, 0.0, 1.0],
+                                &fl!("cannot-take-squad-markers"),
+                            );
+                        }
                     } else {
-                        ui.text_colored([1.0, 1.0, 0.0, 1.0], &fl!("rt-api-required-squad-markers"));
+                        ui.text_colored(
+                            [1.0, 1.0, 0.0, 1.0],
+                            &fl!("rt-api-required-squad-markers"),
+                        );
                     }
                     ui.dummy([4.0; 2]);
-                    let table_flags = TableFlags::RESIZABLE | TableFlags::ROW_BG | TableFlags::BORDERS;
-                    let table = ui.begin_table_header_with_flags("edit_markers", [
-                        TableColumnSetup {
-                            name: &fl!("icon"),
-                            flags: TableColumnFlags::WIDTH_FIXED,
-                            init_width_or_weight: 0.0,
-                            user_id: Id::Str("marker_icon"),
-                        },
-                        TableColumnSetup {
-                            name: &fl!("description"),
-                            flags: TableColumnFlags::WIDTH_STRETCH,
-                            init_width_or_weight: 0.0,
-                            user_id: Id::Str("marker_desc"),
-                        },
-                        TableColumnSetup {
-                            name: &fl!("local-header"),
-                            flags: TableColumnFlags::WIDTH_STRETCH,
-                            init_width_or_weight: 0.0,
-                            user_id: Id::Str("marker_pos"),
-                        },
-                        TableColumnSetup {
-                            name: &fl!("controls"),
-                            flags: TableColumnFlags::WIDTH_STRETCH,
-                            init_width_or_weight: 0.0,
-                            user_id: Id::Str("marker_pos"),
-                        }
+                    let table_flags =
+                        TableFlags::RESIZABLE | TableFlags::ROW_BG | TableFlags::BORDERS;
+                    let table = ui.begin_table_header_with_flags(
+                        "edit_markers",
+                        [
+                            TableColumnSetup {
+                                name: &fl!("icon"),
+                                flags: TableColumnFlags::WIDTH_FIXED,
+                                init_width_or_weight: 0.0,
+                                user_id: Id::Str("marker_icon"),
+                            },
+                            TableColumnSetup {
+                                name: &fl!("description"),
+                                flags: TableColumnFlags::WIDTH_STRETCH,
+                                init_width_or_weight: 0.0,
+                                user_id: Id::Str("marker_desc"),
+                            },
+                            TableColumnSetup {
+                                name: &fl!("local-header"),
+                                flags: TableColumnFlags::WIDTH_STRETCH,
+                                init_width_or_weight: 0.0,
+                                user_id: Id::Str("marker_pos"),
+                            },
+                            TableColumnSetup {
+                                name: &fl!("controls"),
+                                flags: TableColumnFlags::WIDTH_STRETCH,
+                                init_width_or_weight: 0.0,
+                                user_id: Id::Str("marker_pos"),
+                            },
                         ],
                         table_flags,
                     );
@@ -193,7 +231,8 @@ impl EditMarkerWindowState {
                         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
                         let alert_str = format!("cmdr{value}.png");
                         let alert_icon = Path::new(&alert_str);
-                        let alert_icon = RelativePathBuf::from_path(alert_icon).expect("Can't make path relative");
+                        let alert_icon = RelativePathBuf::from_path(alert_icon)
+                            .expect("Can't make path relative");
                         let path = addon_dir.join("markers").join("icons");
                         let path = alert_icon.to_path(path);
                         RenderState::icon(ui, Some(32.0), Some(&alert_icon), Some(&path));
@@ -201,12 +240,9 @@ impl EditMarkerWindowState {
                         let label_size = ui.push_item_width(-1.0);
                         let label = format!("##Marker Description {value}");
                         let meep = ui.push_id(&label);
-                        let description_input = ui.input_text(
-                            &label,
-                            &mut self.markers[i].description);
-                        description_input
-                            .hint(&fl!("no-description"))
-                            .build();
+                        let description_input =
+                            ui.input_text(&label, &mut self.markers[i].description);
+                        description_input.hint(&fl!("no-description")).build();
                         label_size.pop(ui);
                         meep.pop();
                         ui.table_next_column();
@@ -222,8 +258,7 @@ impl EditMarkerWindowState {
                     }
                     ui.dummy([4.0; 2]);
                     if ui.button(&fl!("save")) {
-                        
-                        return true
+                        return true;
                     }
                     false
                 });
@@ -231,7 +266,6 @@ impl EditMarkerWindowState {
                 Some(true) => false,
                 _ => open,
             };
-
         }
     }
 }

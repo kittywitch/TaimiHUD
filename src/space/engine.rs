@@ -9,7 +9,6 @@ use {
         timer::{PhaseState, RotationType, TimerFile, TimerMarker},
     },
     anyhow::anyhow,
-    
     bevy_ecs::prelude::*,
     glam::{Mat4, Vec3, Vec3Swizzles},
     itertools::Itertools,
@@ -56,11 +55,18 @@ fn handle_marker_timings(mut commands: Commands, mut query: Query<(Entity, &Mark
     let now = Instant::now();
     for (entity, marker, mut render) in &mut query {
         if now > marker.marker.end(marker.start) {
-            log::info!("Entity {} reached end after {}, despawning.", entity, marker.marker.duration);
+            log::info!(
+                "Entity {} reached end after {}, despawning.",
+                entity,
+                marker.marker.duration
+            );
             commands.entity(entity).despawn();
-        }
-        else if now > marker.marker.start(marker.start) && render.disabled {
-            log::info!("Entity {} reached start at {}!", entity, marker.marker.timestamp);
+        } else if now > marker.marker.start(marker.start) && render.disabled {
+            log::info!(
+                "Entity {} reached start at {}!",
+                entity,
+                marker.marker.timestamp
+            );
             render.disabled = false;
         }
     }
@@ -100,7 +106,6 @@ impl Engine {
         );
 
         let mut world = World::new();
-
 
         let mut schedule = Schedule::default();
 
@@ -205,8 +210,7 @@ impl Engine {
         Ok(())
     }
 
-    pub fn check_phase_ends() {
-    }
+    pub fn check_phase_ends() {}
 
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;

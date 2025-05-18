@@ -1,4 +1,10 @@
-use {anyhow::anyhow, windows::Win32::Graphics::Direct3D11::{ID3D11BlendState, ID3D11Device, ID3D11DeviceContext, D3D11_BLEND_DESC, D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_ONE, D3D11_BLEND_OP_ADD, D3D11_BLEND_SRC_ALPHA, D3D11_BLEND_ZERO, D3D11_COLOR_WRITE_ENABLE_ALL, D3D11_RENDER_TARGET_BLEND_DESC}
+use {
+    anyhow::anyhow,
+    windows::Win32::Graphics::Direct3D11::{
+        ID3D11BlendState, ID3D11Device, ID3D11DeviceContext, D3D11_BLEND_DESC,
+        D3D11_BLEND_INV_SRC_ALPHA, D3D11_BLEND_ONE, D3D11_BLEND_OP_ADD, D3D11_BLEND_SRC_ALPHA,
+        D3D11_BLEND_ZERO, D3D11_COLOR_WRITE_ENABLE_ALL, D3D11_RENDER_TARGET_BLEND_DESC,
+    },
 };
 
 pub struct BlendingHandler {
@@ -7,9 +13,7 @@ pub struct BlendingHandler {
 
 impl BlendingHandler {
     pub fn setup(device: &ID3D11Device) -> anyhow::Result<Self> {
-        log::debug!(
-            "Setting up blending handler",
-        );
+        log::debug!("Setting up blending handler",);
         let rt_blend_desc = D3D11_RENDER_TARGET_BLEND_DESC {
             BlendEnable: true.into(),
             SrcBlend: D3D11_BLEND_SRC_ALPHA,
@@ -27,29 +31,16 @@ impl BlendingHandler {
             RenderTarget: rt_blend_descs,
         };
         let mut ptr: Option<ID3D11BlendState> = None;
-        let blend_state = unsafe {
-            device.CreateBlendState(
-                &blend_desc,
-                Some(&mut ptr),
-            )
-        }
+        let blend_state = unsafe { device.CreateBlendState(&blend_desc, Some(&mut ptr)) }
             .map_err(anyhow::Error::from)
             .and_then(|()| ptr.ok_or_else(|| anyhow!("no blend state")))?;
-        log::debug!(
-            "Set up blending handler",
-        );
-        Ok(Self {
-            blend_state,
-        })
+        log::debug!("Set up blending handler",);
+        Ok(Self { blend_state })
     }
 
     pub fn set(&self, context: &ID3D11DeviceContext) {
         unsafe {
-            context.OMSetBlendState(
-                &self.blend_state,
-                None,
-                u32::MAX
-            );
+            context.OMSetBlendState(&self.blend_state, None, u32::MAX);
         }
     }
 }

@@ -1,5 +1,13 @@
 use {
-    arc_atomic::AtomicArc, glam::{Affine3A, Mat4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles}, glamour::{point3, Angle, Box2, Contains, Point2, Point3, Rect, Scalar, Size2, Transform2, Transform3, TransformMap, Unit, Vector2, Vector3}, itertools::Itertools, nexus::data_link::mumble::UIScaling, std::sync::{Arc, OnceLock}
+    arc_atomic::AtomicArc,
+    glam::{Affine3A, Mat4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles},
+    glamour::{
+        point3, Angle, Box2, Contains, Point2, Point3, Rect, Scalar, Size2, Transform2, Transform3,
+        TransformMap, Unit, Vector2, Vector3,
+    },
+    itertools::Itertools,
+    nexus::data_link::mumble::UIScaling,
+    std::sync::{Arc, OnceLock},
 };
 
 pub static MARKERINPUTDATA: OnceLock<Arc<AtomicArc<MarkerInputData>>> = OnceLock::new();
@@ -82,8 +90,6 @@ pub type WorldmapToMap = Transform2<WorldmapSpace, MapSpace>;
 pub type LocalToMap = Transform3<LocalSpace, MapSpace>;
 pub type MapToLocal = Transform2<MapSpace, LocalSpace>;
 
-
-
 #[derive(Copy, Debug, Default, PartialEq, Clone)]
 pub struct MarkerInputData {
     pub scaling: f32,
@@ -118,23 +124,21 @@ impl SignObtainer {
             let local = local.xz();
             if let Some(point1) = self.point1 {
                 // take point from 0.5m away in each direction, for accuracy
-                if (local.x - point1.local.x).abs() > 5.0 && (local.y - point1.local.y).abs() > 5.0 {
-                    self.point2 = Some(LocalGlobalHolder {
-                        local,
-                        global
-                    });
+                if (local.x - point1.local.x).abs() > 5.0 && (local.y - point1.local.y).abs() > 5.0
+                {
+                    self.point2 = Some(LocalGlobalHolder { local, global });
                     // though, if it's less than a minimum, wipe it and try again
                     let test_sign = self.sign();
-                    if test_sign.cmple(Vec2::new(Self::meters_per_feet(), Self::meters_per_feet())).all() {
+                    if test_sign
+                        .cmple(Vec2::new(Self::meters_per_feet(), Self::meters_per_feet()))
+                        .all()
+                    {
                         self.point1 = None;
                         self.point2 = None;
                     }
                 }
             } else {
-                self.point1 = Some(LocalGlobalHolder {
-                    local,
-                    global
-                });
+                self.point1 = Some(LocalGlobalHolder { local, global });
             }
         }
         // once we have two points, this becomes a no-op other than the comparison
@@ -177,7 +181,6 @@ pub struct LocalGlobalHolder {
 }
 
 impl MarkerInputData {
-
     // ultimate goals:
     // * screen to local, map
     // * map, local to screen
@@ -205,10 +208,10 @@ impl MarkerInputData {
     //   - [x] local -> map
 
     /*
-    *
-    * PRIMITIVE TRANSFORMS, ETC!
-    *
-    */
+     *
+     * PRIMITIVE TRANSFORMS, ETC!
+     *
+     */
 
     // the compass size is already in fakespace, but i have not yet
     // annotated it for the type that it truly is, because on the
@@ -221,14 +224,12 @@ impl MarkerInputData {
     }
 
     pub fn screen_to_fake(&self) -> Transform2<ScreenSpace, FakeSpace> {
-        let screen_scaling_factor = Vector2::splat(1.0/self.scaling);
+        let screen_scaling_factor = Vector2::splat(1.0 / self.scaling);
         ScreenToFake::from_scale(screen_scaling_factor)
     }
 
     pub fn screen_bound(&self) -> ScreenBound {
-        ScreenBound::from_size(
-            self.display_size.into()
-        )
+        ScreenBound::from_size(self.display_size.into())
     }
 
     pub fn fake_bound(&self) -> FakeBound {
@@ -284,16 +285,9 @@ impl MarkerInputData {
             MinimapPlacement::Bottom => fakebound.size - Size2::new(0.0, 37.0),
         };
         let min = max - compass_size;
-        let min = min
-            .to_vector()
-            .to_point();
-        let max = max
-            .to_vector()
-            .to_point();
-        let minimap_bound: Box2<FakeSpace> = Box2::new(
-            min,
-            max
-        );
+        let min = min.to_vector().to_point();
+        let max = max.to_vector().to_point();
+        let minimap_bound: Box2<FakeSpace> = Box2::new(min, max);
         minimap_bound.to_rect()
     }
 
@@ -304,14 +298,10 @@ impl MarkerInputData {
         // changing the origin from (0,0) as in fakespace
         // to min, or the top left point (not pixel, its scaled)
         // coordinate of the minimap
-        FakeToMinimap::from_translation(
-            -fakespace_minimap_bound.min().to_vector()
-        )
+        FakeToMinimap::from_translation(-fakespace_minimap_bound.min().to_vector())
     }
 
-    pub fn map_fake_to_minimap(
-        &self, point: FakePoint,
-    ) -> Option<MinimapPoint> {
+    pub fn map_fake_to_minimap(&self, point: FakePoint) -> Option<MinimapPoint> {
         let fakespace_minimap_bound = self.fakespace_minimap_bound();
 
         if fakespace_minimap_bound.contains(&point) {
@@ -368,18 +358,18 @@ impl MarkerInputData {
         let worldmap_centre = worldmap_bound.center();
 
         // to translate a point from worldspace into mapspace,
-        WorldmapToMap::from_translation(
-                -worldmap_centre.to_vector()
-            ).then_scale(
+        WorldmapToMap::from_translation(-worldmap_centre.to_vector())
+            .then_scale(
                 // scale the distance by the scaling factor to take it from
                 // worldmap to mapspace units
-                Vector2::splat(self.map_scale)
-            ).then_translate(
+                Vector2::splat(self.map_scale),
+            )
+            .then_translate(
                 // the map space centre is used as a vector
                 // when combined with the distance vector,
                 // it provides the full offset from the origin
                 // in map space, so translate it as such
-                map_centre.to_vector()
+                map_centre.to_vector(),
             )
     }
 
@@ -411,21 +401,19 @@ impl MarkerInputData {
         });
 
         // to translate a point from worldspace into mapspace,
-        MinimapToMap::from_translation(
-                -minimap_centre.to_vector().as_()
-            ).then_rotate(
-                minimap_rotation
-            )
+        MinimapToMap::from_translation(-minimap_centre.to_vector().as_())
+            .then_rotate(minimap_rotation)
             .then_scale(
                 // scale the distance by the scaling factor to take it from
                 // worldmap to mapspace units
-                Vector2::splat(self.map_scale)
-            ).then_translate(
+                Vector2::splat(self.map_scale),
+            )
+            .then_translate(
                 // the map space centre is used as a vector
                 // when combined with the distance vector,
                 // it provides the full offset from the origin
                 // in map space, so translate it as such
-                map_centre.to_vector()
+                map_centre.to_vector(),
             )
     }
 
@@ -454,25 +442,26 @@ impl MarkerInputData {
         // to translate a point from mapspace into localspace,
         MapToLocal::from_translation(
             // first obtain the distance from the common point
-            -map_player_pos.to_vector()
-        ).then_scale(
-                // scale the distance by the scaling factor to take it from
-                // mapspace to localspace units
-                // ~~local z+ is global y-, so for y scale negatively~~
-                // THAT WAS WRONG, EVERY MAP HAS ITS OWN AXES
-                signs //* Vector2::new(scaling_factor_meters_per_feet, scaling_factor_meters_per_feet)
-            ).then_translate(
-                // the player's position is used as a vector
-                // when combined with the distance vector,
-                // it provides the full offset from the origin
-                // in local space, so translate it as such
-                //
-                // the player's local position is a coordinate in 3D space
-                // to translate the 2D point, we must drop the height
-                // in our scheme, this is the Y coordinate
-                local_player_pos_xz.to_vector()
-            )
-
+            -map_player_pos.to_vector(),
+        )
+        .then_scale(
+            // scale the distance by the scaling factor to take it from
+            // mapspace to localspace units
+            // ~~local z+ is global y-, so for y scale negatively~~
+            // THAT WAS WRONG, EVERY MAP HAS ITS OWN AXES
+            signs, //* Vector2::new(scaling_factor_meters_per_feet, scaling_factor_meters_per_feet)
+        )
+        .then_translate(
+            // the player's position is used as a vector
+            // when combined with the distance vector,
+            // it provides the full offset from the origin
+            // in local space, so translate it as such
+            //
+            // the player's local position is a coordinate in 3D space
+            // to translate the 2D point, we must drop the height
+            // in our scheme, this is the Y coordinate
+            local_player_pos_xz.to_vector(),
+        )
     }
 
     pub fn map_map_to_local(&self, point: MapPoint) -> LocalPoint {
@@ -484,11 +473,7 @@ impl MarkerInputData {
         // a lossy operation; you lose your third d (it's ok you have two more dont be sad)
         let player_height = self.local_player_pos.y;
 
-        point3!(
-            heightless_local.x,
-            player_height,
-            heightless_local.y
-        )
+        point3!(heightless_local.x, player_height, heightless_local.y)
     }
 
     pub fn map_local_to_map(&self, point: LocalPoint) -> MapPoint {
@@ -498,27 +483,26 @@ impl MarkerInputData {
     }
 
     /*
-    *
-    * Usable Transformations
-    *
-    */
+     *
+     * Usable Transformations
+     *
+     */
 
     // choose, based upon the current situation (perspective)
     // how to convert the fake screen coordinate into continent
     pub fn map_fake_to_map(&self, point: FakePoint) -> Option<MapPoint> {
         match self.perspective {
             CurrentPerspective::Minimap => {
-                if let Some(intermediate)
-                    = self.map_fake_to_minimap(point) {
+                if let Some(intermediate) = self.map_fake_to_minimap(point) {
                     Some(self.map_minimap_to_map(intermediate))
                 } else {
                     None
                 }
-            },
+            }
             CurrentPerspective::Global => {
                 let intermediate = self.map_fake_to_worldmap(point);
                 Some(self.map_worldmap_to_map(intermediate))
-            },
+            }
         }
     }
 
@@ -530,19 +514,17 @@ impl MarkerInputData {
                 let fakespace_minimap_bound = self.fakespace_minimap_bound();
                 let minimap_to_fake = self.fake_to_minimap(fakespace_minimap_bound).inverse();
 
-                let transforms = map_to_minimap
-                    .then(minimap_to_fake);
+                let transforms = map_to_minimap.then(minimap_to_fake);
                 transforms.map(point)
-            },
+            }
             CurrentPerspective::Global => {
                 let map_to_worldmap = self.worldmap_to_map().inverse();
 
                 let worldmap_to_fake = self.fake_to_worldmap().inverse();
 
-                let transforms = map_to_worldmap
-                    .then(worldmap_to_fake);
+                let transforms = map_to_worldmap.then(worldmap_to_fake);
                 transforms.map(point)
-            },
+            }
         }
     }
 
@@ -552,7 +534,7 @@ impl MarkerInputData {
         if self.perspective == CurrentPerspective::Minimap {
             let fakespace_minimap_bound = self.fakespace_minimap_bound();
             if !fakespace_minimap_bound.contains(&fake_point) {
-                return None
+                return None;
             }
         }
         let fake_to_screen = self.screen_to_fake().inverse();
@@ -585,11 +567,7 @@ impl MarkerInputData {
     pub fn from_nexus(scaling: f32) {
         if let Some(data) = MARKERINPUTDATA.get() {
             let mdata = data.load();
-            data.store(Arc::new(MarkerInputData {
-                scaling,
-                ..*mdata
-
-            }));
+            data.store(Arc::new(MarkerInputData { scaling, ..*mdata }));
         }
     }
 
@@ -602,7 +580,6 @@ impl MarkerInputData {
             }));
         }
     }
-
 
     pub fn reset_signobtainer() {
         if let Some(data) = MARKERINPUTDATA.get() {
@@ -628,9 +605,14 @@ impl MarkerInputData {
     }
 
     pub fn from_tick(
-        local_player_pos: Vec3, global_player_pos: Vec2, global_map: Vec2,
-        compass_size: Vec2, compass_rotation: f32, map_scale: f32,
-        perspective: CurrentPerspective, minimap_placement: MinimapPlacement,
+        local_player_pos: Vec3,
+        global_player_pos: Vec2,
+        global_map: Vec2,
+        compass_size: Vec2,
+        compass_rotation: f32,
+        map_scale: f32,
+        perspective: CurrentPerspective,
+        minimap_placement: MinimapPlacement,
         rotation_enabled: bool,
     ) {
         if let Some(data) = MARKERINPUTDATA.get() {
@@ -647,7 +629,10 @@ impl MarkerInputData {
                 rotation_enabled,
                 ..*mdata
             };
-            ndata.sign_obtainer.prepare(ndata.local_player_pos.into(), ndata.global_player_pos.into());
+            ndata.sign_obtainer.prepare(
+                ndata.local_player_pos.into(),
+                ndata.global_player_pos.into(),
+            );
             data.store(Arc::new(ndata));
         }
     }

@@ -2,9 +2,11 @@
 * Derived from belst; https://github.com/belst/nexus-wingman-uploader/blob/master/src/util.rs
 */
 
-use crate::{fl, marker::atomic::MarkerInputData};
-use glam::Vec3;
-use nexus::imgui::{InputFloat3, StyleColor, Ui};
+use {
+    crate::{fl, marker::atomic::MarkerInputData},
+    glam::Vec3,
+    nexus::imgui::{InputFloat3, StyleColor, Ui},
+};
 
 pub trait UiExt {
     fn help_marker<F: FnOnce()>(&self, f: F) -> bool;
@@ -66,23 +68,27 @@ pub struct PositionInput {
 
 impl PositionInput {
     pub fn draw_display(&self, ui: &Ui, trigger: bool) {
-            if let Some(position) = self.position {
-                let position = format!("({}, {}, {})", position.x, position.y, position.z);
-                if trigger {
-                    ui.text_wrapped(&fl!("trigger", position = position));
-                    ui.help_marker(|| { ui.tooltip_text(fl!("trigger-explanation")); });
-                } else {
-                    ui.text_wrapped(position);
-                }
+        if let Some(position) = self.position {
+            let position = format!("({}, {}, {})", position.x, position.y, position.z);
+            if trigger {
+                ui.text_wrapped(&fl!("trigger", position = position));
+                ui.help_marker(|| {
+                    ui.tooltip_text(fl!("trigger-explanation"));
+                });
             } else {
-                let position = fl!("no-position");
-                if trigger {
-                    ui.text_wrapped(&fl!("trigger", position = position));
-                    ui.help_marker(|| { ui.tooltip_text(fl!("trigger-explanation")); });
-                } else {
-                    ui.text_wrapped(position);
-                }
+                ui.text_wrapped(position);
             }
+        } else {
+            let position = fl!("no-position");
+            if trigger {
+                ui.text_wrapped(&fl!("trigger", position = position));
+                ui.help_marker(|| {
+                    ui.tooltip_text(fl!("trigger-explanation"));
+                });
+            } else {
+                ui.text_wrapped(position);
+            }
+        }
     }
     pub fn draw_take_current(&mut self, ui: &Ui) {
         if ui.button(&fl!("position-get")) {
@@ -104,11 +110,7 @@ impl PositionInput {
         }
         if self.opened {
             let position_as_type = self.position.get_or_insert_default().as_mut();
-            let position_input = InputFloat3::new(
-                ui,
-                fl!("manual-position"),
-                position_as_type
-            );
+            let position_input = InputFloat3::new(ui, fl!("manual-position"), position_as_type);
             position_input.build();
             if ui.button(&fl!("revert")) {
                 self.opened = false;

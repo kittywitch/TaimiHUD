@@ -1,7 +1,4 @@
-mod timer;
 mod remote_state;
+mod timer;
 
-pub use {
-    timer::TimerSettings,
-    remote_state::RemoteState,
-};
+pub use {remote_state::RemoteState, timer::TimerSettings};

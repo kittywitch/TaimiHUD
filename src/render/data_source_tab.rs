@@ -1,8 +1,13 @@
 use {
-    crate::{controller::ControllerEvent, render::RenderState, settings::{NeedsUpdate, RemoteState}, CONTROLLER_SENDER, SETTINGS},
-    nexus::imgui::{im_str, PopupModal, StyleColor, TableColumnSetup, TableFlags, Ui}, std::{collections::HashMap, ffi::OsStr},
-    crate::settings::Source,
-    crate::fl,
+    crate::{
+        controller::ControllerEvent,
+        fl,
+        render::RenderState,
+        settings::{NeedsUpdate, RemoteState, Source},
+        CONTROLLER_SENDER, SETTINGS,
+    },
+    nexus::imgui::{im_str, PopupModal, StyleColor, TableColumnSetup, TableFlags, Ui},
+    std::{collections::HashMap, ffi::OsStr},
 };
 
 pub struct DataSourceTabState {
@@ -30,7 +35,8 @@ impl DataSourceTabState {
         }
         if let Some(_token) = PopupModal::new(&modal_name)
             .always_auto_resize(true)
-            .begin_popup(ui) {
+            .begin_popup(ui)
+        {
             ui.text_wrapped(fl!("addon-uninstall-modal-title"));
             ui.dummy([4.0, 4.0]);
             if let Some(path) = &rs.installed_path {
@@ -44,8 +50,8 @@ impl DataSourceTabState {
             ui.dummy([4.0, 4.0]);
             if ui.button(fl!("addon-uninstall-modal-button")) {
                 let sender = CONTROLLER_SENDER.get().unwrap();
-                let event_send = sender.try_send(ControllerEvent::UninstallAddon(rs.source.clone()
-                ));
+                let event_send =
+                    sender.try_send(ControllerEvent::UninstallAddon(rs.source.clone()));
                 drop(event_send);
                 ui.close_current_popup();
             }
@@ -81,15 +87,9 @@ impl DataSourceTabState {
                 ui.same_line();
                 if let Some(last_checked) = &settings.last_checked {
                     let time_display = last_checked.format("%F %T %Z").to_string();
-                    ui.text(fl!(
-                        "checked-for-updates-last",
-                        time=time_display
-                    ));
+                    ui.text(fl!("checked-for-updates-last", time = time_display));
                 } else {
-                    ui.text(fl!(
-                        "checked-for-updates-last",
-                        time="Never"
-                    ));
+                    ui.text(fl!("checked-for-updates-last", time = "Never"));
                 }
                 ui.dummy([8.0, 8.0]);
                 let table_flags = TableFlags::RESIZABLE | TableFlags::ROW_BG | TableFlags::BORDERS;
@@ -134,15 +134,26 @@ impl DataSourceTabState {
                     if let Some(button_text) = button_text {
                         if ui.button(button_text) {
                             let sender = CONTROLLER_SENDER.get().unwrap();
-                            let event_send =
-                                sender.try_send(ControllerEvent::DoDataSourceUpdate { source: source_arc });
+                            let event_send = sender.try_send(ControllerEvent::DoDataSourceUpdate {
+                                source: source_arc,
+                            });
                             drop(event_send);
                         }
                     }
-                    RenderState::draw_open_button(state_errors, ui, fl!("open-button", kind = "repository"), source.view_url());
+                    RenderState::draw_open_button(
+                        state_errors,
+                        ui,
+                        fl!("open-button", kind = "repository"),
+                        source.view_url(),
+                    );
                     if let Some(path) = &download_data.installed_path {
-                        if let Some (path) = path.to_str() {
-                            RenderState::draw_open_button(state_errors, ui, fl!("open-button", kind = "folder"), path.to_string());
+                        if let Some(path) = path.to_str() {
+                            RenderState::draw_open_button(
+                                state_errors,
+                                ui,
+                                fl!("open-button", kind = "folder"),
+                                path.to_string(),
+                            );
                         }
                         self.draw_uninstall(ui, download_data);
                     }

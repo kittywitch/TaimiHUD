@@ -1,18 +1,27 @@
-use std::{collections::HashMap, fs::exists, path::Path};
-
-use super::atomic::{CurrentPerspective, MinimapPlacement};
-
 use {
-    crate::timer::{BlishVec3, Polytope, Position}, chrono::{DateTime, Utc}, glam::{Mat4, Vec3}, nexus::gamebind::GameBind, serde::{Deserialize, Serialize}, std::{path::PathBuf, sync::Arc}
+    super::atomic::{CurrentPerspective, MinimapPlacement},
+    crate::timer::{BlishVec3, Polytope, Position},
+    anyhow::anyhow,
+    chrono::{DateTime, Utc},
+    glam::{Mat4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles},
+    glob::Paths,
+    nexus::gamebind::GameBind,
+    serde::{Deserialize, Serialize},
+    serde_repr::{Deserialize_repr, Serialize_repr},
+    std::{
+        collections::HashMap,
+        fs::exists,
+        path::{Path, PathBuf},
+        sync::Arc,
+    },
+    strum_macros::{Display, FromRepr},
+    tokio::{
+        fs::{create_dir_all, read_to_string, File},
+        io::AsyncWriteExt,
+        sync::Semaphore,
+        task::JoinSet,
+    },
 };
-use anyhow::anyhow;
-use glam::{Vec2, Vec2Swizzles, Vec3Swizzles};
-use glob::Paths;
-use serde_repr::{Deserialize_repr, Serialize_repr};
-use strum_macros::{Display, FromRepr};
-use tokio::{fs::{create_dir_all, read_to_string, File}, sync::Semaphore, task::JoinSet};
-use tokio::io::AsyncWriteExt;
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -39,11 +48,15 @@ impl RuntimeMarkers {
     pub fn get_paths(path: &Path) -> anyhow::Result<Paths> {
         let pathbuf_glob = Self::path_glob(path);
 
-        let path_glob_str = pathbuf_glob.to_str()
+        let path_glob_str = pathbuf_glob
+            .to_str()
             .ok_or_else(|| anyhow!("Timer file loading path glob unparseable for {path:?}"))?;
-            Ok(glob::glob(path_glob_str)?)
+        Ok(glob::glob(path_glob_str)?)
     }
-    pub async fn load_many(load_dir: &Path, simultaneous_limit: usize) -> anyhow::Result<Vec<Arc<Self>>> {
+    pub async fn load_many(
+        load_dir: &Path,
+        simultaneous_limit: usize,
+    ) -> anyhow::Result<Vec<Arc<Self>>> {
         log::debug!("Beginning load_many for {load_dir:?} with a simultaneous open limit of {simultaneous_limit}.");
         let mut marker_files = Vec::new();
         if exists(load_dir)? {
@@ -58,7 +71,6 @@ impl RuntimeMarkers {
                     drop(permit);
                     Ok::<Arc<Self>, anyhow::Error>(marker_file)
                 });
-
             }
             let (mut join_errors, mut load_errors): (usize, usize) = (0, 0);
             while let Some(marker_file) = set.join_next().await {
@@ -66,16 +78,16 @@ impl RuntimeMarkers {
                     Ok(res) => match res {
                         Ok(marker_file) => {
                             marker_files.push(marker_file);
-                        },
+                        }
                         Err(err) => {
                             load_errors += 1;
                             log::error!("marker load_many error for {load_dir:?}: {err}");
-                        },
+                        }
                     },
                     Err(err) => {
                         join_errors += 1;
                         log::error!("marker load_many join error for {load_dir:?}: {err}");
-                    },
+                    }
                 }
             }
             log::debug!(
@@ -113,18 +125,17 @@ impl RuntimeMarkers {
                             entry.push(marker_set_arc);
                         }
                     }
-                },
+                }
                 MarkerFormats::Custom(c) => {
                     let category_name = "Custom".to_string();
                     let entry = finalized.entry(category_name).or_default();
                     for marker_set in &c.squad_marker_preset {
-                            let mut marker_set_data = marker_set.clone();
-                            marker_set_data.path = pack.path.clone();
-                            let marker_set_arc = Arc::new(marker_set_data);
-                            entry.push(marker_set_arc);
+                        let mut marker_set_data = marker_set.clone();
+                        marker_set_data.path = pack.path.clone();
+                        let marker_set_arc = Arc::new(marker_set_data);
+                        entry.push(marker_set_arc);
                     }
-
-                },
+                }
             }
         }
         finalized
@@ -159,7 +170,6 @@ impl CustomMarkers {
     }
 }
 
-
 impl MarkerFile {
     pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
         log::debug!("Attempting to load the markers file at \"{path:?}\".");
@@ -175,7 +185,7 @@ impl MarkerFile {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkerCategory {
-    #[serde(alias="categoryName")]
+    #[serde(alias = "categoryName")]
     pub name: String,
     pub marker_sets: Vec<MarkerSet>,
 }
@@ -211,9 +221,9 @@ impl MarkerSet {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MarkerEntry {
-    #[serde(alias="i")]
+    #[serde(alias = "i")]
     pub marker: MarkerType,
-    #[serde(alias="d")]
+    #[serde(alias = "d")]
     pub id: Option<String>,
     #[serde(flatten)]
     pub position: MarkerPosition,
@@ -236,7 +246,11 @@ impl From<MarkerPosition> for Vec3 {
 impl From<Vec3> for MarkerPosition {
     // it's pre-swizzled
     fn from(local: Vec3) -> Self {
-        Self { x: local.x, y: local.z, z: local.y }
+        Self {
+            x: local.x,
+            y: local.z,
+            z: local.y,
+        }
     }
 }
 
@@ -255,11 +269,12 @@ impl From<MarkerPosition> for Position {
 
 impl From<MarkerPosition> for Polytope {
     fn from(local: MarkerPosition) -> Self {
-        Polytope::NSphere { center: local.into(), radius: 15.0 }
+        Polytope::NSphere {
+            center: local.into(),
+            radius: 15.0,
+        }
     }
 }
-
-
 
 #[derive(Serialize_repr, Deserialize_repr, FromRepr, Display, Debug, Clone, PartialEq)]
 #[repr(u8)]

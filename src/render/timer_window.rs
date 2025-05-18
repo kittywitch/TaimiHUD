@@ -35,37 +35,39 @@ impl TimerWindowState {
         if open {
             Window::new("Timers")
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
-                .opened(&mut open).build(ui, || {
-                if !self.phase_states.is_empty() {
-                    if ui.button("Reset Timers") {
-                        let sender = CONTROLLER_SENDER.get().unwrap();
-                        let event_send = sender.try_send(ControllerEvent::TimerReset);
-                        drop(event_send);
-                        self.reset_phases();
+                .opened(&mut open)
+                .build(ui, || {
+                    if !self.phase_states.is_empty() {
+                        if ui.button("Reset Timers") {
+                            let sender = CONTROLLER_SENDER.get().unwrap();
+                            let event_send = sender.try_send(ControllerEvent::TimerReset);
+                            drop(event_send);
+                            self.reset_phases();
+                        }
+                        ui.dummy([2.0; 2]);
+                        ui.separator();
+                        ui.dummy([4.0; 2]);
+                    } else {
+                        ui.text_wrapped(&fl!("no-phases-active"));
                     }
-                    ui.dummy([2.0; 2]);
-                    ui.separator();
-                    ui.dummy([4.0; 2]);
-                }
-                else {
-                    ui.text_wrapped(&fl!("no-phases-active"));
-                }
-                for ps in &self.phase_states {
-                    for alert in ps.alerts.iter() {
-                        if self.progress_bar.stock {
-                            Self::stock_progress_bar(&self.progress_bar, alert, ui, ps);
-                        } else {
-                            Self::progress_bar(&self.progress_bar, alert, ui, ps);
+                    for ps in &self.phase_states {
+                        for alert in ps.alerts.iter() {
+                            if self.progress_bar.stock {
+                                Self::stock_progress_bar(&self.progress_bar, alert, ui, ps);
+                            } else {
+                                Self::progress_bar(&self.progress_bar, alert, ui, ps);
+                            }
                         }
                     }
-                }
-            });
+                });
         }
 
         if open != self.open {
             let sender = CONTROLLER_SENDER.get().unwrap();
-            let event_send =
-                sender.try_send(ControllerEvent::WindowState("timers".to_string(), Some(open)));
+            let event_send = sender.try_send(ControllerEvent::WindowState(
+                "timers".to_string(),
+                Some(open),
+            ));
             drop(event_send);
             self.open = open;
         }

@@ -1,12 +1,11 @@
 use {
-    glam::Vec3,
     super::BlishVec3,
+    glam::Vec3,
     relative_path::RelativePathBuf,
     serde::{Deserialize, Serialize},
     std::path::PathBuf,
     tokio::time::{Duration, Instant},
 };
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BlishDirection {
@@ -16,7 +15,6 @@ pub struct BlishDirection {
     animSpeed: f32,
     duration: f32,
     timestamps: Vec<f32>,
-
 }
 
 impl BlishDirection {
@@ -33,7 +31,10 @@ impl BlishDirection {
     }
 
     pub fn get_directions(&self) -> Vec<TimerDirection> {
-        self.timestamps.iter().map(|&ts| self.direction(ts)).collect()
+        self.timestamps
+            .iter()
+            .map(|&ts| self.direction(ts))
+            .collect()
     }
 }
 

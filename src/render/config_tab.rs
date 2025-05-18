@@ -1,9 +1,11 @@
 use {
-    super::TimerWindowState, crate::{
-        fl,
-        controller::ProgressBarStyleChange, render::TextFont, ControllerEvent, CONTROLLER_SENDER,
-        SETTINGS,
-    }, nexus::imgui::{ComboBox, Condition, Selectable, Slider, TreeNode, TreeNodeFlags, Ui}, strum::IntoEnumIterator
+    super::TimerWindowState,
+    crate::{
+        controller::ProgressBarStyleChange, fl, render::TextFont, ControllerEvent,
+        CONTROLLER_SENDER, SETTINGS,
+    },
+    nexus::imgui::{ComboBox, Condition, Selectable, Slider, TreeNode, TreeNodeFlags, Ui},
+    strum::IntoEnumIterator,
 };
 
 pub struct ConfigTabState {
