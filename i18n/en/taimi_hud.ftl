@@ -14,6 +14,7 @@ object = Object
 files = Files
 # as in 3D
 model = Model
+revert = Revert
 close = Close
 name = Name
 icon = Icon
@@ -144,8 +145,13 @@ take-squad-markers = Take from { current-squad-markers }
 cannot-take-squad-markers = Cannot take from { current-squad-markers }; not in a squad.
 rt-api-required-squad-markers = { rt-api-required-base } taking squad marker locations.
 no-position = No position provided.
+trigger = Trigger: { $position }
+position-plain = { $position }
 position-get = Get current { position }
 set-manually = Set manually
+manual-position = Manual { position }
+set-manually-save = { save } manual { position }
+trigger-explanation = A trigger for a marker set is a 15m radius sphere with its centre at the trigger location.
 
 ## Timer tab
 

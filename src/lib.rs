@@ -1,5 +1,6 @@
 mod controller;
 mod render;
+mod util;
 mod settings;
 mod timer;
 

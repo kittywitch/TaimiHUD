@@ -233,6 +233,13 @@ impl From<MarkerPosition> for Vec3 {
     }
 }
 
+impl From<Vec3> for MarkerPosition {
+    // it's pre-swizzled
+    fn from(local: Vec3) -> Self {
+        Self { x: local.x, y: local.z, z: local.y }
+    }
+}
+
 impl From<MarkerPosition> for BlishVec3 {
     fn from(local: MarkerPosition) -> Self {
         Self::from_vec3(local.into())

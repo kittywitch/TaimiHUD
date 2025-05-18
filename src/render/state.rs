@@ -184,7 +184,7 @@ impl RenderState {
             let event_send = sender.try_send(
                 ControllerEvent::OpenOpenable(entry_name.clone(), openable.clone()));
             drop(event_send);
-            match open::that(&openable) {
+            match open::that_detached(&openable) {
                 Ok(_) => {
                 },
                 Err(err) => {
