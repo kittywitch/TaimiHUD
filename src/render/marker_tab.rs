@@ -1,34 +1,27 @@
 use {
-    super::{Alignment, RenderEvent},
     crate::{
         controller::ControllerEvent,
         fl,
         marker::{
-            atomic::{LocalPoint, MapPoint, MarkerInputData, ScreenPoint, SignObtainer},
-            format::{MarkerFile, MarkerFormats, MarkerSet, RuntimeMarkers},
+            atomic::{LocalPoint, MarkerInputData, ScreenPoint, SignObtainer},
+            format::MarkerSet,
         },
-        render::{RenderState, TimerWindowState},
-        settings::{RemoteSource, TimerSettings},
-        timer::TimerFile,
-        CONTROLLER_SENDER, RENDER_SENDER, SETTINGS,
+        render::RenderState,
+        CONTROLLER_SENDER,
     },
     glam::{Vec2, Vec3},
-    glamour::TransformMap,
     indexmap::IndexMap,
     nexus::{
-        gamebind::invoke_gamebind_async,
         imgui::{
-            ChildWindow, Condition, ConfigFlags, Context, Selectable, TableColumnSetup, TableFlags,
+            ChildWindow, Condition, Selectable, TableColumnSetup, TableFlags,
             TreeNode, TreeNodeFlags, Ui, WindowFlags,
         },
         paths::get_addon_dir,
-        wnd_proc::send_wnd_proc_to_game,
     },
     std::{
         collections::{HashMap, HashSet},
         sync::Arc,
     },
-    windows::Win32::{Foundation::WPARAM, UI::WindowsAndMessaging::WM_MOUSEMOVE},
 };
 
 pub struct MarkerTabState {

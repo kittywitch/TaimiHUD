@@ -2,11 +2,10 @@ use {
     super::{direction::BlishDirection, BlishMarker, TimerMarker},
     crate::timer::{BlishAlert, TimerAction, TimerAlert, TimerTrigger},
     serde::{
-        de::{self, Deserializer, Error as _, MapAccess, SeqAccess, Visitor},
+        de::{self, Deserializer, Error as _, MapAccess, Visitor},
         Deserialize, Serialize,
     },
     serde_json::Value,
-    std::{fmt, marker::PhantomData},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

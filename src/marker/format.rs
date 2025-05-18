@@ -1,9 +1,8 @@
 use {
-    super::atomic::{CurrentPerspective, MinimapPlacement},
     crate::timer::{BlishVec3, Polytope, Position},
     anyhow::anyhow,
     chrono::{DateTime, Utc},
-    glam::{Mat4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles},
+    glam::Vec3,
     glob::Paths,
     nexus::gamebind::GameBind,
     serde::{Deserialize, Serialize},
@@ -16,8 +15,7 @@ use {
     },
     strum_macros::{Display, FromRepr},
     tokio::{
-        fs::{create_dir_all, read_to_string, File},
-        io::AsyncWriteExt,
+        fs::read_to_string,
         sync::Semaphore,
         task::JoinSet,
     },

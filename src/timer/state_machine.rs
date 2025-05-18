@@ -3,7 +3,7 @@ use {
     crate::{
         render::RenderEvent,
         timer::{CombatState, Position, TimerAlert, TimerFile, TimerPhase},
-        RENDER_SENDER, SETTINGS,
+        RENDER_SENDER,
     },
     bitflags::bitflags,
     std::{fmt::Display, ops::Deref, sync::Arc},

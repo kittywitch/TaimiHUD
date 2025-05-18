@@ -2,53 +2,44 @@
 use {
     crate::marker::{
         atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint},
-        format::{MarkerFile, MarkerSet, MarkerType, RuntimeMarkers},
+        format::{MarkerSet, RuntimeMarkers},
     },
     itertools::Itertools,
     windows::Win32::{
-        Foundation::{LPARAM, POINT, RECT, WPARAM},
+        Foundation::POINT,
         Graphics::Gdi::ClientToScreen,
-        UI::{
-            Input::KeyboardAndMouse::{GetActiveWindow, GetCapture},
-            WindowsAndMessaging::{
-                GetCursorPos, GetForegroundWindow, GetWindowRect, SetCursorPos, WM_MOUSEMOVE,
+        UI::WindowsAndMessaging::{
+                GetCursorPos, GetForegroundWindow, SetCursorPos,
             },
-        },
     },
 };
 use {
     crate::{
         render::TextFont,
-        settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile},
+        settings::{RemoteSource, Settings, SettingsLock, SourcesFile},
         timer::{CombatState, Position, TimerFile, TimerMachine},
         MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES,
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::{f32::Vec3, Vec2},
-    glamour::Point2,
-    glob::{glob, Paths},
     nexus::{
         data_link::{
             get_mumble_link_ptr, get_nexus_link,
-            mumble::{MumblePtr, UIScaling, UiState},
+            mumble::{MumblePtr, UiState},
             read_nexus_link, MumbleLink, NexusLink,
         },
         gamebind::invoke_gamebind_async,
-        imgui::{
-            sys::{igSetCursorPos, ImVec2},
-            Context,
-        },
+        imgui::Context,
         paths::get_addon_dir,
         texture::{load_texture_from_file, RawTextureReceiveCallback},
         texture_receive,
-        wnd_proc::send_wnd_proc_to_game,
     },
     relative_path::RelativePathBuf,
     std::{
         collections::HashMap,
         ffi::OsStr,
-        fs::{exists, read_to_string},
-        path::{Path, PathBuf},
+        fs::exists,
+        path::PathBuf,
         sync::{Arc, RwLock},
         time::SystemTime,
     },

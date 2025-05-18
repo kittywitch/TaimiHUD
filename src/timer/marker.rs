@@ -107,7 +107,7 @@ impl TimerMarker {
         let scaler = self.size;
         let mtx_scale = Mat4::from_scale(Vec3::new(scaler, scaler, scaler));
         // then rotate the points
-        let mut mtx_rotation = match self.kind {
+        let mtx_rotation = match self.kind {
             // billboards should have their rotation component handled elsewhere ideally
             // perhaps *prior* to the application of this, thus NOOP :p
             RotationType::Billboard => Mat4::IDENTITY, //Mat4::from_rotation_y(180.0f32.to_radians()), //Mat4::from_rotation_x(90.0f32.to_radians()), //* Mat4::from_rotation_z(90.0f32.to_radians()),

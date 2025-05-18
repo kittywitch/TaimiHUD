@@ -1,10 +1,7 @@
 #[cfg(feature = "markers")]
 use {
     crate::marker::format::MarkerSet,
-    crate::marker::{
-        atomic::MarkerInputData,
-        format::{MarkerFile, RuntimeMarkers},
-    },
+    crate::marker::atomic::MarkerInputData,
 };
 use {
     crate::{
@@ -19,10 +16,9 @@ use {
     nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, ConfigFlags, Context, Font, FontId, Image, Io,
+            internal::RawCast, Condition, Font, FontId, Image, Io,
             PopupModal, StyleColor, Ui, Window, WindowFlags,
         },
-        texture::get_texture,
     },
     relative_path::RelativePathBuf,
     serde::{Deserialize, Serialize},

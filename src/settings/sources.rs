@@ -1,13 +1,8 @@
 use {
-    crate::{
-        settings::{GitHubSource, NeedsUpdate, RemoteSource, Source},
-        timer::TimerFile,
-    },
-    anyhow::anyhow,
+    crate::settings::{GitHubSource, RemoteSource, Source},
     nexus::paths::get_addon_dir,
-    relative_path::RelativePathBuf,
     serde::{Deserialize, Serialize},
-    std::{collections::HashMap, path::PathBuf, sync::Arc},
+    std::collections::HashMap,
     tokio::{
         fs::{create_dir_all, read_to_string, File},
         io::AsyncWriteExt,

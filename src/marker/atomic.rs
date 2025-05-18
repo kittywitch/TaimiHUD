@@ -1,12 +1,11 @@
 use {
     arc_atomic::AtomicArc,
-    glam::{Affine3A, Mat4, Vec2, Vec2Swizzles, Vec3, Vec3Swizzles},
+    glam::{Vec2, Vec3, Vec3Swizzles},
     glamour::{
         point3, Angle, Box2, Contains, Point2, Point3, Rect, Scalar, Size2, Transform2, Transform3,
         TransformMap, Unit, Vector2, Vector3,
     },
     itertools::Itertools,
-    nexus::data_link::mumble::UIScaling,
     std::sync::{Arc, OnceLock},
 };
 

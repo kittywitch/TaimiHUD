@@ -6,8 +6,8 @@ use {
         settings::{NeedsUpdate, RemoteState, Source},
         CONTROLLER_SENDER, SETTINGS,
     },
-    nexus::imgui::{im_str, PopupModal, StyleColor, TableColumnSetup, TableFlags, Ui},
-    std::{collections::HashMap, ffi::OsStr},
+    nexus::imgui::{PopupModal, StyleColor, TableColumnSetup, TableFlags, Ui},
+    std::collections::HashMap,
 };
 
 pub struct DataSourceTabState {

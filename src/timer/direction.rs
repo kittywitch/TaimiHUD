@@ -3,7 +3,6 @@ use {
     glam::Vec3,
     relative_path::RelativePathBuf,
     serde::{Deserialize, Serialize},
-    std::path::PathBuf,
     tokio::time::{Duration, Instant},
 };
 

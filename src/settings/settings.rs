@@ -1,35 +1,25 @@
 use {
     super::{
-        GitHubSource, ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind,
-        SourcesFile, TimerSettings,
+        ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, TimerSettings,
     },
-    crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS, SOURCES},
+    crate::{controller::ProgressBarStyleChange, SETTINGS, SOURCES},
     anyhow::anyhow,
-    async_compression::tokio::bufread::GzipDecoder,
     chrono::{DateTime, Utc},
-    futures::{
-        stream::{StreamExt, TryStreamExt},
-        TryFutureExt,
-    },
+    futures::stream::StreamExt,
     magic_migrate::TryMigrate,
     nexus::imgui::Ui,
-    reqwest::{Client, IntoUrl, Response},
-    serde::{de::DeserializeOwned, Deserialize, Serialize},
+    serde::{Deserialize, Serialize},
     std::{
         collections::{HashMap, HashSet},
-        fmt::{self, Display},
-        fs, io,
+        fmt::{self},
         path::{Path, PathBuf},
         sync::Arc,
     },
-    strum_macros::Display,
     tokio::{
-        fs::{create_dir_all, read_to_string, remove_dir_all, try_exists, File},
+        fs::{create_dir_all, read_to_string, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
     },
-    tokio_tar::Archive,
-    tokio_util::io::StreamReader,
 };
 
 pub type SettingsLock = Arc<RwLock<Settings>>;
