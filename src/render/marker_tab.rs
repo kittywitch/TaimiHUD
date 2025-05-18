@@ -11,7 +11,7 @@ use {
         render::RenderState,
         CONTROLLER_SENDER,
     },
-    glam::{Vec2, Vec3},
+    glam::Vec3,
     indexmap::IndexMap,
     nexus::{
         imgui::{

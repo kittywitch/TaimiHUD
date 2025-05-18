@@ -24,7 +24,7 @@ use {
     glam::{f32::Vec3, Vec2},
     nexus::{
         data_link::{
-            get_mumble_link_ptr, get_nexus_link,
+            get_mumble_link_ptr,
             mumble::{MumblePtr, UiState},
             read_nexus_link, MumbleLink,
         },
