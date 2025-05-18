@@ -1,6 +1,6 @@
 use {
     super::TimerWindowState,
-    crate::{fl, built_info, render::RenderState, SETTINGS},
+    crate::{built_info, fl, render::RenderState, SETTINGS},
     nexus::imgui::{TableColumnSetup, Ui},
 };
 
@@ -33,7 +33,9 @@ impl InfoTabState {
             Some(platform) => format!(" using {platform}"),
             None => "".to_string(),
         };
-        if let (Some(git_head_ref), Some(git_hash)) = (built_info::GIT_HEAD_REF, built_info::GIT_COMMIT_HASH_SHORT) {
+        if let (Some(git_head_ref), Some(git_hash)) =
+            (built_info::GIT_HEAD_REF, built_info::GIT_COMMIT_HASH_SHORT)
+        {
             let mut build = format!("Built from {}@{}", git_head_ref, git_hash);
             build.push_str(&in_ci);
             build.push_str(&format!(", in profile \"{profile}\""));

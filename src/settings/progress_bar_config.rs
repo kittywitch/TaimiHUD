@@ -1,11 +1,6 @@
 use {
-    super::GitHubSource, crate::{controller::ProgressBarStyleChange, render::TextFont, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, nexus::imgui::Ui, reqwest::{Client, IntoUrl, Response}, serde::{de::DeserializeOwned, Deserialize, Serialize}, std::{
-        collections::HashMap, fmt::{self, Display}, fs, io, path::{Path, PathBuf}, sync::Arc
-    }, strum_macros::Display, tokio::{
-        fs::{create_dir_all, read_to_string, remove_dir_all, try_exists, File},
-        io::AsyncWriteExt,
-        sync::RwLock,
-    }, tokio_tar::Archive, tokio_util::io::StreamReader,
+    crate::render::TextFont,
+    serde::{Deserialize, Serialize},
 };
 
 fn default_text_font() -> TextFont {
@@ -72,4 +67,3 @@ impl ProgressBarSettings {
         self.centre_after = !self.centre_after;
     }
 }
-

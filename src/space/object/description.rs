@@ -11,7 +11,6 @@ use {
     },
     anyhow::anyhow,
     glam::Mat4,
-    itertools::Itertools,
     serde::{Deserialize, Serialize},
     std::{
         collections::HashMap,

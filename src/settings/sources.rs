@@ -1,15 +1,13 @@
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
-use anyhow::anyhow;
-use nexus::paths::get_addon_dir;
-use serde::{Deserialize, Serialize};
-
-use relative_path::RelativePathBuf;
-use tokio::fs::{create_dir_all, read_to_string, File};
-use tokio::io::AsyncWriteExt;
-
-use crate::settings::{GitHubSource, Source, NeedsUpdate, RemoteSource};
-
-use crate::timer::TimerFile;
+use {
+    crate::settings::{GitHubSource, RemoteSource},
+    nexus::paths::get_addon_dir,
+    serde::{Deserialize, Serialize},
+    std::collections::HashMap,
+    tokio::{
+        fs::{create_dir_all, read_to_string, File},
+        io::AsyncWriteExt,
+    },
+};
 
 #[derive(Deserialize, Serialize, Hash, Debug, Default, PartialEq, Eq)]
 pub enum SourceKind {
@@ -74,4 +72,3 @@ impl SourcesFile {
         self.0.get(&kind)
     }
 }
-

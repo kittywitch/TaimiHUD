@@ -1,14 +1,12 @@
 use {
-    super::RemoteSource, crate::{controller::ProgressBarStyleChange, render::TextFont, settings::Source, SETTINGS}, anyhow::anyhow, async_compression::tokio::bufread::GzipDecoder, chrono::{DateTime, Utc}, futures::stream::{StreamExt, TryStreamExt}, nexus::paths::get_addon_dir, reqwest::{Certificate, Client, IntoUrl, Response}, serde::{Deserialize, Serialize}, serde_json::Value, std::{
-        collections::HashMap,
-        fmt, io,
-        path::{Path, PathBuf},
-        sync::Arc,
-    }, tokio::{
-        fs::{create_dir_all, read_to_string, remove_dir_all, try_exists, File},
-        io::AsyncWriteExt,
-        sync::RwLock,
-    }, tokio_tar::Archive, tokio_util::io::StreamReader, url::Url
+    crate::settings::Source,
+    chrono::{DateTime, Utc},
+    nexus::paths::get_addon_dir,
+    serde::{Deserialize, Serialize},
+    serde_json::Value,
+    std::fmt,
+    tokio::fs::create_dir_all,
+    url::Url,
 };
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -64,7 +62,6 @@ impl GitHubSource {
         let data = serde_json::from_str::<GitHubLatestRelease>(&json_data)?;
         Ok(data)
     }
-
 }
 
 impl Source for GitHubSource {

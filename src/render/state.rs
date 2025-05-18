@@ -1,27 +1,35 @@
+#[cfg(feature = "markers")]
+use {crate::marker::atomic::MarkerInputData, crate::marker::format::MarkerSet};
 use {
     crate::{
+        controller::ControllerEvent,
         fl,
-        controller::ControllerEvent,render::{PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
-    }, glam::Vec2, nexus::{
+        render::{PrimaryWindowState, TimerWindowState},
+        settings::ProgressBarSettings,
+        timer::{PhaseState, TextAlert, TimerFile},
+        CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE,
+    },
+    glam::Vec2,
+    nexus::{
         data_link::read_nexus_link,
         imgui::{
-            internal::RawCast, Condition, ConfigFlags, Context, Font, FontId, Image, Io, StyleColor, Ui, Window, WindowFlags, PopupModal
+            internal::RawCast, Condition, Font, FontId, Image, Io, PopupModal, StyleColor, Ui,
+            Window, WindowFlags,
         },
-        texture::get_texture,
-    }, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, std::{
-        collections::HashMap, path::PathBuf, sync::{Arc, MutexGuard}
-    }, strum_macros::{Display, EnumIter}, tokio::sync::mpsc::Receiver
+    },
+    relative_path::RelativePathBuf,
+    serde::{Deserialize, Serialize},
+    std::{
+        collections::HashMap,
+        path::PathBuf,
+        sync::{Arc, MutexGuard},
+    },
+    strum_macros::{Display, EnumIter},
+    tokio::sync::mpsc::Receiver,
 };
 
-#[cfg(feature = "markers")]
-use {
-    crate::marker::{atomic::MarkerInputData, format::{MarkerFile, RuntimeMarkers}}, 
-    crate::marker::format::MarkerSet,
-};
 #[cfg(feature = "markers-edit")]
-use {
-super::marker_window::EditMarkerWindowState,
-};
+use super::marker_window::EditMarkerWindowState;
 
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
@@ -95,7 +103,7 @@ impl RenderState {
                     #[cfg(feature = "markers-edit")]
                     OpenEditMarkers => {
                         self.edit_marker_window.open(ui);
-                    },
+                    }
                     OpenableError(key, err) => {
                         self.state_errors.insert(key, err);
                     }
@@ -115,7 +123,7 @@ impl RenderState {
                     #[cfg(feature = "markers")]
                     MarkerData(markers) => {
                         self.primary_window.marker_tab.marker_update(markers);
-                    },
+                    }
                     AlertStart(alert) => {
                         self.alert = Some(alert);
                     }
@@ -138,7 +146,8 @@ impl RenderState {
         }
         self.handle_alert(ui, io);
         self.timer_window.draw(ui);
-        self.primary_window.draw(ui, &mut self.timer_window, &mut self.state_errors);
+        self.primary_window
+            .draw(ui, &mut self.timer_window, &mut self.state_errors);
         #[cfg(feature = "markers-edit")]
         self.edit_marker_window.draw(ui);
     }
@@ -154,7 +163,7 @@ impl RenderState {
                 let gooey_lock = gooey.read().unwrap();
                 let path_str = icon.as_str();
                 if let Some(icon) = gooey_lock.get(path_str) {
-                //if let Some(icon) = get_texture(icon.as_str()) {
+                    //if let Some(icon) = get_texture(icon.as_str()) {
                     let size = match height {
                         Some(height) => [height, height],
                         None => icon.size(),
@@ -172,21 +181,29 @@ impl RenderState {
             }
         };
     }
-    pub fn draw_open_button<
-            S: AsRef<str> + std::fmt::Display,
-        >(state_errors: &mut HashMap<String, anyhow::Error>, ui: &Ui, text: S, openable: String) {
+    pub fn draw_open_button<S: AsRef<str> + std::fmt::Display>(
+        state_errors: &mut HashMap<String, anyhow::Error>,
+        ui: &Ui,
+        text: S,
+        openable: String,
+    ) {
         let openable_display = format!("{:?}", openable);
         let text_display = text.to_string();
-        let entry_name = fl!("open-error", kind = text_display.clone(), path = openable_display.clone());
+        let entry_name = fl!(
+            "open-error",
+            kind = text_display.clone(),
+            path = openable_display.clone()
+        );
         if ui.button(&text) {
             log::info!("Triggered open {openable:?} for {text}");
             let sender = CONTROLLER_SENDER.get().unwrap();
-            let event_send = sender.try_send(
-                ControllerEvent::OpenOpenable(entry_name.clone(), openable.clone()));
+            let event_send = sender.try_send(ControllerEvent::OpenOpenable(
+                entry_name.clone(),
+                openable.clone(),
+            ));
             drop(event_send);
             match open::that(&openable) {
-                Ok(_) => {
-                },
+                Ok(_) => {}
                 Err(err) => {
                     state_errors.insert(entry_name.clone(), err.into());
                 }
@@ -198,8 +215,9 @@ impl RenderState {
         if let Some(errory) = state_errors.get(&entry_name) {
             ui.open_popup(&entry_name);
             if let Some(_token) = PopupModal::new(&entry_name)
-            .always_auto_resize(true)
-            .begin_popup(ui) {
+                .always_auto_resize(true)
+                .begin_popup(ui)
+            {
                 ui.text(&entry_name);
                 ui.dummy([4.0, 4.0]);
                 ui.text_wrapped(format!("{:?}", errory));

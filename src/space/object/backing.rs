@@ -5,14 +5,13 @@ use {
             dx11::{InstanceBuffer, RenderBackend},
             object::PrimitiveTopology,
             resources::{
-                obj_format::material::ColouredMaterialTexture, Model, ObjFile, ObjMaterial,
-                ShaderPair, Texture,
+                obj_format::material::ColouredMaterialTexture, Model, ObjMaterial, ShaderPair,
+                Texture,
             },
-            Engine,
         },
         timer::TimerMarker,
     },
-    glam::{Mat4, Vec3},
+    glam::Vec3,
     std::{path::PathBuf, sync::RwLock},
     windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext},
 };

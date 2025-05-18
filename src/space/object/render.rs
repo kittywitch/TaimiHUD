@@ -7,7 +7,6 @@ use {
         PrimitiveTopology,
     },
     glam::Mat4,
-    itertools::Itertools,
     std::sync::RwLock,
     windows::Win32::Graphics::Direct3D11::{ID3D11Device, ID3D11DeviceContext},
 };

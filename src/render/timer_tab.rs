@@ -1,8 +1,8 @@
 use {
     super::Alignment,
     crate::{
-        fl,
         controller::ControllerEvent,
+        fl,
         render::{RenderState, TimerWindowState},
         settings::{RemoteSource, TimerSettings},
         timer::TimerFile,
@@ -10,9 +10,14 @@ use {
     },
     glam::Vec2,
     indexmap::IndexMap,
-    nexus::paths::get_addon_dir,
-    nexus::imgui::{ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags},
-    std::{collections::{HashMap, HashSet}, sync::Arc},
+    nexus::{
+        imgui::{ChildWindow, Condition, Selectable, TreeNode, TreeNodeFlags, Ui, WindowFlags},
+        paths::get_addon_dir,
+    },
+    std::{
+        collections::{HashMap, HashSet},
+        sync::Arc,
+    },
 };
 
 pub struct TimerTabState {
@@ -35,7 +40,12 @@ impl TimerTabState {
         }
     }
 
-    pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
+    pub fn draw(
+        &mut self,
+        ui: &Ui,
+        timer_window_state: &mut TimerWindowState,
+        state_errors: &mut HashMap<String, anyhow::Error>,
+    ) {
         ui.columns(2, "timers_tab_start", true);
         self.draw_sidebar(ui, timer_window_state, state_errors);
         ui.next_column();
@@ -43,16 +53,31 @@ impl TimerTabState {
         ui.columns(1, "timers_tab_end", false)
     }
 
-    fn draw_sidebar(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
+    fn draw_sidebar(
+        &mut self,
+        ui: &Ui,
+        timer_window_state: &mut TimerWindowState,
+        state_errors: &mut HashMap<String, anyhow::Error>,
+    ) {
         self.draw_sidebar_header(ui, timer_window_state, state_errors);
         self.draw_sidebar_child(ui);
     }
 
-    fn draw_sidebar_header(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState, state_errors: &mut HashMap<String, anyhow::Error>) {
+    fn draw_sidebar_header(
+        &mut self,
+        ui: &Ui,
+        timer_window_state: &mut TimerWindowState,
+        state_errors: &mut HashMap<String, anyhow::Error>,
+    ) {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let timers_dir = addon_dir.join("timers");
         let timers_dir = timers_dir.to_string_lossy().to_string();
-        RenderState::draw_open_button(state_errors, ui, fl!("open-button", kind = "ad-hoc folder"), timers_dir);
+        RenderState::draw_open_button(
+            state_errors,
+            ui,
+            fl!("open-button", kind = "ad-hoc folder"),
+            timers_dir,
+        );
         ui.same_line();
         /*let button_text = match timer_window_state.open {
             true => "Close Timers",
@@ -79,7 +104,9 @@ impl TimerTabState {
                 self.category_status.extend(self.categories.keys().cloned());
             }
         }
-        if self.category_status.len() != self.categories.keys().len() && !self.category_status.is_empty() {
+        if self.category_status.len() != self.categories.keys().len()
+            && !self.category_status.is_empty()
+        {
             ui.same_line();
         }
         if !self.category_status.is_empty() {
@@ -159,7 +186,9 @@ impl TimerTabState {
             let settings_for_timer = settings.timers.get(&timer.id);
             ui.same_line();
             let (color, text) = match settings_for_timer {
-                Some(TimerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], &fl!("disabled")),
+                Some(TimerSettings { disabled: true, .. }) => {
+                    ([1.0, 0.0, 0.0, 1.0], &fl!("disabled"))
+                }
                 _ => ([0.0, 1.0, 0.0, 1.0], &fl!("enabled")),
             };
             let text_size = Vec2::from(ui.calc_text_size(&text));
@@ -210,25 +239,29 @@ impl TimerTabState {
                         RenderState::font_text(
                             "font",
                             ui,
-                            &fl!("source-arg", source = selected_timer.source())
+                            &fl!("source-arg", source = selected_timer.source()),
                         );
                     } else {
-                        RenderState::font_text(
-                            "font",
-                            ui,
-                            &fl!("source-adhoc")
-                        );
+                        RenderState::font_text("font", ui, &fl!("source-adhoc"));
                         if let Some(path) = &selected_timer.path {
                             let path_display = format!("{:?}", path);
                             RenderState::font_text(
                                 "font",
                                 ui,
-                                &fl!("location", path = path_display)
+                                &fl!("location", path = path_display),
                             );
                         }
                     }
-                    RenderState::font_text("font", ui, &fl!("id-arg", id = selected_timer.id.clone()));
-                    RenderState::font_text("font", ui, &fl!("map-id-arg", id = selected_timer.map_id.clone()));
+                    RenderState::font_text(
+                        "font",
+                        ui,
+                        &fl!("id-arg", id = selected_timer.id.clone()),
+                    );
+                    RenderState::font_text(
+                        "font",
+                        ui,
+                        &fl!("map-id-arg", id = selected_timer.map_id.clone()),
+                    );
                     ui.dummy([4.0; 2]);
                     ui.separator();
                     ui.dummy([4.0; 2]);
@@ -262,7 +295,9 @@ impl TimerTabState {
         self.categories.clear();
         for timer in &self.timers {
             if let Some(association) = &timer.association {
-                self.sources_to_timers.entry(association.clone()).or_default();
+                self.sources_to_timers
+                    .entry(association.clone())
+                    .or_default();
                 if let Some(val) = self.sources_to_timers.get_mut(association) {
                     val.push(timer.clone());
                 };

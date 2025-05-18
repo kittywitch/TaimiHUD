@@ -1,26 +1,57 @@
+#[cfg(feature = "markers")]
+use {
+    crate::marker::{
+        atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint},
+        format::{MarkerSet, RuntimeMarkers},
+    },
+    windows::Win32::{
+        Foundation::POINT,
+        Graphics::Gdi::ClientToScreen,
+        UI::WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, SetCursorPos},
+    },
+};
 use {
     crate::{
-        render::TextFont, settings::{RemoteSource, RemoteState, Settings, SettingsLock, SourceKind, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
-    }, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, glamour::Point2, glob::{glob, Paths}, nexus::{
+        render::TextFont,
+        settings::{RemoteSource, Settings, SettingsLock, SourcesFile},
+        timer::{CombatState, Position, TimerFile, TimerMachine},
+        MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES,
+    },
+    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
+    glam::{f32::Vec3, Vec2},
+    nexus::{
         data_link::{
-            get_mumble_link_ptr, get_nexus_link, mumble::{MumblePtr, UIScaling, UiState}, read_nexus_link, MumbleLink, NexusLink
-        }, gamebind::invoke_gamebind_async, imgui::{sys::{igSetCursorPos, ImVec2}, Context}, paths::get_addon_dir, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive, wnd_proc::send_wnd_proc_to_game
-    }, relative_path::RelativePathBuf, std::{
-        collections::HashMap, ffi::OsStr, fs::{exists, read_to_string}, path::{Path, PathBuf}, sync::{Arc, RwLock}, time::SystemTime
-    }, strum_macros::Display, tokio::{
-        fs::create_dir_all, runtime, select, sync::{
+            get_mumble_link_ptr, get_nexus_link,
+            mumble::{MumblePtr, UiState},
+            read_nexus_link, MumbleLink, NexusLink,
+        },
+        gamebind::invoke_gamebind_async,
+        imgui::Context,
+        paths::get_addon_dir,
+        texture::{load_texture_from_file, RawTextureReceiveCallback},
+        texture_receive,
+    },
+    relative_path::RelativePathBuf,
+    std::{
+        collections::HashMap,
+        ffi::OsStr,
+        fs::exists,
+        path::PathBuf,
+        sync::{Arc, RwLock},
+        time::SystemTime,
+    },
+    strum_macros::Display,
+    tokio::{
+        fs::create_dir_all,
+        runtime, select,
+        sync::{
             mpsc::{Receiver, Sender},
             Mutex,
-        }, time::{interval, sleep, Duration}
+        },
+        time::{interval, sleep, Duration},
     },
 };
 
-#[cfg(feature = "markers")]
-use {
-    itertools::Itertools,
-    crate::marker::{atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint}, format::{MarkerFile, MarkerSet, MarkerType, RuntimeMarkers}},
-    windows::Win32::{Foundation::{LPARAM, POINT, RECT, WPARAM}, Graphics::Gdi::ClientToScreen, UI::{Input::KeyboardAndMouse::{GetActiveWindow, GetCapture}, WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, GetWindowRect, SetCursorPos, WM_MOUSEMOVE}}}
-};
 #[cfg(feature = "space")]
 use crate::space::dx11::PerspectiveInputData;
 
@@ -60,7 +91,9 @@ impl Controller {
         let mumble_link = unsafe { MumblePtr::new(mumble_ptr) };
         let nexus_link = get_nexus_link();
         let evt_loop = async move {
-            let sources = SourcesFile::load().await.expect("Couldn't load sources file");
+            let sources = SourcesFile::load()
+                .await
+                .expect("Couldn't load sources file");
             let sources = Arc::new(RwLock::new(sources));
             let _ = SOURCES.set(sources);
             let settings = Settings::load_access(&addon_dir.clone()).await;
@@ -168,10 +201,7 @@ impl Controller {
         }
         drop(settings_lock);
         let timers_len = timers.len();
-        log::info!(
-            "Total loaded timers: {}",
-            timers_len,
-        );
+        log::info!("Total loaded timers: {}", timers_len,);
         timers
     }
 
@@ -181,14 +211,20 @@ impl Controller {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let adhoc_timers_dir = addon_dir.join("timers");
         if exists(&adhoc_timers_dir).expect("oh no i cant access my own addon dir") {
-            let adhoc_timers = TimerFile::load_many_sourceless(&adhoc_timers_dir, 100).await.expect("wah");
+            let adhoc_timers = TimerFile::load_many_sourceless(&adhoc_timers_dir, 100)
+                .await
+                .expect("wah");
             self.timers.extend(adhoc_timers);
         } else {
-            create_dir_all(adhoc_timers_dir).await.expect("Can't create timers dir");
+            create_dir_all(adhoc_timers_dir)
+                .await
+                .expect("Can't create timers dir");
         }
         for timer in &self.timers {
             if let Some(association) = &timer.association {
-                self.sources_to_timers.entry(association.clone()).or_default();
+                self.sources_to_timers
+                    .entry(association.clone())
+                    .or_default();
                 if let Some(val) = self.sources_to_timers.get_mut(association) {
                     val.push(timer.clone());
                 };
@@ -251,13 +287,20 @@ impl Controller {
                 let compass_rotation = mumble.read_compass_rotation();
                 let map_scale = mumble.read_map_scale();
                 let perspective = CurrentPerspective::from(ui_state.contains(UiState::IS_MAP_OPEN));
-                let minimap_placement = MinimapPlacement::from(ui_state.contains(UiState::IS_COMPASS_TOP_RIGHT));
-                let rotation_enabled = ui_state.contains(UiState::DOES_COMPASS_HAVE_ROTATION_ENABLED);
+                let minimap_placement =
+                    MinimapPlacement::from(ui_state.contains(UiState::IS_COMPASS_TOP_RIGHT));
+                let rotation_enabled =
+                    ui_state.contains(UiState::DOES_COMPASS_HAVE_ROTATION_ENABLED);
                 MarkerInputData::from_tick(
-                    playpos, global_player_pos, global_map,
-                    compass_size, compass_rotation, map_scale,
-                    perspective, minimap_placement,
-                    rotation_enabled
+                    playpos,
+                    global_player_pos,
+                    global_map,
+                    compass_size,
+                    compass_rotation,
+                    map_scale,
+                    perspective,
+                    minimap_placement,
+                    rotation_enabled,
                 );
             }
             self.player_position = Some(playpos);
@@ -453,11 +496,17 @@ impl Controller {
         self.map_id_to_timers.clear();
         self.setup_timers().await;
         self.reset_timers().await;
-        self.load_markers_files().await.expect("markers load failed");
+        self.load_markers_files()
+            .await
+            .expect("markers load failed");
     }
 
     #[cfg(feature = "markers")]
-    async fn set_marker(&self, points: Vec<ScreenPoint>, markers: Arc<MarkerSet>) -> anyhow::Result<()> {
+    async fn set_marker(
+        &self,
+        points: Vec<ScreenPoint>,
+        markers: Arc<MarkerSet>,
+    ) -> anyhow::Result<()> {
         // TODO: provide configurability of wait_duration and invoke gamebind duration?
         let wait_duration = Duration::from_millis(50);
         let mut pos_ptr: POINT = POINT::default();
@@ -466,11 +515,13 @@ impl Controller {
             .map(|()| pos_ptr)?;
         let hwnd = unsafe { GetForegroundWindow() };
 
-
         let zippy = points.iter().zip(markers.markers.clone());
         for (point, marker) in zippy {
             sleep(wait_duration).await;
-            let mut my_pos: POINT = POINT { x: point.x as i32, y: point.y as i32 };
+            let mut my_pos: POINT = POINT {
+                x: point.x as i32,
+                y: point.y as i32,
+            };
             unsafe { ClientToScreen(hwnd, &mut my_pos) };
             match unsafe { SetCursorPos(my_pos.x, my_pos.y) } {
                 Ok(()) => (),
@@ -568,7 +619,9 @@ impl Controller {
                 let gooey = IMGUI_TEXTURES.get().unwrap();
                 let mut gooey_lock = gooey.write().unwrap();
                 if let Some(texture) = texture {
-                    gooey_lock.entry(id.into()).or_insert(Arc::new(texture.clone()));
+                    gooey_lock
+                        .entry(id.into())
+                        .or_insert(Arc::new(texture.clone()));
                 }
                 drop(gooey_lock);
                 log::info!("Texture {id} loaded.");
@@ -589,7 +642,7 @@ impl Controller {
         match event {
             ReloadTimers => self.reload_timers().await,
             ToggleKatRender => self.toggle_katrender().await,
-            OpenOpenable(key, uri) => self.open_openable(key,uri).await,
+            OpenOpenable(key, uri) => self.open_openable(key, uri).await,
             UninstallAddon(dd) => self.uninstall_addon(&dd).await?,
             MumbleIdentityUpdated(identity) => self.handle_mumble(identity).await,
             CombatEvent { src, evt } => self.handle_combat_event(src, evt).await,

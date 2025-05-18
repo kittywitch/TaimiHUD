@@ -2,7 +2,6 @@ use {
     crate::TEXTURES,
     anyhow::anyhow,
     image::ImageReader,
-    itertools::Itertools,
     std::{path::Path, sync::Arc},
     windows::Win32::Graphics::{
         Direct3D::D3D11_SRV_DIMENSION_TEXTURE2D,
