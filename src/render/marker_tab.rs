@@ -215,9 +215,9 @@ impl MarkerTabState {
                     RenderState::font_text(
                         "ui",
                         ui,
-                        &format!("{}", &selected_marker_set.description),
+                        &selected_marker_set.description,
                     );
-                    ui.text(&fl!("map-id-arg", id = selected_marker_set.map_id.clone()));
+                    ui.text(&fl!("map-id-arg", id = selected_marker_set.map_id));
                     ui.text(&fl!(
                         "markers-arg",
                         count = selected_marker_set.markers.len()

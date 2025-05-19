@@ -245,7 +245,7 @@ impl TimerTabState {
                     RenderState::font_text(
                         "font",
                         ui,
-                        &fl!("map-id-arg", id = selected_timer.map_id.clone()),
+                        &fl!("map-id-arg", id = selected_timer.map_id),
                     );
                     ui.dummy([4.0; 2]);
                     ui.separator();

@@ -123,6 +123,9 @@ impl RenderState {
                     }
                     #[cfg(feature = "markers")]
                     MarkerData(markers) => {
+                        let categories: Vec<_> = markers.keys().cloned().collect();
+                        #[cfg(feature = "markers-edit")]
+                        self.edit_marker_window.category_update(categories);
                         self.primary_window.marker_tab.marker_update(markers);
                     }
                     AlertStart(alert) => {
@@ -220,9 +223,9 @@ impl RenderState {
                 .begin_popup(ui)
             {
                 ui.text(&entry_name);
-                ui.dummy([4.0, 4.0]);
+                ui.dummy([4.0; 2]);
                 ui.text_wrapped(format!("{:?}", errory));
-                ui.dummy([4.0, 4.0]);
+                ui.dummy([4.0; 2]);
                 if ui.button(fl!("okay")) {
                     state_errors.remove(&entry_name);
                     ui.close_current_popup();

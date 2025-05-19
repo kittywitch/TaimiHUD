@@ -6,17 +6,17 @@ use {
             atomic::MarkerInputData,
             format::{MarkerEntry, MarkerSet, MarkerType},
         },
-        util::PositionInput,
+        util::{PositionInput, ComboInput},
         ACCOUNT_NAME_CELL,
     },
     glam::Vec3,
     nexus::{
-        imgui::{Id, TableColumnFlags, TableColumnSetup, TableFlags, Ui, Window},
+        imgui::{Id, TableColumnFlags, PopupModal, TableColumnSetup, TableFlags, Ui, Window},
         paths::get_addon_dir,
         rtapi::{GroupType, RealTimeApi},
     },
     relative_path::RelativePathBuf,
-    std::{f32, path::Path},
+    std::{f32, path::Path, mem},
 };
 
 pub struct EditMarkerWindowState {
@@ -24,6 +24,7 @@ pub struct EditMarkerWindowState {
     pub name: String,
     pub description: String,
     pub author: String,
+    pub category: ComboInput,
     pub trigger: PositionInput,
     pub map_id: i32,
     pub markers: [IndividualMarkerState; 8],
@@ -70,11 +71,16 @@ impl EditMarkerWindowState {
             open: false,
             name: Default::default(),
             trigger: Default::default(),
+            category: ComboInput::new(&fl!("category")),
             description: Default::default(),
             map_id: Default::default(),
             author: Default::default(),
             markers: Default::default(),
         }
+    }
+
+    pub fn category_update(&mut self, categories: Vec<String>) {
+        self.category.update(categories);
     }
 
     #[allow(dead_code)]
@@ -98,7 +104,7 @@ impl EditMarkerWindowState {
     }
 
     pub fn open(&mut self) {
-        *self = Self::new();
+        let prev = mem::replace(self, Self::new());
         if !self.open {
             let author = match ACCOUNT_NAME_CELL.get() {
                 Some(a) => a.clone(),
@@ -118,6 +124,7 @@ impl EditMarkerWindowState {
             } else {
                 Default::default()
             };
+            self.category.update(prev.category.data);
             self.author = author;
             self.map_id = map_id;
             self.open = true;
@@ -137,6 +144,7 @@ impl EditMarkerWindowState {
                     let author_name = fl!("author");
                     let author_input = ui.input_text(&author_name, &mut self.author);
                     author_input.build();
+                    self.category.draw(ui);
                     ui.dummy([4.0; 2]);
                     let map_id_name = fl!("map-id");
                     let map_id_input = ui.input_int(&map_id_name, &mut self.map_id);
@@ -204,13 +212,13 @@ impl EditMarkerWindowState {
                             },
                             TableColumnSetup {
                                 name: &fl!("description"),
-                                flags: TableColumnFlags::WIDTH_STRETCH,
+                                flags: TableColumnFlags::WIDTH_FIXED,
                                 init_width_or_weight: 0.0,
                                 user_id: Id::Str("marker_desc"),
                             },
                             TableColumnSetup {
                                 name: &fl!("local-header"),
-                                flags: TableColumnFlags::WIDTH_STRETCH,
+                                flags: TableColumnFlags::WIDTH_FIXED,
                                 init_width_or_weight: 0.0,
                                 user_id: Id::Str("marker_pos"),
                             },
@@ -256,7 +264,19 @@ impl EditMarkerWindowState {
                     }
                     ui.dummy([4.0; 2]);
                     if ui.button(&fl!("save")) {
-                        return true;
+                        ui.open_popup("save-marker");
+                    }
+                    if let Some(_token) = PopupModal::new("save-marker")
+                        .always_auto_resize(true)
+                        .begin_popup(ui) {
+                        ui.text(fl!("save-item", item = self.name.clone()));
+                        ui.dummy([4.0; 2]);
+                        if ui.button(fl!("save")) {
+                            return true;
+                        }
+                        if ui.button(fl!("cancel")) {
+                            ui.close_current_popup();
+                        }
                     }
                     false
                 });
