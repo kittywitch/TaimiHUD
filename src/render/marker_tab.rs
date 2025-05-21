@@ -209,7 +209,7 @@ impl MarkerTabState {
                         RenderState::font_text("ui", ui, &fl!("author-arg", author = author));
                     }
                     if let Some(path) = &selected_marker_set.path {
-                        let path_display = format!("{:?}", path);
+                        let path_display = format!("{}", path.display());
                         ui.text_wrapped(&fl!("location", path = path_display));
                     }
                     RenderState::font_text(

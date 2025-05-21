@@ -45,6 +45,8 @@ pub enum RenderEvent {
     RenderKeybindUpdate,
     #[cfg(feature = "markers-edit")]
     OpenEditMarkers,
+    #[cfg(feature = "markers-edit")]
+    GiveMarkerPaths(Vec<PathBuf>),
     ProgressBarUpdate(ProgressBarSettings),
 }
 
@@ -104,6 +106,10 @@ impl RenderState {
                     #[cfg(feature = "markers-edit")]
                     OpenEditMarkers => {
                         self.edit_marker_window.open();
+                    }
+                    #[cfg(feature = "markers-edit")]
+                    GiveMarkerPaths(paths) => {
+                        self.edit_marker_window.set_filenames(paths);
                     }
                     OpenableError(key, err) => {
                         self.state_errors.insert(key, err);

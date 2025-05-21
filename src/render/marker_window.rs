@@ -1,26 +1,37 @@
 use {
     super::RenderState,
     crate::{
+        ControllerEvent,
+        CONTROLLER_SENDER,
         fl,
         marker::{
             atomic::MarkerInputData,
-            format::{MarkerEntry, MarkerSet, MarkerType},
+            format::{MarkerEntry, MarkerSet, MarkerFiletype, MarkerType},
         },
-        util::{PositionInput, ComboInput},
+        controller::MarkerSaveEvent,
+        util::{PositionInput, ComboInput, UiExt},
         ACCOUNT_NAME_CELL,
     },
     glam::Vec3,
     nexus::{
-        imgui::{Id, TableColumnFlags, PopupModal, TableColumnSetup, TableFlags, Ui, Window},
+        imgui::{Id, TableColumnFlags, Selectable, ComboBox, PopupModal, TableColumnSetup, TableFlags, Ui, Window},
         paths::get_addon_dir,
         rtapi::{GroupType, RealTimeApi},
     },
+    strum::IntoEnumIterator,
     relative_path::RelativePathBuf,
-    std::{f32, path::Path, mem},
+    std::{f32, path::{PathBuf, Path}, mem},
 };
 
+/*
+* To-do:
+*  - refactor this to actually take an Option<T> where T is a struct instance of the data
+*  associated with a pre-existing marker instance, such that when you are *editing* instead of
+*  creating, it becomes 
+*/
 pub struct EditMarkerWindowState {
     pub open: bool,
+    pub formatted_name: String,
     pub name: String,
     pub description: String,
     pub author: String,
@@ -28,6 +39,13 @@ pub struct EditMarkerWindowState {
     pub trigger: PositionInput,
     pub map_id: i32,
     pub markers: [IndividualMarkerState; 8],
+    pub path: Option<String>,
+    pub idx: Option<usize>,
+    pub filetype: Option<MarkerFiletype>,
+    pub save_mode: Option<MarkerSaveMode>,
+    pub original_category: Option<String>,
+    pub filenames: Vec<PathBuf>,
+    pub problems: Vec<String>,
 }
 
 pub struct IndividualMarkerState {
@@ -51,6 +69,19 @@ impl IndividualMarkerState {
     pub fn set_description(&mut self, desc: String) {
         self.description = desc;
     }
+    pub fn from_marker_entries(mes: Vec<MarkerEntry>) -> [Self; 8] {
+        let mut markers: [IndividualMarkerState; 8] = Default::default();
+        for (i, me) in mes.iter().enumerate() {
+            let position: Vec3 = me.position.clone().into();
+            let mut position_input = PositionInput::default();
+            position_input.position = Some(position);
+            markers[i] = Self {
+                position: position_input,
+                description: me.id.clone().unwrap_or("".to_string()),
+            };
+        }
+        markers
+    }
     #[allow(dead_code)]
     pub fn to_marker_entry(&self, marker: MarkerType) -> Option<MarkerEntry> {
         let id = match self.description.is_empty() {
@@ -65,10 +96,18 @@ impl IndividualMarkerState {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum MarkerSaveMode {
+    Standalone,
+    Append,
+    Edit,
+}
+
 impl EditMarkerWindowState {
     pub fn new() -> Self {
         Self {
             open: false,
+            formatted_name: Default::default(),
             name: Default::default(),
             trigger: Default::default(),
             category: ComboInput::new(&fl!("category")),
@@ -76,7 +115,91 @@ impl EditMarkerWindowState {
             map_id: Default::default(),
             author: Default::default(),
             markers: Default::default(),
+            idx: Default::default(),
+            save_mode: Default::default(),
+            path: Default::default(),
+            original_category: Default::default(),
+            filetype: Default::default(),
+            filenames: Default::default(),
+            problems: Default::default(),
         }
+    }
+
+    pub fn validate_presave(&self) -> Vec<String> {
+        let mut conditions = Vec::new();
+        if self.name.is_empty() {
+            conditions.push(fl!("name-empty"));
+        }
+        if self.trigger.position.is_none() {
+            conditions.push(fl!("no-trigger"));
+        }
+        // i am too tired to tell if this presents problems
+        if self.category.entry.is_none() {
+            conditions.push(fl!("no-category"));
+        }
+        if self.map_id <= 0 {
+            conditions.push(fl!("map-id-wrong"));
+        }
+        let positions: Vec<_> = self.markers.iter().flat_map(|x| x.position.position).collect();
+        let pos_count = positions.len();
+        if pos_count == 0 {
+            conditions.push(fl!("no-positions"));
+        }
+        conditions
+    }
+
+    pub fn validate_save(&self) -> Vec<String> {
+        let mut conditions = Vec::new();
+        if let Some(path) = &self.path {
+            if path.is_empty() {
+                conditions.push(fl!("filename-empty"))
+            }
+        } else {
+            conditions.push(fl!("filename-empty"))
+        }
+        conditions
+    }
+
+    pub fn draw_validate(&self, ui: &Ui) {
+        if self.problems.len() > 0 {
+            ui.text_wrapped(fl!("validation-fail"));
+        }
+        for problem in &self.problems {
+            ui.bullet();
+            ui.text_colored([1.0, 0.0, 0.0, 1.0], problem);
+        }
+    }
+
+    pub fn request_filenames(&self) {
+        let sender = CONTROLLER_SENDER.get().unwrap();
+        let event_send = sender.try_send(ControllerEvent::GetMarkerPaths);
+        drop(event_send);
+    }
+
+    pub fn save_file(&mut self) {
+        let ms = self.to_marker_set();
+        if let Some(ms) = ms {
+            if let Some(path) = &self.path {
+                let evt = match &self.save_mode {
+                    Standalone => {
+                        MarkerSaveEvent::Standalone(ms, path.into(), self.filetype.clone().unwrap())
+                    },
+                    Append => {
+                        MarkerSaveEvent::Append(ms, path.into())
+                    },
+                    Edit => {
+                        MarkerSaveEvent::Edit(ms, path.into(), self.original_category.clone(), self.idx.unwrap())
+                    },
+                };
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                let event_send = sender.try_send(ControllerEvent::SaveMarker(evt));
+                drop(event_send);
+            }
+        }
+    }
+
+    pub fn set_filenames(&mut self, filenames: Vec<PathBuf>) {
+        self.filenames = filenames;
     }
 
     pub fn category_update(&mut self, categories: Vec<String>) {
@@ -93,6 +216,7 @@ impl EditMarkerWindowState {
             .collect();
         Some(MarkerSet {
             enabled,
+            category: self.category.result(),
             markers,
             trigger: self.trigger.position?.into(),
             name: self.name.clone(),
@@ -100,7 +224,33 @@ impl EditMarkerWindowState {
             map_id: self.map_id as u32, // thanks imgui types o.o
             description: self.description.clone(),
             path: None,
+            idx: self.idx,
         })
+    }
+
+    pub fn open_edit(&mut self, ms: MarkerSet) {
+        let prev = mem::replace(self, Self::new());
+        let markers = IndividualMarkerState::from_marker_entries(ms.markers);
+        let path = if let Some(path) = ms.path {
+            Some(path.to_string_lossy().to_string())
+        } else {
+            None
+        };
+        if !self.open {
+            let trigger_position: Vec3 = ms.trigger.into();
+            self.category.update(prev.category.data);
+            self.markers = markers;
+            self.category.entry = ms.category;
+            self.name = ms.name;
+            self.trigger.position = Some(trigger_position);
+            self.description = ms.description;
+            self.author = ms.author.unwrap_or("".to_string());
+            self.map_id = ms.map_id as i32;
+            self.path = path;
+            self.idx = ms.idx;
+            self.save_mode = Some(MarkerSaveMode::Edit);
+            self.open = true;
+        }
     }
 
     pub fn open(&mut self) {
@@ -127,6 +277,7 @@ impl EditMarkerWindowState {
             self.category.update(prev.category.data);
             self.author = author;
             self.map_id = map_id;
+            self.request_filenames();
             self.open = true;
         }
     }
@@ -212,13 +363,13 @@ impl EditMarkerWindowState {
                             },
                             TableColumnSetup {
                                 name: &fl!("description"),
-                                flags: TableColumnFlags::WIDTH_FIXED,
+                                flags: TableColumnFlags::WIDTH_STRETCH,
                                 init_width_or_weight: 0.0,
                                 user_id: Id::Str("marker_desc"),
                             },
                             TableColumnSetup {
                                 name: &fl!("local-header"),
-                                flags: TableColumnFlags::WIDTH_FIXED,
+                                flags: TableColumnFlags::WIDTH_STRETCH,
                                 init_width_or_weight: 0.0,
                                 user_id: Id::Str("marker_pos"),
                             },
@@ -263,17 +414,142 @@ impl EditMarkerWindowState {
                         token.end();
                     }
                     ui.dummy([4.0; 2]);
-                    if ui.button(&fl!("save")) {
-                        ui.open_popup("save-marker");
+                    self.draw_validate(ui);
+                    ui.dummy([4.0; 2]);
+                    if self.save_mode == Some(MarkerSaveMode::Edit) {
+                        if ui.button(&fl!("save-edit")) {
+                            self.problems = self.validate_presave();
+                            if self.problems.len() == 0 {
+                                self.formatted_name = fl!("save-edit-item", item = self.name.clone());
+                                ui.open_popup(&self.formatted_name);
+                            }
+                        }
+                    } else {
+                        if ui.button(&fl!("save")) {
+                            self.problems = self.validate_presave();
+                            if self.problems.len() == 0 {
+                                self.formatted_name = fl!("save-item", item = self.name.clone());
+                                ui.open_popup(&self.formatted_name);
+                            }
+                        }
                     }
-                    if let Some(_token) = PopupModal::new("save-marker")
+                    if let Some(_token) = PopupModal::new(&self.formatted_name)
                         .always_auto_resize(true)
                         .begin_popup(ui) {
-                        ui.text(fl!("save-item", item = self.name.clone()));
-                        ui.dummy([4.0; 2]);
-                        if ui.button(fl!("save")) {
+                        if self.save_mode == Some(MarkerSaveMode::Edit) {
+                            if ui.button(fl!("save")) {
+                            self.save_file();
+                            }
+                        }
+                        else {
+                            self.draw_validate(ui);
+                            let msm_name = |item: &MarkerSaveMode| match item {
+                                MarkerSaveMode::Standalone => fl!("save-standalone"),
+                                MarkerSaveMode::Append => fl!("save-append"),
+                                _ => "".to_string(),
+                            };
+                            let save_mode_closure = || {
+                                let mut selected = self.save_mode.clone();
+                                for item in [ MarkerSaveMode::Standalone, MarkerSaveMode::Append ].iter() {
+                                    if Selectable::new(msm_name(item))
+                                        .selected(Some(item) == self.save_mode.as_ref())
+                                        .build(ui) {
+                                        selected = Some(item.clone());
+                                        // standalone paths are relative
+                                        // append paths are absolute
+                                        // pls dont mix them :(
+                                        self.path = None;
+                                    }
+                                }
+                                selected
+                            };
+                            let combo_box_text = match &self.save_mode {
+                                Some(s) => format!("{}", msm_name(s)),
+                                None => "".to_string(),
+                            };
+                            if let Some(Some(selection)) = ComboBox::new(fl!("save-mode"))
+                                .preview_value(combo_box_text)
+                                .build(ui, save_mode_closure) {
+                                self.save_mode = Some(selection);
+                            }
+                        }
+                        match self.save_mode {
+                            Some(MarkerSaveMode::Standalone) => {
+                                let filetype_closure = || {
+                                    let mut selected = self.filetype.clone();
+                                    for item in MarkerFiletype::iter() {
+                                        if Selectable::new(item.to_string())
+                                            .selected(Some(&item) == self.filetype.as_ref())
+                                            .build(ui) {
+                                            selected = Some(item.clone());
+                                        }
+                                    }
+                                    selected
+                                };
+                                let combo_box_text = match &self.filetype {
+                                    Some(s) => format!("{}", s),
+                                    None => "".to_string(),
+                                };
+                                if let Some(Some(selection)) = ComboBox::new(fl!("filetype"))
+                                    .preview_value(combo_box_text)
+                                    .build(ui, filetype_closure) {
+                                    self.filetype = Some(selection);
+                                }
+                                ui.help_marker(|| {
+                                    ui.tooltip_text(fl!("marker-filetype-explanation"));
+                                });
+                                let filename = self.path.get_or_insert_default();
+                                let filename_text = fl!("filename");
+                                ui.input_text(filename_text, filename).build();
+                                if ui.button(fl!("save")) {
+                                    self.problems = self.validate_save();
+                                    if self.problems.len() == 0 {
+                                        self.save_file();
+                                    }
+                                }
+                                ui.same_line();
+                            },
+                            Some(MarkerSaveMode::Append) => {
+                                let filename_closure = || {
+                                    let mut selected = self.path.clone();
+                                    for item in &self.filenames {
+                                        let path_name = format!("{}", item.display());
+                                        if Selectable::new(&path_name)
+                                            .selected(Some(&path_name) == self.path.as_ref())
+                                            .build(ui) {
+                                            selected = Some(path_name);
+                                        }
+                                    }
+                                    selected
+                                };
+                                let combo_box_text = match &self.path {
+                                    Some(s) => format!("{}", s),
+                                    None => "".to_string(),
+                                };
+                                if let Some(Some(selection)) = ComboBox::new(fl!("filename"))
+                                    .preview_value(combo_box_text)
+                                    .build(ui, filename_closure) {
+                                    self.path = Some(selection);
+                                }
+                                if ui.button(fl!("refresh-files")) {
+                                    self.request_filenames();
+                                }
+                                ui.same_line();
+                                if ui.button(fl!("save")) {
+                                    self.problems = self.validate_save();
+                                    if self.problems.len() == 0 {
+                                        self.save_file();
+                                    }
+                                }
+                                ui.same_line();
+                            },
+                            _ => (),
+                        }
+                        if ui.button(fl!("close")) {
+                            ui.close_current_popup();
                             return true;
                         }
+                        ui.same_line();
                         if ui.button(fl!("cancel")) {
                             ui.close_current_popup();
                         }

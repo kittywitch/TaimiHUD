@@ -4,9 +4,12 @@ height = Height
 font = Font
 okay = OK
 save = Save
-save-item = Save "{ $item }"?
-save-standalone = Save as a standalone file
+save-item = { save } "{ $item }"?
+save-standalone = { save } as a new file
 save-append = Append to an existing file
+save-edit = { save } edited changes
+save-edit-item = { save-edit } to "{ $item }"?
+save-mode = Save mode
 error = Error
 unknown = Unknown
 update = Update
@@ -18,6 +21,7 @@ data = Data
 object = Object
 files = Files
 clear = Clear
+refresh-files = Refresh files
 # as in 3D
 model = Model
 revert = Revert
@@ -41,6 +45,8 @@ rt-api-required = { rt-api-required-base } { $reason }.
 no-description = No description provided.
 no-thing-arg = No { $thing } provided.
 expand-all = Expand All
+filetype = File Type
+filename = File Name
 collapse-all = Collapse All
 enable = Enable
 cancel = Cancel
@@ -52,6 +58,13 @@ reset = Reset
 timer = Timer
 timers = { timer }s
 experimental-notice = Hi! This feature is (mostly) experimental. Some things may be confusing and it might require more thought and effort to use than the less experimental features. My apologies to any problems you have; feel free to reach out on Discord. - Kat
+name-empty = Name empty.
+no-trigger = No trigger position provided.
+no-category = No category provided.
+map-id-wrong = Map ID incorrect.
+no-positions = No marker positions provided.
+validation-fail = Validation failed due to:
+filename-empty = No filename provided.
 
 ## Addon
 
@@ -144,6 +157,8 @@ map-header = Map (XY)
 screen-header = Screen (XY)
 marker-not-on-screen = Not on screen
 select-a-marker = Please select a marker to configure!
+marker-filetype-explanation = There are three kinds of markers file, there is the kind that
+  comes with the BlishHUD Commander's Markers module, there is the kind that they use to ship Community Markers and then there is my own format, which takes the per marker set format and makes it a single file per marker set.
 
 ## Markers window
 

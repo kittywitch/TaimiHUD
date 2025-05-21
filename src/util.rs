@@ -64,7 +64,7 @@ impl UiExt for Ui<'_> {
 pub struct ComboInput {
     label: String,
     make_entry: bool,
-    entry: Option<String>,
+    pub entry: Option<String>,
     pub data: Vec<String>,
 }
 

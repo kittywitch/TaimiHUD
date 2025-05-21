@@ -12,10 +12,7 @@ use {
 };
 use {
     crate::{
-        render::TextFont,
-        settings::{RemoteSource, Settings, SettingsLock, SourcesFile},
-        timer::{CombatState, Position, TimerFile, TimerMachine},
-        MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES,
+        marker::format::MarkerFiletype, render::TextFont, settings::{RemoteSource, Settings, SettingsLock, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::{f32::Vec3, Vec2},
@@ -628,6 +625,28 @@ impl Controller {
         }
     }
 
+    #[cfg(feature = "markers-edit")]
+    async fn save_marker(&mut self, e: MarkerSaveEvent) -> anyhow::Result<()> {
+        log::info!("{:?}", e);
+        Ok(())
+    }
+
+    #[cfg(feature = "markers-edit")]
+    async fn get_marker_paths(&self) -> anyhow::Result<()> {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let markers_dir = addon_dir.join("markers");
+        let mut paths: Vec<PathBuf> = Vec::new();
+        for path in RuntimeMarkers::get_paths(&markers_dir)? {
+            paths.push(path?);
+        }
+        let _ = self
+            .rt_sender
+            .send(RenderEvent::GiveMarkerPaths(paths))
+            .await;
+
+        Ok(())
+    }
+
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
@@ -650,6 +669,10 @@ impl Controller {
             ProgressBarStyle(style) => self.progress_bar_style(style).await,
             WindowState(window, state) => self.set_window_state(window, state).await,
             LoadTexture(rel, base) => self.load_texture(rel, base).await,
+            #[cfg(feature = "markers-edit")]
+            SaveMarker(e) => self.save_marker(e).await?,
+            #[cfg(feature = "markers-edit")]
+            GetMarkerPaths => self.get_marker_paths().await?,
             Quit => return Ok(false),
             // I forget why we needed this, but I think it's a holdover from the buttplug one o:
             //_ => (),
@@ -668,10 +691,21 @@ pub enum ProgressBarStyleChange {
 }
 
 #[derive(Debug, Clone, Display)]
+pub enum MarkerSaveEvent {
+    Append(MarkerSet, PathBuf),
+    Standalone(MarkerSet, PathBuf, MarkerFiletype),
+    Edit(MarkerSet, PathBuf, Option<String>, usize),
+}
+
+#[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
     OpenOpenable(String, String),
     #[cfg(feature = "markers")]
     SetMarker(Vec<ScreenPoint>, Arc<MarkerSet>),
+    #[cfg(feature = "markers-edit")]
+    SaveMarker(MarkerSaveEvent),
+    #[cfg(feature = "markers-edit")]
+    GetMarkerPaths,
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     ToggleKatRender,

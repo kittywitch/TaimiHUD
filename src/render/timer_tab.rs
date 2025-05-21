@@ -176,7 +176,7 @@ impl TimerTabState {
                 }
                 _ => ([0.0, 1.0, 0.0, 1.0], &fl!("enabled")),
             };
-            let text_size = Vec2::from(ui.calc_text_size(&text));
+            let text_size = Vec2::from(ui.calc_text_size(text));
             Alignment::set_cursor(
                 ui,
                 Alignment::RIGHT_MIDDLE,
@@ -228,14 +228,14 @@ impl TimerTabState {
                         );
                     } else {
                         RenderState::font_text("font", ui, &fl!("source-adhoc"));
-                        if let Some(path) = &selected_timer.path {
-                            let path_display = format!("{:?}", path);
-                            RenderState::font_text(
-                                "font",
-                                ui,
-                                &fl!("location", path = path_display),
-                            );
-                        }
+                    }
+                    if let Some(path) = &selected_timer.path {
+                        let path_display = format!("{}", path.display());
+                        RenderState::font_text(
+                            "font",
+                            ui,
+                            &fl!("location", path = path_display),
+                        );
                     }
                     RenderState::font_text(
                         "font",

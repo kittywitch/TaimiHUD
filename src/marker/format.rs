@@ -13,7 +13,8 @@ use {
         path::{Path, PathBuf},
         sync::Arc,
     },
-    strum_macros::{Display, FromRepr},
+    strum::IntoEnumIterator,
+    strum_macros::{Display, FromRepr, EnumIter},
     tokio::{fs::read_to_string, sync::Semaphore, task::JoinSet},
 };
 
@@ -21,8 +22,19 @@ use {
 #[serde(rename_all = "camelCase")]
 #[serde(untagged)]
 pub enum MarkerFormats {
+    // community
     File(MarkerFile),
+    // integrated into the original
     Custom(CustomMarkers),
+    // mine
+    Taimi(MarkerSet),
+}
+
+#[derive(Debug, PartialEq, Eq, EnumIter, Display, Clone)]
+pub enum MarkerFiletype {
+    File,
+    Custom,
+    Taimi,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -47,6 +59,11 @@ impl RuntimeMarkers {
             .ok_or_else(|| anyhow!("Timer file loading path glob unparseable for {path:?}"))?;
         Ok(glob::glob(path_glob_str)?)
     }
+
+    /*
+    pub fn append() -> anyhow::Result<()> {
+    }*/
+
     pub async fn load_many(
         load_dir: &Path,
         simultaneous_limit: usize,
@@ -112,20 +129,28 @@ impl RuntimeMarkers {
                     for category in &f.categories {
                         let category_name = category.name.clone();
                         let entry = finalized.entry(category_name).or_default();
-                        for marker_set in &category.marker_sets {
+                        for (i, marker_set) in category.marker_sets.iter().enumerate() {
                             let mut marker_set_data = marker_set.clone();
                             marker_set_data.path = pack.path.clone();
+                            marker_set_data.idx = Some(i);
                             let marker_set_arc = Arc::new(marker_set_data);
                             entry.push(marker_set_arc);
                         }
                     }
                 }
+                MarkerFormats::Taimi(t) => {
+                    let category_name = t.category.clone().unwrap_or("Custom".to_string());
+                    let entry = finalized.entry(category_name).or_default();
+                    let marker_set_arc = Arc::new(t.clone());
+                    entry.push(marker_set_arc);
+                },
                 MarkerFormats::Custom(c) => {
                     let category_name = "Custom".to_string();
                     let entry = finalized.entry(category_name).or_default();
-                    for marker_set in &c.squad_marker_preset {
+                    for (i, marker_set ) in c.squad_marker_preset.iter().enumerate() {
                         let mut marker_set_data = marker_set.clone();
                         marker_set_data.path = pack.path.clone();
+                        marker_set_data.idx = Some(i);
                         let marker_set_arc = Arc::new(marker_set_data);
                         entry.push(marker_set_arc);
                     }
@@ -169,14 +194,17 @@ fn default_true() -> bool {
 pub struct MarkerSet {
     #[serde(default = "default_true")]
     pub enabled: bool,
+    pub category: Option<String>,
     pub author: Option<String>,
     pub name: String,
     pub description: String,
     pub map_id: u32,
     pub trigger: MarkerPosition,
     pub markers: Vec<MarkerEntry>,
-    #[serde(default)]
+    #[serde(default,skip)]
     pub path: Option<PathBuf>,
+    #[serde(default,skip)]
+    pub idx: Option<usize>,
 }
 
 impl MarkerSet {

@@ -29,7 +29,7 @@ impl DataSourceTabState {
         }
         if ui.is_item_hovered() {
             if let Some(path) = &rs.installed_path {
-                let path_string = format!("{:?}", &path);
+                let path_string = format!("{}", &path.display());
                 ui.tooltip_text(fl!("location", path = path_string));
             }
         }
@@ -40,7 +40,7 @@ impl DataSourceTabState {
             ui.text_wrapped(fl!("addon-uninstall-modal-title"));
             ui.dummy([4.0, 4.0]);
             if let Some(path) = &rs.installed_path {
-                let path_string = format!("{:?}", &path);
+                let path_string = format!("{}", &path.display());
                 ui.text(&fl!("location", path = path_string));
             }
             ui.dummy([4.0, 4.0]);
