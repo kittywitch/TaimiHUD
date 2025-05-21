@@ -29,7 +29,7 @@ use {
 };
 
 #[cfg(feature = "markers-edit")]
-use super::marker_window::EditMarkerWindowState;
+use super::edit_marker_window::EditMarkerWindowState;
 
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
