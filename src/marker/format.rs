@@ -215,14 +215,14 @@ impl RuntimeMarkers {
                     category.marker_sets.push(ms);
                     f.last_edit = Utc::now();
                 } else {
-                    let category = match f.categories.iter_mut().find(|c| &c.name == "Integrated") {
+                    let category = match f.categories.iter_mut().find(|c| &c.name == "No category") {
                         Some(c) => c,
                         None => {
                             f.categories.push(MarkerCategory {
                                 name: "Integrated".to_string(),
                                 marker_sets: Vec::new(),
                             });
-                            f.categories.iter_mut().find(|c| &c.name == "Integrated").ok_or(anyhow!("Can't find the category \"Integrated\" we should've made"))?
+                            f.categories.iter_mut().find(|c| &c.name == "No category").ok_or(anyhow!("Can't find the category \"No category\" we should've made"))?
                         },
                     };
                     category.marker_sets.push(ms);
@@ -260,7 +260,7 @@ impl RuntimeMarkers {
                     path: Some(path.clone()),
                     categories: vec![
                         MarkerCategory {
-                            name: ms.category.clone().unwrap_or("Integrated".to_string()),
+                            name: ms.category.clone().unwrap_or("No category".to_string()),
                             marker_sets: vec![ms],
                         }
                     ],
@@ -315,7 +315,7 @@ impl RuntimeMarkers {
                 }
                 MarkerFormats::Taimi(t) => {
                     for (i, marker_set) in t.iter().enumerate() {
-                        let category_name = marker_set.category.clone().unwrap_or("Integrated".to_string());
+                        let category_name = marker_set.category.clone().unwrap_or("No category".to_string());
                         let entry = finalized.entry(category_name).or_default();
                         let mut marker_set_data = marker_set.clone();
                         marker_set_data.path = pack.path.clone();
