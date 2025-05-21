@@ -142,32 +142,64 @@ impl RuntimeMarkers {
         Ok(())
     }
 
-    pub async fn delete(path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<()> {
+    pub async fn edit(ms: MarkerSet, path: &PathBuf, original_category: Option<String>, idx: usize) -> anyhow::Result<()> {
         let mut file = Self::load_arcless(path).await?;
-        match &mut file.file {
-            MarkerFormats::File(f) => {
-                let category = category.ok_or(anyhow!("Category not provided, required for File format"))?;
-                let category = f.categories.iter_mut().find(|c| c.name == category).ok_or(anyhow!("Couldn't find category {}", category))?;
-                category.marker_sets.remove(idx);
-            },
-            MarkerFormats::Taimi(t) => {
-                t.remove(idx);
-            },
-            MarkerFormats::Custom(c) => {
-                c.squad_marker_preset.remove(idx);
-            },
+        if ms.category != original_category {
+            file.remove(path, original_category, idx).await?;
+            file.append_raw(ms).await?;
+        } else {
+            let entry = file.get_entry(path, ms.category.clone(), idx).await?;
+            *entry = ms;
         }
         file.save(path).await?;
         Ok(())
+    }
+
+    pub async fn delete(path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<()> {
+        let mut file = Self::load_arcless(path).await?;
+        file.remove(path, category, idx).await?;
+        file.save(path).await?;
+        Ok(())
+    }
+
+    pub async fn get_entry(&mut self, path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<&mut MarkerSet> {
+        match &mut self.file {
+            MarkerFormats::File(f) => {
+                let category = category.ok_or(anyhow!("Category not provided, required for File format"))?;
+                let category = f.categories.iter_mut().find(|c| c.name == category).ok_or(anyhow!("Couldn't find category {}", category))?;
+                Ok(&mut category.marker_sets[idx])
+            },
+            MarkerFormats::Taimi(t) => {
+                Ok(&mut t[idx])
+            },
+            MarkerFormats::Custom(c) => {
+                Ok(&mut c.squad_marker_preset[idx])
+            },
+        }
+    }
+
+    pub async fn remove(&mut self, path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<MarkerSet> {
+        match &mut self.file {
+            MarkerFormats::File(f) => {
+                let category = category.ok_or(anyhow!("Category not provided, required for File format"))?;
+                let category = f.categories.iter_mut().find(|c| c.name == category).ok_or(anyhow!("Couldn't find category {}", category))?;
+                Ok(category.marker_sets.remove(idx))
+            },
+            MarkerFormats::Taimi(t) => {
+                Ok(t.remove(idx))
+            },
+            MarkerFormats::Custom(c) => {
+                Ok(c.squad_marker_preset.remove(idx))
+            },
+        }
     }
 
     pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
         Ok(Arc::new(Self::load_arcless(path).await?))
     }
 
-    pub async fn append(path: &PathBuf, ms: MarkerSet) -> anyhow::Result<()> {
-        let mut file = Self::load_arcless(path).await?;
-        match &mut file.file {
+    pub async fn append_raw(&mut self, ms: MarkerSet) -> anyhow::Result<()> {
+        match &mut self.file {
             MarkerFormats::File(f) => {
                 if let Some(mscat) = &ms.category {
                     let category = match f.categories.iter_mut().find(|c| &c.name == mscat) {
@@ -204,6 +236,12 @@ impl RuntimeMarkers {
                 c.squad_marker_preset.push(ms);
             },
         }
+        Ok(())
+    }
+
+    pub async fn append(path: &PathBuf, ms: MarkerSet) -> anyhow::Result<()> {
+        let mut file = Self::load_arcless(path).await?;
+        file.append_raw(ms).await?;
         file.save(path).await?;
         Ok(())
     }
@@ -260,14 +298,14 @@ impl RuntimeMarkers {
     pub async fn markers(marker_packs: Vec<Arc<Self>>) -> HashMap<String, Vec<Arc<MarkerSet>>> {
         let mut finalized: HashMap<String, Vec<Arc<MarkerSet>>> = HashMap::new();
         for pack in marker_packs {
-            log::info!("{:?}", pack);
             match &pack.file {
                 MarkerFormats::File(f) => {
                     for category in &f.categories {
                         let category_name = category.name.clone();
-                        let entry = finalized.entry(category_name).or_default();
+                        let entry = finalized.entry(category_name.clone()).or_default();
                         for (i, marker_set) in category.marker_sets.iter().enumerate() {
                             let mut marker_set_data = marker_set.clone();
+                            marker_set_data.category = Some(category_name.clone());
                             marker_set_data.path = pack.path.clone();
                             marker_set_data.idx = Some(i);
                             let marker_set_arc = Arc::new(marker_set_data);

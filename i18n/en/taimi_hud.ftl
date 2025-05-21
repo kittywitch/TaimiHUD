@@ -95,7 +95,7 @@ addon-uninstall-modal-title = Uninstall { $source }?
 addon-uninstall-modal-button = Uninstall
 addon-uninstall-modal-description = Please be careful! This will delete the folder and anything it contains.
 delete-markerset-warning = Please be careful! This will delete the marker set entry within the file.
-
+overwrite-markerset = Please be careful! This will overwrite the marker set entry within the file.
 ## Openable
 
 open-button = Open { $kind }

@@ -26,7 +26,7 @@ use {
 
 pub struct MarkerTabState {
     markers: IndexMap<String, Vec<Arc<MarkerSet>>>,
-    marker_selection: Option<Arc<MarkerSet>>,
+    pub marker_selection: Option<Arc<MarkerSet>>,
     category_status: HashSet<String>,
     formatted_name: String,
 }

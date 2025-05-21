@@ -637,7 +637,6 @@ impl Controller {
 
     #[cfg(feature = "markers-edit")]
     async fn save_marker(&mut self, e: MarkerSaveEvent) -> anyhow::Result<()> {
-        log::info!("{:?}", e);
         match e {
             MarkerSaveEvent::Append(ms, p) => {
                 RuntimeMarkers::append(&p, ms).await?;
@@ -646,7 +645,7 @@ impl Controller {
                 RuntimeMarkers::create(&p, ft, ms).await?;
             },
             MarkerSaveEvent::Edit(ms, p, oc, idx) => {
-                todo!("aeiou john madden");
+                RuntimeMarkers::edit(ms, &p, oc, idx).await?;
             },
         }
         self.reload_markers().await;

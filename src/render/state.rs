@@ -128,10 +128,12 @@ impl RenderState {
                             checking_for_updates;
                     }
                     TimerData(timers) => {
+                        self.primary_window.timer_tab.timer_selection = None;
                         self.primary_window.timer_tab.timers_update(timers);
                     }
                     #[cfg(feature = "markers")]
                     MarkerData(markers) => {
+                        self.primary_window.marker_tab.marker_selection = None;
                         let categories: Vec<_> = markers.keys().cloned().collect();
                         #[cfg(feature = "markers-edit")]
                         self.edit_marker_window.category_update(categories);

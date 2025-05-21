@@ -242,6 +242,7 @@ impl EditMarkerWindowState {
             let trigger_position: Vec3 = ms.trigger.into();
             self.category.update(prev.category.data);
             self.markers = markers;
+            self.original_category = ms.category.clone();
             self.category.entry = ms.category;
             self.name = ms.name;
             self.trigger.position = Some(trigger_position);
@@ -439,9 +440,12 @@ impl EditMarkerWindowState {
                         .always_auto_resize(true)
                         .begin_popup(ui) {
                         if self.save_mode == Some(MarkerSaveMode::Edit) {
+                            ui.text_colored([1.0, 1.0, 0.0, 1.0], fl!("overwrite-markerset"));
                             if ui.button(fl!("save")) {
-                            self.save_file();
+                                self.save_file();
+                                return true;
                             }
+                            ui.same_line();
                         }
                         else {
                             self.draw_validate(ui);
@@ -507,6 +511,7 @@ impl EditMarkerWindowState {
                                     self.problems = self.validate_save();
                                     if self.problems.len() == 0 {
                                         self.save_file();
+                                        return true;
                                     }
                                 }
                                 ui.same_line();
@@ -531,7 +536,7 @@ impl EditMarkerWindowState {
                                 if let Some(Some(selection)) = ComboBox::new(fl!("filename"))
                                     .preview_value(combo_box_text)
                                     .build(ui, filename_closure) {
-                                    self.path = Some(selection);
+                                    self.path = Some(selection).clone();
                                 }
                                 if ui.button(fl!("refresh-files")) {
                                     self.request_filenames();
@@ -541,6 +546,7 @@ impl EditMarkerWindowState {
                                     self.problems = self.validate_save();
                                     if self.problems.len() == 0 {
                                         self.save_file();
+                                        return true;
                                     }
                                 }
                                 ui.same_line();

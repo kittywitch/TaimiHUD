@@ -23,7 +23,7 @@ use {
 pub struct TimerTabState {
     timers: Vec<Arc<TimerFile>>,
     categories: IndexMap<String, Vec<Arc<TimerFile>>>,
-    timer_selection: Option<Arc<TimerFile>>,
+    pub timer_selection: Option<Arc<TimerFile>>,
     category_status: HashSet<String>,
     sources_to_timers: IndexMap<Arc<RemoteSource>, Vec<Arc<TimerFile>>>,
     //search_string: String,
