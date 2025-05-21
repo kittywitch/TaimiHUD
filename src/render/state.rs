@@ -29,7 +29,7 @@ use {
 };
 
 #[cfg(feature = "markers-edit")]
-use super::marker_window::EditMarkerWindowState;
+use super::edit_marker_window::EditMarkerWindowState;
 
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
@@ -44,7 +44,9 @@ pub enum RenderEvent {
     #[allow(dead_code)]
     RenderKeybindUpdate,
     #[cfg(feature = "markers-edit")]
-    OpenEditMarkers,
+    OpenEditMarkers(Option<MarkerSet>),
+    #[cfg(feature = "markers-edit")]
+    GiveMarkerPaths(Vec<PathBuf>),
     ProgressBarUpdate(ProgressBarSettings),
 }
 
@@ -102,8 +104,15 @@ impl RenderState {
                 use RenderEvent::*;
                 match event {
                     #[cfg(feature = "markers-edit")]
-                    OpenEditMarkers => {
-                        self.edit_marker_window.open();
+                    OpenEditMarkers(e) => {
+                        match e {
+                            None => self.edit_marker_window.open(),
+                            Some(e) => self.edit_marker_window.open_edit(e),
+                        }
+                    }
+                    #[cfg(feature = "markers-edit")]
+                    GiveMarkerPaths(paths) => {
+                        self.edit_marker_window.set_filenames(paths);
                     }
                     OpenableError(key, err) => {
                         self.state_errors.insert(key, err);
@@ -119,10 +128,15 @@ impl RenderState {
                             checking_for_updates;
                     }
                     TimerData(timers) => {
+                        self.primary_window.timer_tab.timer_selection = None;
                         self.primary_window.timer_tab.timers_update(timers);
                     }
                     #[cfg(feature = "markers")]
                     MarkerData(markers) => {
+                        self.primary_window.marker_tab.marker_selection = None;
+                        let categories: Vec<_> = markers.keys().cloned().collect();
+                        #[cfg(feature = "markers-edit")]
+                        self.edit_marker_window.category_update(categories);
                         self.primary_window.marker_tab.marker_update(markers);
                     }
                     AlertStart(alert) => {
@@ -220,9 +234,9 @@ impl RenderState {
                 .begin_popup(ui)
             {
                 ui.text(&entry_name);
-                ui.dummy([4.0, 4.0]);
+                ui.dummy([4.0; 2]);
                 ui.text_wrapped(format!("{:?}", errory));
-                ui.dummy([4.0, 4.0]);
+                ui.dummy([4.0; 2]);
                 if ui.button(fl!("okay")) {
                     state_errors.remove(&entry_name);
                     ui.close_current_popup();

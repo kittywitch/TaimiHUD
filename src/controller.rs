@@ -12,10 +12,7 @@ use {
 };
 use {
     crate::{
-        render::TextFont,
-        settings::{RemoteSource, Settings, SettingsLock, SourcesFile},
-        timer::{CombatState, Position, TimerFile, TimerMachine},
-        MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES,
+        marker::format::MarkerFiletype, render::TextFont, settings::{RemoteSource, Settings, SettingsLock, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
     },
     arcdps::{evtc::event::Event as arcEvent, AgentOwned},
     glam::{f32::Vec3, Vec2},
@@ -486,12 +483,22 @@ impl Controller {
             .await;
     }
 
+    async fn reload_data(&mut self) {
+        self.reload_timers().await;
+        #[cfg(feature = "markers")]
+        self.reload_markers().await;
+    }
+
     async fn reload_timers(&mut self) {
         self.timers.clear();
         self.sources_to_timers.clear();
         self.map_id_to_timers.clear();
         self.setup_timers().await;
         self.reset_timers().await;
+    }
+
+    #[cfg(feature = "markers")]
+    async fn reload_markers(&mut self) {
         self.load_markers_files()
             .await
             .expect("markers load failed");
@@ -628,11 +635,59 @@ impl Controller {
         }
     }
 
+    #[cfg(feature = "markers-edit")]
+    async fn save_marker(&mut self, e: MarkerSaveEvent) -> anyhow::Result<()> {
+        match e {
+            MarkerSaveEvent::Append(ms, p) => {
+                RuntimeMarkers::append(&p, ms).await?;
+            },
+            MarkerSaveEvent::Create(ms, p, ft) => {
+                RuntimeMarkers::create(&p, ft, ms).await?;
+            },
+            MarkerSaveEvent::Edit(ms, p, oc, idx) => {
+                RuntimeMarkers::edit(ms, &p, oc, idx).await?;
+            },
+        }
+        self.reload_markers().await;
+        Ok(())
+    }
+
+    #[cfg(feature = "markers-edit")]
+    async fn delete_marker(&mut self,
+        path: &PathBuf,
+        category: Option<String>,
+        idx: usize,
+    ) -> anyhow::Result<()> {
+        RuntimeMarkers::delete(path, category, idx).await?;
+        self.reload_markers().await;
+        Ok(())
+    }
+
+
+    #[cfg(feature = "markers-edit")]
+    async fn get_marker_paths(&self) -> anyhow::Result<()> {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let markers_dir = addon_dir.join("markers");
+        let mut paths: Vec<PathBuf> = Vec::new();
+        for path in RuntimeMarkers::get_paths(&markers_dir)? {
+            paths.push(path?);
+        }
+        let _ = self
+            .rt_sender
+            .send(RenderEvent::GiveMarkerPaths(paths))
+            .await;
+
+        Ok(())
+    }
+
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
         match event {
+            ReloadData => self.reload_data().await,
             ReloadTimers => self.reload_timers().await,
+            #[cfg(feature = "markers")]
+            ReloadMarkers => self.reload_markers().await,
             ToggleKatRender => self.toggle_katrender().await,
             OpenOpenable(key, uri) => self.open_openable(key, uri).await,
             UninstallAddon(dd) => self.uninstall_addon(&dd).await?,
@@ -650,6 +705,12 @@ impl Controller {
             ProgressBarStyle(style) => self.progress_bar_style(style).await,
             WindowState(window, state) => self.set_window_state(window, state).await,
             LoadTexture(rel, base) => self.load_texture(rel, base).await,
+            #[cfg(feature = "markers-edit")]
+            SaveMarker(e) => self.save_marker(e).await?,
+            #[cfg(feature = "markers-edit")]
+            DeleteMarker { path, category, idx } => self.delete_marker(&path, category, idx).await?,
+            #[cfg(feature = "markers-edit")]
+            GetMarkerPaths => self.get_marker_paths().await?,
             Quit => return Ok(false),
             // I forget why we needed this, but I think it's a holdover from the buttplug one o:
             //_ => (),
@@ -668,10 +729,27 @@ pub enum ProgressBarStyleChange {
 }
 
 #[derive(Debug, Clone, Display)]
+pub enum MarkerSaveEvent {
+    Append(MarkerSet, PathBuf),
+    Create(MarkerSet, PathBuf, MarkerFiletype),
+    Edit(MarkerSet, PathBuf, Option<String>, usize),
+}
+
+#[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
     OpenOpenable(String, String),
     #[cfg(feature = "markers")]
     SetMarker(Vec<ScreenPoint>, Arc<MarkerSet>),
+    #[cfg(feature = "markers-edit")]
+    SaveMarker(MarkerSaveEvent),
+    #[cfg(feature = "markers-edit")]
+    DeleteMarker {
+        path: PathBuf,
+        category: Option<String>,
+        idx: usize,
+    },
+    #[cfg(feature = "markers-edit")]
+    GetMarkerPaths,
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
     ToggleKatRender,
@@ -689,6 +767,9 @@ pub enum ControllerEvent {
     LoadTexture(RelativePathBuf, PathBuf),
     CheckDataSourceUpdates,
     ReloadTimers,
+    #[cfg(feature = "markers")]
+    ReloadMarkers,
+    ReloadData,
     #[allow(dead_code)]
     TimerEnable(String),
     #[allow(dead_code)]
