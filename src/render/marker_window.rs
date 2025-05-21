@@ -98,7 +98,7 @@ impl IndividualMarkerState {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub enum MarkerSaveMode {
-    Standalone,
+    Create,
     Append,
     Edit,
 }
@@ -182,8 +182,8 @@ impl EditMarkerWindowState {
             if let Some(path) = &self.path {
                 if let Some(save_mode) = &self.save_mode {
                     let evt = match save_mode {
-                        MarkerSaveMode::Standalone => {
-                            MarkerSaveEvent::Standalone(ms, path.into(), self.filetype.clone().unwrap())
+                        MarkerSaveMode::Create => {
+                            MarkerSaveEvent::Create(ms, path.into(), self.filetype.clone().unwrap())
                         },
                         MarkerSaveMode::Append => {
                             MarkerSaveEvent::Append(ms, path.into())
@@ -450,13 +450,13 @@ impl EditMarkerWindowState {
                         else {
                             self.draw_validate(ui);
                             let msm_name = |item: &MarkerSaveMode| match item {
-                                MarkerSaveMode::Standalone => fl!("save-standalone"),
+                                MarkerSaveMode::Create => fl!("save-standalone"),
                                 MarkerSaveMode::Append => fl!("save-append"),
                                 _ => "".to_string(),
                             };
                             let save_mode_closure = || {
                                 let mut selected = self.save_mode.clone();
-                                for item in [ MarkerSaveMode::Standalone, MarkerSaveMode::Append ].iter() {
+                                for item in [ MarkerSaveMode::Create, MarkerSaveMode::Append ].iter() {
                                     if Selectable::new(msm_name(item))
                                         .selected(Some(item) == self.save_mode.as_ref())
                                         .build(ui) {
@@ -480,7 +480,7 @@ impl EditMarkerWindowState {
                             }
                         }
                         match self.save_mode {
-                            Some(MarkerSaveMode::Standalone) => {
+                            Some(MarkerSaveMode::Create) => {
                                 let filetype_closure = || {
                                     let mut selected = self.filetype.clone();
                                     for item in MarkerFiletype::iter() {

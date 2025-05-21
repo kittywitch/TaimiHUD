@@ -641,7 +641,7 @@ impl Controller {
             MarkerSaveEvent::Append(ms, p) => {
                 RuntimeMarkers::append(&p, ms).await?;
             },
-            MarkerSaveEvent::Standalone(ms, p, ft) => {
+            MarkerSaveEvent::Create(ms, p, ft) => {
                 RuntimeMarkers::create(&p, ft, ms).await?;
             },
             MarkerSaveEvent::Edit(ms, p, oc, idx) => {
@@ -731,7 +731,7 @@ pub enum ProgressBarStyleChange {
 #[derive(Debug, Clone, Display)]
 pub enum MarkerSaveEvent {
     Append(MarkerSet, PathBuf),
-    Standalone(MarkerSet, PathBuf, MarkerFiletype),
+    Create(MarkerSet, PathBuf, MarkerFiletype),
     Edit(MarkerSet, PathBuf, Option<String>, usize),
 }
 

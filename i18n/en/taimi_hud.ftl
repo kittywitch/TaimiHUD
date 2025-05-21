@@ -163,7 +163,7 @@ screen-header = Screen (XY)
 marker-not-on-screen = Not on screen
 select-a-marker = Please select a marker to configure!
 marker-filetype-explanation = There are three kinds of markers file, there is the kind that
-  comes with the BlishHUD Commander's Markers module, there is the kind that they use to ship Community Markers and then there is my own format, which takes the per marker set format and makes it a single file per marker set.
+  comes with the BlishHUD Commander's Markers module (integrated), there is the kind that they use to ship Community Markers and then there is my own format, which takes the per marker set format and makes it a single file per marker set.
 
 ## Markers window
 
