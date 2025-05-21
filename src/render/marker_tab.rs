@@ -14,7 +14,7 @@ use {
     nexus::{
         imgui::{
             ChildWindow, Condition, Selectable, TableColumnSetup, TableFlags, TreeNode,
-            TreeNodeFlags, Ui, WindowFlags,
+            TreeNodeFlags, Ui, WindowFlags, PopupModal,
         },
         paths::get_addon_dir,
     },
@@ -28,6 +28,7 @@ pub struct MarkerTabState {
     markers: IndexMap<String, Vec<Arc<MarkerSet>>>,
     marker_selection: Option<Arc<MarkerSet>>,
     category_status: HashSet<String>,
+    formatted_name: String,
 }
 
 impl MarkerTabState {
@@ -38,6 +39,7 @@ impl MarkerTabState {
             markers: Default::default(),
             marker_selection: Default::default(),
             category_status: Default::default(),
+            formatted_name: Default::default(),
         }
     }
 
@@ -65,11 +67,17 @@ impl MarkerTabState {
         );
         ui.same_line();
         #[cfg(feature = "markers-edit")]
-        if ui.button("Create Marker Set") {
+        if ui.button(fl!("marker-set-create")) {
             let _ = RENDER_SENDER
                 .get()
                 .unwrap()
-                .try_send(RenderEvent::OpenEditMarkers);
+                .try_send(RenderEvent::OpenEditMarkers(None));
+        }
+        ui.same_line();
+        if ui.button(fl!("reload-markers")) {
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::ReloadMarkers);
+            drop(event_send);
         }
         #[allow(clippy::collapsible_if)]
         if self.category_status.len() != self.markers.keys().len() {
@@ -222,6 +230,43 @@ impl MarkerTabState {
                         "markers-arg",
                         count = selected_marker_set.markers.len()
                     ));
+                    #[cfg(feature = "markers-edit")]
+                    if ui.button(fl!("marker-set-edit")) {
+                        let raw_inner = Arc::<MarkerSet>::unwrap_or_clone(selected_marker_set.clone());
+                        let _ = RENDER_SENDER
+                            .get()
+                            .unwrap()
+                            .try_send(RenderEvent::OpenEditMarkers(Some(raw_inner)));
+                    }
+                    ui.same_line();
+                    // TODO: add confirm ^^;
+                    #[cfg(feature = "markers-edit")]
+                    if selected_marker_set.idx.is_some() && selected_marker_set.path.is_some() {
+                        if ui.button(&fl!("marker-set-delete")) {
+
+                            self.formatted_name = fl!("delete-item", item = selected_marker_set.name.clone());
+                            ui.open_popup(&self.formatted_name);
+                        }
+                    }
+                    #[cfg(feature = "markers-edit")]
+                    if let Some(_token) = PopupModal::new(&self.formatted_name)
+                        .always_auto_resize(true)
+                        .begin_popup(ui) {
+                        ui.text_colored([1.0, 0.0, 0.0, 1.0], fl!("delete-markerset-warning"));
+                        if ui.button(fl!("delete")) {
+                            let sender = CONTROLLER_SENDER.get().unwrap();
+                            let event_send = sender.try_send(ControllerEvent::DeleteMarker {
+                                path: selected_marker_set.path.clone().unwrap(),
+                                category: selected_marker_set.category.clone(),
+                                idx: selected_marker_set.idx.unwrap(),
+                            });
+                            drop(event_send);
+                        }
+                        ui.same_line();
+                        if ui.button(fl!("cancel")) {
+                            ui.close_current_popup();
+                        }
+                    }
                     let screen_positions: Vec<ScreenPoint> = selected_marker_set
                         .markers
                         .iter()
@@ -308,8 +353,6 @@ impl MarkerTabState {
                         }
                         pushy.pop();
                     }
-                    // TODO: add confirm ^^;
-                    if ui.button(&fl!("marker-set-delete")) {}
                 } else {
                     ui.text(&fl!("select-a-marker"));
                 }

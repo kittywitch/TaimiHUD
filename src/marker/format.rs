@@ -4,7 +4,10 @@ use {
     chrono::{DateTime, Utc},
     glam::Vec3,
     glob::Paths,
-    nexus::gamebind::GameBind,
+    nexus::{
+        gamebind::GameBind,
+        paths::get_addon_dir,
+    },
     serde::{Deserialize, Serialize},
     serde_repr::{Deserialize_repr, Serialize_repr},
     std::{
@@ -15,7 +18,7 @@ use {
     },
     strum::IntoEnumIterator,
     strum_macros::{Display, FromRepr, EnumIter},
-    tokio::{fs::read_to_string, sync::Semaphore, task::JoinSet},
+    tokio::{io::AsyncWriteExt, fs::{File, create_dir_all, OpenOptions, read_to_string}, sync::Semaphore, task::JoinSet},
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -27,7 +30,7 @@ pub enum MarkerFormats {
     // integrated into the original
     Custom(CustomMarkers),
     // mine
-    Taimi(MarkerSet),
+    Taimi(Vec<MarkerSet>),
 }
 
 #[derive(Debug, PartialEq, Eq, EnumIter, Display, Clone)]
@@ -108,7 +111,7 @@ impl RuntimeMarkers {
         }
         Ok(marker_files)
     }
-    pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
+    pub async fn load_arcless(path: &PathBuf) -> anyhow::Result<Self> {
         log::debug!("Attempting to load the markers file at \"{path:?}\".");
         let mut file_data = read_to_string(path).await?;
         json_strip_comments::strip(&mut file_data)?;
@@ -118,8 +121,142 @@ impl RuntimeMarkers {
             path: Some(path.to_path_buf()),
         };
         log::debug!("Successfully loaded the markers file at \"{path:?}\".");
-        Ok(Arc::new(data))
+        Ok(data)
     }
+
+    pub async fn create_file(&self, path: &PathBuf) -> anyhow::Result<()> {
+        log::debug!("MarkerFormat: Saving to \"{}\".", path.display());
+        let settings_str = serde_json::to_string(&self.file)?;
+        let mut file = File::create(path).await?;
+        file.write_all(settings_str.as_bytes()).await?;
+        file.flush().await?;
+        Ok(())
+    }
+    
+    pub async fn save(&self, path: &PathBuf) -> anyhow::Result<()> {
+        log::debug!("MarkerFormat: Saving to \"{}\".", path.display());
+        let settings_str = serde_json::to_string(&self.file)?;
+        let mut file = OpenOptions::new().write(true).truncate(true).open(path).await?;
+        file.write_all(settings_str.as_bytes()).await?;
+        file.flush().await?;
+        Ok(())
+    }
+
+    pub async fn delete(path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<()> {
+        let mut file = Self::load_arcless(path).await?;
+        match &mut file.file {
+            MarkerFormats::File(f) => {
+                let category = category.ok_or(anyhow!("Category not provided, required for File format"))?;
+                let category = f.categories.iter_mut().find(|c| c.name == category).ok_or(anyhow!("Couldn't find category {}", category))?;
+                category.marker_sets.remove(idx);
+            },
+            MarkerFormats::Taimi(t) => {
+                t.remove(idx);
+            },
+            MarkerFormats::Custom(c) => {
+                c.squad_marker_preset.remove(idx);
+            },
+        }
+        file.save(path).await?;
+        Ok(())
+    }
+
+    pub async fn load(path: &PathBuf) -> anyhow::Result<Arc<Self>> {
+        Ok(Arc::new(Self::load_arcless(path).await?))
+    }
+
+    pub async fn append(path: &PathBuf, ms: MarkerSet) -> anyhow::Result<()> {
+        let mut file = Self::load_arcless(path).await?;
+        match &mut file.file {
+            MarkerFormats::File(f) => {
+                if let Some(mscat) = &ms.category {
+                    let category = match f.categories.iter_mut().find(|c| &c.name == mscat) {
+                        Some(c) => c,
+                        None => {
+                            f.categories.push(MarkerCategory {
+                                name: mscat.clone(),
+                                marker_sets: Vec::new(),
+                            });
+                            f.categories.iter_mut().find(|c| &c.name == mscat).ok_or(anyhow!("Can't find the category \"{}\" we should've made", mscat))?
+                        },
+                    };
+                    category.marker_sets.push(ms);
+                    f.last_edit = Utc::now();
+                } else {
+                    let category = match f.categories.iter_mut().find(|c| &c.name == "Custom") {
+                        Some(c) => c,
+                        None => {
+                            f.categories.push(MarkerCategory {
+                                name: "Custom".to_string(),
+                                marker_sets: Vec::new(),
+                            });
+                            f.categories.iter_mut().find(|c| &c.name == "Custom").ok_or(anyhow!("Can't find the category \"Custom\" we should've made"))?
+                        },
+                    };
+                    category.marker_sets.push(ms);
+                    f.last_edit = Utc::now();
+                }
+            },
+            MarkerFormats::Taimi(t) => {
+                t.push(ms);
+            },
+            MarkerFormats::Custom(c) => {
+                c.squad_marker_preset.push(ms);
+            },
+        }
+        file.save(path).await?;
+        Ok(())
+    }
+
+    pub async fn create(path: &PathBuf, format: MarkerFiletype, ms: MarkerSet) -> anyhow::Result<()> {
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let markers_dir = addon_dir.join("markers");
+        if !exists(&markers_dir).expect("Can't check if directory exists") {
+            create_dir_all(&markers_dir).await?;
+        }
+        let path = markers_dir.join(format!("{}.markers", path.display()));
+        match format {
+            MarkerFiletype::File => {
+                let file_data = MarkerFile {
+                    last_edit: Utc::now(),
+                    path: Some(path.clone()),
+                    categories: vec![
+                        MarkerCategory {
+                            name: ms.category.clone().unwrap_or("Custom".to_string()),
+                            marker_sets: vec![ms],
+                        }
+                    ],
+                };
+                let file = RuntimeMarkers {
+                    path: Some(path.clone()),
+                    file: MarkerFormats::File(file_data),
+                };
+                file.create_file(&path).await?;
+            },
+            MarkerFiletype::Taimi => {
+                let file_data = vec![ms];
+                let file = RuntimeMarkers {
+                    path: Some(path.clone()),
+                    file: MarkerFormats::Taimi(file_data),
+                };
+                file.create_file(&path).await?;
+            },
+            MarkerFiletype::Custom => {
+                let file_data = CustomMarkers {
+                    version: "2.0.0".to_string(),
+                    path: Some(path.clone()),
+                    squad_marker_preset: vec![ms],
+                };
+                let file = RuntimeMarkers {
+                    path: Some(path.clone()),
+                    file: MarkerFormats::Custom(file_data),
+                };
+                file.create_file(&path).await?;
+            },
+        }
+        Ok(())
+    }
+
     pub async fn markers(marker_packs: Vec<Arc<Self>>) -> HashMap<String, Vec<Arc<MarkerSet>>> {
         let mut finalized: HashMap<String, Vec<Arc<MarkerSet>>> = HashMap::new();
         for pack in marker_packs {
@@ -139,15 +276,21 @@ impl RuntimeMarkers {
                     }
                 }
                 MarkerFormats::Taimi(t) => {
-                    let category_name = t.category.clone().unwrap_or("Custom".to_string());
-                    let entry = finalized.entry(category_name).or_default();
-                    let marker_set_arc = Arc::new(t.clone());
-                    entry.push(marker_set_arc);
+                    for (i, marker_set) in t.iter().enumerate() {
+                        let category_name = marker_set.category.clone().unwrap_or("Custom".to_string());
+                        let entry = finalized.entry(category_name).or_default();
+                        let mut marker_set_data = marker_set.clone();
+                        marker_set_data.path = pack.path.clone();
+                        marker_set_data.idx = Some(i);
+                        let marker_set_arc = Arc::new(marker_set_data);
+                        entry.push(marker_set_arc);
+                    }
                 },
                 MarkerFormats::Custom(c) => {
-                    let category_name = "Custom".to_string();
-                    let entry = finalized.entry(category_name).or_default();
                     for (i, marker_set ) in c.squad_marker_preset.iter().enumerate() {
+                        // extend their format by allowing the Category :)
+                        let category_name = marker_set.category.clone().unwrap_or("Custom".to_string());
+                        let entry = finalized.entry(category_name).or_default();
                         let mut marker_set_data = marker_set.clone();
                         marker_set_data.path = pack.path.clone();
                         marker_set_data.idx = Some(i);
@@ -165,6 +308,7 @@ impl RuntimeMarkers {
 #[serde(rename_all = "camelCase")]
 pub struct MarkerFile {
     pub last_edit: DateTime<Utc>,
+    #[serde(skip,default)]
     pub path: Option<PathBuf>,
     pub categories: Vec<MarkerCategory>,
 }
@@ -173,6 +317,7 @@ pub struct MarkerFile {
 #[serde(rename_all = "camelCase")]
 pub struct CustomMarkers {
     pub version: String,
+    #[serde(skip,default)]
     pub path: Option<PathBuf>,
     pub squad_marker_preset: Vec<MarkerSet>,
 }
@@ -221,7 +366,7 @@ impl MarkerSet {
 pub struct MarkerEntry {
     #[serde(alias = "i")]
     pub marker: MarkerType,
-    #[serde(alias = "d")]
+    #[serde(alias = "d", skip_serializing_if = "Option::is_none")]
     pub id: Option<String>,
     #[serde(flatten)]
     pub position: MarkerPosition,

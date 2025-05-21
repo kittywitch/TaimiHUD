@@ -483,12 +483,22 @@ impl Controller {
             .await;
     }
 
+    async fn reload_data(&mut self) {
+        self.reload_timers().await;
+        #[cfg(feature = "markers")]
+        self.reload_markers().await;
+    }
+
     async fn reload_timers(&mut self) {
         self.timers.clear();
         self.sources_to_timers.clear();
         self.map_id_to_timers.clear();
         self.setup_timers().await;
         self.reset_timers().await;
+    }
+
+    #[cfg(feature = "markers")]
+    async fn reload_markers(&mut self) {
         self.load_markers_files()
             .await
             .expect("markers load failed");
@@ -628,8 +638,32 @@ impl Controller {
     #[cfg(feature = "markers-edit")]
     async fn save_marker(&mut self, e: MarkerSaveEvent) -> anyhow::Result<()> {
         log::info!("{:?}", e);
+        match e {
+            MarkerSaveEvent::Append(ms, p) => {
+                RuntimeMarkers::append(&p, ms).await?;
+            },
+            MarkerSaveEvent::Standalone(ms, p, ft) => {
+                RuntimeMarkers::create(&p, ft, ms).await?;
+            },
+            MarkerSaveEvent::Edit(ms, p, oc, idx) => {
+                todo!("aeiou john madden");
+            },
+        }
+        self.reload_markers().await;
         Ok(())
     }
+
+    #[cfg(feature = "markers-edit")]
+    async fn delete_marker(&mut self,
+        path: &PathBuf,
+        category: Option<String>,
+        idx: usize,
+    ) -> anyhow::Result<()> {
+        RuntimeMarkers::delete(path, category, idx).await?;
+        self.reload_markers().await;
+        Ok(())
+    }
+
 
     #[cfg(feature = "markers-edit")]
     async fn get_marker_paths(&self) -> anyhow::Result<()> {
@@ -651,7 +685,10 @@ impl Controller {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
         match event {
+            ReloadData => self.reload_data().await,
             ReloadTimers => self.reload_timers().await,
+            #[cfg(feature = "markers")]
+            ReloadMarkers => self.reload_markers().await,
             ToggleKatRender => self.toggle_katrender().await,
             OpenOpenable(key, uri) => self.open_openable(key, uri).await,
             UninstallAddon(dd) => self.uninstall_addon(&dd).await?,
@@ -671,6 +708,8 @@ impl Controller {
             LoadTexture(rel, base) => self.load_texture(rel, base).await,
             #[cfg(feature = "markers-edit")]
             SaveMarker(e) => self.save_marker(e).await?,
+            #[cfg(feature = "markers-edit")]
+            DeleteMarker { path, category, idx } => self.delete_marker(&path, category, idx).await?,
             #[cfg(feature = "markers-edit")]
             GetMarkerPaths => self.get_marker_paths().await?,
             Quit => return Ok(false),
@@ -705,6 +744,12 @@ pub enum ControllerEvent {
     #[cfg(feature = "markers-edit")]
     SaveMarker(MarkerSaveEvent),
     #[cfg(feature = "markers-edit")]
+    DeleteMarker {
+        path: PathBuf,
+        category: Option<String>,
+        idx: usize,
+    },
+    #[cfg(feature = "markers-edit")]
     GetMarkerPaths,
     UninstallAddon(Arc<RemoteSource>),
     MumbleIdentityUpdated(MumbleIdentityUpdate),
@@ -723,6 +768,9 @@ pub enum ControllerEvent {
     LoadTexture(RelativePathBuf, PathBuf),
     CheckDataSourceUpdates,
     ReloadTimers,
+    #[cfg(feature = "markers")]
+    ReloadMarkers,
+    ReloadData,
     #[allow(dead_code)]
     TimerEnable(String),
     #[allow(dead_code)]

@@ -64,6 +64,11 @@ impl TimerTabState {
             timers_dir,
         );
         ui.same_line();
+        if ui.button(fl!("reload-timers")) {
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::ReloadTimers);
+            drop(event_send);
+        }
         /*let button_text = match timer_window_state.open {
             true => "Close Timers",
             false => "Open Timers",

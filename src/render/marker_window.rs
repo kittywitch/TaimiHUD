@@ -180,20 +180,22 @@ impl EditMarkerWindowState {
         let ms = self.to_marker_set();
         if let Some(ms) = ms {
             if let Some(path) = &self.path {
-                let evt = match &self.save_mode {
-                    Standalone => {
-                        MarkerSaveEvent::Standalone(ms, path.into(), self.filetype.clone().unwrap())
-                    },
-                    Append => {
-                        MarkerSaveEvent::Append(ms, path.into())
-                    },
-                    Edit => {
-                        MarkerSaveEvent::Edit(ms, path.into(), self.original_category.clone(), self.idx.unwrap())
-                    },
-                };
-                let sender = CONTROLLER_SENDER.get().unwrap();
-                let event_send = sender.try_send(ControllerEvent::SaveMarker(evt));
-                drop(event_send);
+                if let Some(save_mode) = &self.save_mode {
+                    let evt = match save_mode {
+                        MarkerSaveMode::Standalone => {
+                            MarkerSaveEvent::Standalone(ms, path.into(), self.filetype.clone().unwrap())
+                        },
+                        MarkerSaveMode::Append => {
+                            MarkerSaveEvent::Append(ms, path.into())
+                        },
+                        MarkerSaveMode::Edit => {
+                            MarkerSaveEvent::Edit(ms, path.into(), self.original_category.clone(), self.idx.unwrap())
+                        },
+                    };
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::SaveMarker(evt));
+                    drop(event_send);
+                }
             }
         }
     }

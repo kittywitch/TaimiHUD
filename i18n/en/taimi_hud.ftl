@@ -3,7 +3,9 @@
 height = Height
 font = Font
 okay = OK
+delete = Delete
 save = Save
+delete-item = { delete } "{ $item }"?
 save-item = { save } "{ $item }"?
 save-standalone = { save } as a new file
 save-append = Append to an existing file
@@ -92,6 +94,7 @@ marker-window = Markers Window
 addon-uninstall-modal-title = Uninstall { $source }?
 addon-uninstall-modal-button = Uninstall
 addon-uninstall-modal-description = Please be careful! This will delete the folder and anything it contains.
+delete-markerset-warning = Please be careful! This will delete the marker set entry within the file.
 
 ## Openable
 
@@ -138,12 +141,14 @@ textures = Textures: { $count }
 
 ## Markers tab
 
+reload-markers = Reload { markers }
 marker-tab = { markers }
 marker = Marker
 markers = { marker }s
 markers-place = Place { markers }
 marker-set = { marker } Set
 marker-set-create = Create { marker-set }
+marker-set-edit = Edit { marker-set }
 marker-set-delete = Delete { marker-set }
 scaling-factor = scaling factor
 current-scaling-factor = Current { scaling-factor }: ({ $x }, { $y })
@@ -178,6 +183,7 @@ trigger-explanation = A trigger for a marker set is a 15m radius sphere with its
 
 ## Timer tab
 
+reload-timers = Reload { timers }
 timer-tab = { timers }
 source-arg = Source: { $source }
 source-adhoc = Source: Ad-hoc

@@ -78,7 +78,7 @@ impl DataSourceTabState {
                 ui.same_line();
                 if ui.button(fl!("reload-data-sources")) {
                     let sender = CONTROLLER_SENDER.get().unwrap();
-                    let event_send = sender.try_send(ControllerEvent::ReloadTimers);
+                    let event_send = sender.try_send(ControllerEvent::ReloadData);
                     drop(event_send);
                 }
                 if ui.is_item_hovered() {

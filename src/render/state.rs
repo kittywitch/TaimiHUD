@@ -44,7 +44,7 @@ pub enum RenderEvent {
     #[allow(dead_code)]
     RenderKeybindUpdate,
     #[cfg(feature = "markers-edit")]
-    OpenEditMarkers,
+    OpenEditMarkers(Option<MarkerSet>),
     #[cfg(feature = "markers-edit")]
     GiveMarkerPaths(Vec<PathBuf>),
     ProgressBarUpdate(ProgressBarSettings),
@@ -104,8 +104,11 @@ impl RenderState {
                 use RenderEvent::*;
                 match event {
                     #[cfg(feature = "markers-edit")]
-                    OpenEditMarkers => {
-                        self.edit_marker_window.open();
+                    OpenEditMarkers(e) => {
+                        match e {
+                            None => self.edit_marker_window.open(),
+                            Some(e) => self.edit_marker_window.open_edit(e),
+                        }
                     }
                     #[cfg(feature = "markers-edit")]
                     GiveMarkerPaths(paths) => {
