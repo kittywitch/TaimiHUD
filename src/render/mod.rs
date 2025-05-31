@@ -11,7 +11,13 @@ pub mod timer_tab;
 pub mod timer_window;
 
 #[cfg(feature = "markers")]
-pub use marker_tab::MarkerTabState;
+pub mod marker_window;
+
+#[cfg(feature = "markers")]
+pub use {
+    marker_tab::MarkerTabState,
+    marker_window::MarkerWindowState,
+};
 
 #[cfg(feature = "markers-edit")]
 pub use edit_marker_window::EditMarkerWindowState;

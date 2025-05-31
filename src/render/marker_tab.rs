@@ -340,13 +340,14 @@ impl MarkerTabState {
                             ui.table_next_column();
                         }
                     }
-                    drop(table_token);
+                    if let Some(token) = table_token {
+                        token.end();
+                    }
                     if screen_positions.len() == selected_marker_set.markers.len() {
                         ui.dummy([4.0; 2]);
                         if ui.button(&fl!("markers-place")) {
                             let sender = CONTROLLER_SENDER.get().unwrap();
                             let event_send = sender.try_send(ControllerEvent::SetMarker(
-                                screen_positions,
                                 selected_marker_set.clone(),
                             ));
                             drop(event_send);

@@ -288,7 +288,7 @@ impl EditMarkerWindowState {
     pub fn draw(&mut self, ui: &Ui) {
         let mut open = self.open;
         if open {
-            let closed = Window::new(&fl!("markers"))
+            let closed = Window::new(&fl!("edit-markers"))
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
                 .opened(&mut open)
                 .build(ui, || {

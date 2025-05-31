@@ -33,12 +33,12 @@ impl TimerWindowState {
             self.progress_bar = settings.progress_bar.clone();
         };
         if open {
-            Window::new("Timers")
+            Window::new(fl!("timers"))
                 .size([300.0, 200.0], nexus::imgui::Condition::FirstUseEver)
                 .opened(&mut open)
                 .build(ui, || {
                     if !self.phase_states.is_empty() {
-                        if ui.button("Reset Timers") {
+                        if ui.button(fl!("reset-timers")) {
                             let sender = CONTROLLER_SENDER.get().unwrap();
                             let event_send = sender.try_send(ControllerEvent::TimerReset);
                             drop(event_send);

@@ -70,6 +70,8 @@ pub struct Settings {
     #[serde(default)]
     pub timers_window_open: bool,
     #[serde(default)]
+    pub markers_window_open: bool,
+    #[serde(default)]
     pub progress_bar: ProgressBarSettings,
     #[serde(default)]
     pub enable_katrender: bool,
@@ -143,6 +145,7 @@ impl Settings {
         let window_open = match window {
             "primary" => &mut self.primary_window_open,
             "timers" => &mut self.timers_window_open,
+            "markers" => &mut self.markers_window_open,
             _ => unreachable!("unsupported window"),
         };
 
@@ -281,6 +284,7 @@ impl Settings {
             remotes: RemoteState::suggested_sources().collect(),
             progress_bar: Default::default(),
             timers_window_open: false,
+            markers_window_open: false,
             primary_window_open: false,
             enable_katrender: false,
         }

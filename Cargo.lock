@@ -3720,6 +3720,7 @@ dependencies = [
  "nexus",
  "open",
  "palette",
+ "rand 0.9.1",
  "relative-path",
  "reqwest",
  "rust-embed",

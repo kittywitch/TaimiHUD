@@ -219,7 +219,7 @@ impl RuntimeMarkers {
                         Some(c) => c,
                         None => {
                             f.categories.push(MarkerCategory {
-                                name: "Integrated".to_string(),
+                                name: "No category".to_string(),
                                 marker_sets: Vec::new(),
                             });
                             f.categories.iter_mut().find(|c| &c.name == "No category").ok_or(anyhow!("Can't find the category \"No category\" we should've made"))?
@@ -316,8 +316,9 @@ impl RuntimeMarkers {
                 MarkerFormats::Taimi(t) => {
                     for (i, marker_set) in t.iter().enumerate() {
                         let category_name = marker_set.category.clone().unwrap_or("No category".to_string());
-                        let entry = finalized.entry(category_name).or_default();
+                        let entry = finalized.entry(category_name.clone()).or_default();
                         let mut marker_set_data = marker_set.clone();
+                        marker_set_data.category = Some(category_name.clone());
                         marker_set_data.path = pack.path.clone();
                         marker_set_data.idx = Some(i);
                         let marker_set_arc = Arc::new(marker_set_data);
@@ -328,8 +329,9 @@ impl RuntimeMarkers {
                     for (i, marker_set ) in c.squad_marker_preset.iter().enumerate() {
                         // extend their format by allowing the Category :)
                         let category_name = marker_set.category.clone().unwrap_or("Integrated".to_string());
-                        let entry = finalized.entry(category_name).or_default();
+                        let entry = finalized.entry(category_name.clone()).or_default();
                         let mut marker_set_data = marker_set.clone();
+                        marker_set_data.category = Some(category_name.clone());
                         marker_set_data.path = pack.path.clone();
                         marker_set_data.idx = Some(i);
                         let marker_set_arc = Arc::new(marker_set_data);
@@ -391,6 +393,10 @@ pub struct MarkerSet {
 }
 
 impl MarkerSet {
+    pub fn trigger(&self, pos: Vec3) -> bool {
+        let trig_vec: Vec3 = self.trigger.clone().into();
+        trig_vec.distance(pos) <= 15.0
+    }
     pub fn combined(&self) -> String {
         if let Some(author) = &self.author {
             format!("{}\nAuthor: {}", self.name.clone(), author.clone())

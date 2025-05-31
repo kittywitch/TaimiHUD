@@ -9,14 +9,12 @@ use {
         Graphics::Gdi::ClientToScreen,
         UI::WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, SetCursorPos},
     },
+    tokio::task::JoinHandle,
 };
 use {
     crate::{
-        marker::format::MarkerFiletype, render::TextFont, settings::{RemoteSource, Settings, SettingsLock, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
-    },
-    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
-    glam::{f32::Vec3, Vec2},
-    nexus::{
+        marker::{atomic::{ScreenBound, ScreenVector}, format::{MarkerEntry, MarkerFiletype}}, render::TextFont, settings::{RemoteSource, Settings, SettingsLock, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
+    }, anyhow::anyhow, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, nexus::{
         data_link::{
             get_mumble_link_ptr,
             mumble::{MumblePtr, UiState},
@@ -26,18 +24,14 @@ use {
         paths::get_addon_dir,
         texture::{load_texture_from_file, RawTextureReceiveCallback},
         texture_receive,
-    },
-    relative_path::RelativePathBuf,
-    std::{
+    }, relative_path::RelativePathBuf, std::{
         collections::HashMap,
         ffi::OsStr,
         fs::exists,
         path::PathBuf,
         sync::{Arc, RwLock},
         time::SystemTime,
-    },
-    strum_macros::Display,
-    tokio::{
+    }, strum_macros::Display, tokio::{
         fs::create_dir_all,
         runtime, select,
         sync::{
@@ -45,7 +39,8 @@ use {
             Mutex,
         },
         time::{interval, sleep, Duration},
-    },
+
+    }, windows::Win32::{Foundation::GetLastError, UI::{Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEINPUT, MOUSE_EVENT_FLAGS}, WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN}}}
 };
 
 #[cfg(feature = "space")]
@@ -57,6 +52,8 @@ pub struct Controller {
     pub previous_combat_state: bool,
     #[cfg(feature = "markers")]
     pub markers: HashMap<String, Vec<Arc<MarkerSet>>>,
+    pub spent_markers: Vec<Arc<MarkerSet>>,
+    pub map_id_to_markers: HashMap<u32, Vec<Arc<MarkerSet>>>,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub mumble_pointer: Option<MumblePtr>,
@@ -98,6 +95,10 @@ impl Controller {
                 settings,
                 #[cfg(feature = "markers")]
                 markers: Default::default(),
+                #[cfg(feature = "markers")]
+                map_id_to_markers: Default::default(),
+                #[cfg(feature = "markers")]
+                spent_markers: Default::default(),
                 agent: Default::default(),
                 cached_identity: Default::default(),
                 mumble_pointer: mumble_link,
@@ -117,10 +118,7 @@ impl Controller {
             drop(settings_lock);
             state.setup_timers().await;
             #[cfg(feature = "markers")]
-            match state.load_markers_files().await {
-                Ok(()) => (),
-                Err(err) => log::error!("Error loading markers: {}", err),
-            }
+            state.setup_markers().await;
             let mut taimi_interval = interval(Duration::from_millis(125));
             let mut mumblelink_interval = interval(Duration::from_millis(20));
             loop {
@@ -184,6 +182,20 @@ impl Controller {
             .await;
         self.markers = markers;
         Ok(())
+    }
+
+    async fn setup_markers(&mut self) {
+        match self.load_markers_files().await {
+            Ok(()) => (),
+            Err(err) => log::error!("Error loading markers: {}", err),
+        }
+        let mut map_id_to_markers: HashMap<u32, Vec<Arc<MarkerSet>>> = HashMap::new();
+        let marker_sets: Vec<_> = self.markers.values().flatten().collect();
+        for set in marker_sets {
+            let entry = map_id_to_markers.entry(set.map_id).or_default();
+            entry.push(set.clone());
+        }
+        self.map_id_to_markers = map_id_to_markers;
     }
 
     async fn load_timer_files(&self) -> Vec<Arc<TimerFile>> {
@@ -264,6 +276,19 @@ impl Controller {
             }
             #[cfg(feature = "markers")]
             {
+                if let Some(map_id) = &self.map_id {
+                    let markers_for_map = match &self.map_id_to_markers.get(map_id) {
+                        Some(s) => s.as_slice(),
+                        None => &[],
+                    };
+                    for marker in markers_for_map {
+                        if marker.trigger(playpos) {
+                            let mut settings_lock = self.settings.write().await;
+                            settings_lock.set_window_state("markers", Some(true)).await;
+                            drop(settings_lock);
+                        }
+                    }
+                }
                 if let Some(nexus_link) = read_nexus_link() {
                     let scaling = nexus_link.scaling;
                     if self.scaling != scaling {
@@ -335,7 +360,15 @@ impl Controller {
         let new_map_id = identity.map_id;
         if Some(new_map_id) != self.map_id {
             #[cfg(feature = "markers")]
-            MarkerInputData::from_mapchange(new_map_id);
+            {
+                let markers_for_map = self.map_id_to_markers.get(&new_map_id);
+                let markers_for_map = match markers_for_map {
+                    Some(s) => s.clone(),
+                    None => Vec::new(),
+                };
+                let _ = self.rt_sender.send(RenderEvent::MarkerMap(markers_for_map)).await;
+                MarkerInputData::from_mapchange(new_map_id);
+            }
             for timer in &mut self.current_timers {
                 timer.cleanup().await;
             }
@@ -502,56 +535,303 @@ impl Controller {
         self.load_markers_files()
             .await
             .expect("markers load failed");
+        let mut map_id_to_markers: HashMap<u32, Vec<Arc<MarkerSet>>> = HashMap::new();
+        let marker_sets: Vec<_> = self.markers.values().flatten().collect();
+        for set in marker_sets {
+            let entry = map_id_to_markers.entry(set.map_id).or_default();
+            entry.push(set.clone());
+        }
+        self.map_id_to_markers = map_id_to_markers;
+    }
+    #[cfg(feature = "markers")]
+    async fn clear_markers(&self) {
+        use crate::marker::format::MarkerType;
+
+        invoke_gamebind_async(MarkerType::ClearMarkers.to_place_world_gamebind(), 10i32);
     }
 
-    #[cfg(feature = "markers")]
-    async fn set_marker(
-        &self,
-        points: Vec<ScreenPoint>,
-        markers: Arc<MarkerSet>,
-    ) -> anyhow::Result<()> {
-        // TODO: provide configurability of wait_duration and invoke gamebind duration?
-        let wait_duration = Duration::from_millis(50);
-        let mut pos_ptr: POINT = POINT::default();
-        let original_position = unsafe { GetCursorPos(&mut pos_ptr) }
-            .map_err(anyhow::Error::from)
-            .map(|()| pos_ptr)?;
+    fn get_viewport_point(
+        rel: Vec2
+    ) -> POINT {
         let hwnd = unsafe { GetForegroundWindow() };
+        let mut abs: POINT = POINT {
+            x: rel.x as i32,
+            y: rel.y as i32,
+        };
+        unsafe {
+            let _ = ClientToScreen(hwnd, &mut abs);
+        }
+        abs
+    }
 
-        let zippy = points.iter().zip(markers.markers.clone());
-        for (point, marker) in zippy {
-            sleep(wait_duration).await;
-            let mut my_pos: POINT = POINT {
-                x: point.x as i32,
-                y: point.y as i32,
-            };
-            unsafe {
-                let _ = ClientToScreen(hwnd, &mut my_pos);
-            };
-            match unsafe { SetCursorPos(my_pos.x, my_pos.y) } {
-                Ok(()) => (),
-                Err(err) => log::error!("Error setmarker: {:?}", err),
-            }
-            sleep(wait_duration).await;
-            invoke_gamebind_async(marker.marker.to_place_world_gamebind(), 10i32);
+    fn get_viewport_coord(
+        rel: Vec2
+    ) -> (i32, i32) {
+        let point = Self::get_viewport_point(rel);
+        (point.x, point.y)
+    }
+
+    fn get_abs_coord(
+        rel: Vec2
+    ) -> (i32, i32) {
+        let(x, y) = Self::get_viewport_coord(rel);
+        let dx =  (x * 65536) / unsafe { GetSystemMetrics(SM_CXSCREEN) };
+        let dy = (y * 65536) / unsafe { GetSystemMetrics(SM_CYSCREEN) };
+        (dx, dy)
+    }
+
+    fn move_cursor_pos_old(
+        goal: Vec2,
+    ) -> anyhow::Result<()> {
+        let(x, y) = Self::get_viewport_coord(goal);
+        unsafe {
+            SetCursorPos(x, y)?;
+        }
+
+        Ok(())
+    }
+
+    fn mouse_event(
+        coords: (i32, i32),
+        flags: MOUSE_EVENT_FLAGS,
+    ) -> anyhow::Result<()> {
+        let (dx, dy) = coords;
+        let mousey = INPUT {
+            r#type: INPUT_MOUSE,
+            Anonymous: INPUT_0 {
+                mi: MOUSEINPUT {
+                    dx,
+                    dy,
+                    mouseData: 0,
+                    dwFlags: flags,
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        };
+        let inputs = [mousey];
+        let result = unsafe {
+            SendInput(&inputs,size_of_val(&inputs) as i32)
+        };
+        let error = unsafe {
+            GetLastError()
+        }.to_hresult();
+        if error.0 != 0 {
+            return Err(anyhow!("Error code: {}", error.0))
+        }
+        match result {
+            0 => Err(anyhow!("mouse event blocked by another thread")),
+            _ => Ok(())
+        }
+
+    }
+
+    fn move_cursor_pos(
+        goal: Vec2,
+    ) -> anyhow::Result<()> {
+        let coords = Self::get_abs_coord(goal);
+        Self::mouse_event(coords, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE)
+    }
+
+
+    async fn drag_mouse_abs(
+        from: Vec2,
+        to: Vec2,
+    ) -> anyhow::Result<()> {
+        let wait_duration = Duration::from_millis(10);
+        let from_abs = Self::get_abs_coord(from);
+        let to_abs = Self::get_abs_coord(to);
+        sleep(wait_duration).await;
+        Self::mouse_event(from_abs, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE)?;
+        sleep(wait_duration).await;
+        Self::mouse_event(from_abs, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTDOWN)?;
+        sleep(wait_duration).await;
+        Self::mouse_event(to_abs, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE )?;
+        sleep(wait_duration).await;
+        Self::mouse_event(to_abs, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTUP)?;
+        sleep(wait_duration).await;
+        Ok(())
+    }
+
+    async fn drag_mouse_rel(
+        from: ScreenPoint,
+        amount: ScreenVector,
+    ) -> anyhow::Result<()> {
+        let wait_duration = Duration::from_millis(30);
+        let from_abs = Self::get_abs_coord(from.into());
+
+
+        let [amt_x, amt_y] = amount.as_array();
+        let amount = (*amt_x as i32, *amt_y as i32);
+        // bounds appear to mean that only y is actually capable of being subtracted, presumably
+        // the distance from max_move in the x is negative
+        // make sure the mouse is in the right place, and then put the mouse down
+        Self::mouse_event(from_abs, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE)?;
+        sleep(wait_duration).await;
+        Self::mouse_event(from_abs, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTDOWN)?;
+        sleep(wait_duration).await;
+        Self::mouse_event(amount, MOUSEEVENTF_MOVE )?;
+        sleep(wait_duration).await;
+        Self::mouse_event((0i32, 0i32), MOUSEEVENTF_LEFTUP)?;
+        sleep(wait_duration*10).await;
+        Ok(())
+
+    }
+
+    async fn place_marker(
+        wait_duration: Duration,
+        place_duration: i32,
+        point: ScreenPoint,
+        marker: &MarkerEntry
+    ) {
+        sleep(wait_duration).await;
+        match Self::move_cursor_pos(point.into()) {
+            Ok(_) => (),
+            Err(e) => log::error!("{}", e),
         }
         sleep(wait_duration).await;
-        match unsafe { SetCursorPos(original_position.x, original_position.y) } {
-            Ok(()) => (),
-            Err(err) => log::error!("Error setmarker restore: {:?}", err),
+        invoke_gamebind_async(marker.marker.to_place_world_gamebind(), place_duration);
+    }
+
+    async fn place_marker_from_map(
+        wait_duration: Duration,
+        place_duration: i32,
+        point: Vec3,
+        marker: &MarkerEntry
+    ) {
+        use glamour::Vector2;
+
+        use crate::marker::atomic::{LocalPoint, ScreenSpace, ScreenVector};
+        let mid = MarkerInputData::read();
+            if let Some(mid) = mid {
+            let point: LocalPoint = Vec3::from(marker.position.clone()).into();
+            let point = mid.map_local_to_map(point);
+            let point = mid.map_map_to_screen(point);
+            if let Some(point) =  point {
+                Self::place_marker(wait_duration, 10i32, point, marker).await;
+            }
         }
-        // apparently h_wnd is ignored for this, fuck if I know? :3
-        // WM_MOUSEMOVE == 0x0200
-        /*unsafe {
-            igSetCursorPos(ImVec2::new(point.x, point.y));
+    }
+
+#[cfg(feature = "markers")]
+    fn set_marker(
+        &self,
+        markers: Arc<MarkerSet>
+    ) -> JoinHandle<anyhow::Result<()>> {
+        log::info!("spawny!");
+
+        tokio::spawn(Self::set_marker_task(markers, self.rt_sender.clone()))
+    }
+
+
+    // notes to future kat:
+    // get rid of the whole Result<()> and handle logging and modalling about errors without
+    // requiring a reference to self or anythin'
+#[cfg(feature = "markers")]
+    async fn set_marker_task(
+        markers: Arc<MarkerSet>,
+        rt_sender: Sender<crate::RenderEvent>,
+    ) -> anyhow::Result<()> {
+        use anyhow::anyhow;
+        use glamour::{TransformMap, Vector2};
+        use windows::Win32::Graphics::Gdi::ScreenToClient;
+
+        use crate::marker::atomic::{LocalPoint, MapPoint, ScreenSpace, ScreenVector};
+        if let Some(mid) = MarkerInputData::read() {
+            let player_position = mid.local_player_pos;
+            let mut too_far = false;
+            for marker in &markers.markers {
+                if player_position.distance(marker.position.clone().into()) >= 127.0 {
+                    too_far = true;
+                    break;
+                }
+            }
+            if too_far {
+                let err = anyhow!("Player is too far away from the markers they are trying to place.");
+                let _ = rt_sender
+                    .send(RenderEvent::OpenableError(format!("Error setting marker set: {}", &markers.name), err))
+                    .await;
+                return Err(anyhow!("Player is too far away from the markers they are trying to place."))
+            }
         }
-        invoke_gamebind_async(marker_type.to_place_world_gamebind(), 100i32);*/
-        /*let coordinates_isize = ((point.x as usize) << 16 | point.y as usize) as isize;
-        log::debug!("coordinates: {:?}, {:?}", coordinates_isize, coordinates_isize.to_ne_bytes());
-        let coordinates = LPARAM(coordinates_isize);
-        let wnd_result = send_wnd_proc_to_game(windows::Win32::Foundation::HWND::default(), WM_MOUSEMOVE, WPARAM::default(), coordinates);*/
-        // milliseconds
-        //log::debug!("set_marker result: {wnd_result:?}");
+
+        let wait_duration = Duration::from_millis(50);
+        let mut pos_ptr: POINT = POINT::default();
+        let original_position = unsafe {
+                let hwnd = GetForegroundWindow();
+                let pos  = GetCursorPos(&mut pos_ptr);
+                let _ = ScreenToClient(hwnd, &mut pos_ptr);
+                pos
+            }
+            .map_err(anyhow::Error::from)
+            .map(|()| pos_ptr)?;
+        for marker in &markers.markers {
+            // check if it is possible to place immediately
+            let local_point: LocalPoint = Vec3::from(marker.position.clone()).into();
+            let (map_point, screen_point) = if let Some(mid) = MarkerInputData::read() {
+                let map_point = mid.map_local_to_map(local_point);
+                let screen_point = mid.map_map_to_screen(map_point);
+                (Some(map_point), screen_point)
+            } else { (None, None) };
+            match screen_point {
+                // if the marker is on the map, that's fine, place it
+                Some(point) =>  {
+                    Self::place_marker(wait_duration, 10i32, point, marker).await;
+                },
+                // if the marker isn't on the map, we need to get our perspective to include
+                // the marker
+                None => {
+                    if let Some(map_point) = map_point {
+                        let max_attempts = 10; // inshallah
+                        let mut attempts = 0;
+                        let map_centre: Option<MapPoint> = MarkerInputData::read().map(|mid| mid.global_map.into());
+                        log::debug!("Reached none arm for marker placement");
+                        if let Some(mut map_centre) = map_centre {
+                            while (map_centre.distance(map_point) > 5.0) && (attempts < max_attempts) {
+                                log::debug!("Attempt {}/{}", attempts, max_attempts);
+                                if let Some(mid) = MarkerInputData::read() {
+                                    let bounds = mid.screen_bound();
+                                    map_centre = mid.global_map.into();
+                                    let remaining_distance = map_centre.distance(map_point);
+                                    log::debug!("Remaining distance: {}", remaining_distance);
+                                    let drag_from = mid.random_map_screen_coordinate();
+                                    let difference_map = map_point - map_centre;
+                                    let difference_fake = mid.map_to_fake_tf().map(difference_map);
+                                    let difference_screen = mid.screen_to_fake().inverse().map(difference_fake);
+
+                                    // the l
+                                    let (min, max) = (bounds.min(), bounds.max());
+                                    let drag_res = drag_from - difference_screen;
+                                    let drag_res = drag_res.clamp(min, max);
+                                    log::debug!("Map centre: {:?}, destination: {:?}", map_centre, map_point);
+                                    log::debug!("Min: {:?}, max: {:?}", min, max);
+                                    log::debug!("Attempting a drag from {:?} to {:?}", drag_from, drag_res);
+                                    Self::drag_mouse_abs(drag_from.into(), drag_res.into()).await?;
+                                    sleep(wait_duration).await;
+
+                                }
+                                attempts += 1;
+                            }
+                            log::info!("Attempts: {}", attempts);
+                            if map_centre.distance(map_point) > 5.0 {
+                                let err = anyhow!("Could not drag map perspective to marker location!");
+                                let _ = rt_sender
+                                    .send(RenderEvent::OpenableError(format!("Error setting marker set: {}", &markers.name), err))
+                                    .await;
+                                return Err(anyhow!("Could not drag map perspective to marker location!"))
+                            } else {
+                                Self::place_marker_from_map(wait_duration, 10i32, marker.position.clone().into(), marker).await;
+                            }
+                        }
+
+                    }
+                },
+                _ => unreachable!("set_marker: this should not happen!"),
+            }
+        }
+        sleep(wait_duration).await;
+        let original_position = Vec2::new(original_position.x as f32, original_position.y as f32);
+        Self::move_cursor_pos(original_position)?;
         Ok(())
     }
 
@@ -684,6 +964,8 @@ impl Controller {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
         match event {
+            #[cfg(feature = "markers")]
+            ClearMarkers => self.clear_markers().await,
             ReloadData => self.reload_data().await,
             ReloadTimers => self.reload_timers().await,
             #[cfg(feature = "markers")]
@@ -699,7 +981,7 @@ impl Controller {
             TimerReset => self.reset_timers().await,
             CheckDataSourceUpdates => self.check_updates().await,
             #[cfg(feature = "markers")]
-            SetMarker(p, t) => self.set_marker(p, t).await?,
+            SetMarker( t) => { self.set_marker( t); },
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
             ProgressBarStyle(style) => self.progress_bar_style(style).await,
@@ -739,7 +1021,9 @@ pub enum MarkerSaveEvent {
 pub enum ControllerEvent {
     OpenOpenable(String, String),
     #[cfg(feature = "markers")]
-    SetMarker(Vec<ScreenPoint>, Arc<MarkerSet>),
+    ClearMarkers,
+    #[cfg(feature = "markers")]
+    SetMarker(Arc<MarkerSet>),
     #[cfg(feature = "markers-edit")]
     SaveMarker(MarkerSaveEvent),
     #[cfg(feature = "markers-edit")]

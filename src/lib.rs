@@ -263,6 +263,11 @@ fn load() {
                 let sender = CONTROLLER_SENDER.get().unwrap();
                 let _ = sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
             }
+            #[cfg(feature = "markers")]
+            if ui.button("Markers") {
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                let _ = sender.try_send(ControllerEvent::WindowState("markers".to_string(), None));
+            }
             if ui.button("Primary") {
                 let sender = CONTROLLER_SENDER.get().unwrap();
                 let _ = sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));

@@ -5,7 +5,8 @@ use {
         point3, Angle, Box2, Contains, Point2, Point3, Rect, Size2, Transform2, TransformMap, Unit,
         Vector2,
     },
-    std::sync::{Arc, OnceLock},
+    std::{f32, sync::{Arc, OnceLock}},
+    rand::prelude::*,
 };
 
 pub static MARKERINPUTDATA: OnceLock<Arc<AtomicArc<MarkerInputData>>> = OnceLock::new();
@@ -63,6 +64,7 @@ pub type LocalPoint = Point3<LocalSpace>;
 
 pub type ScreenPoint = Point2<ScreenSpace>;
 pub type ScreenBound = Rect<ScreenSpace>;
+pub type ScreenVector = Vector2<ScreenSpace>;
 
 pub type FakePoint = Point2<FakeSpace>;
 pub type FakeVector = Vector2<FakeSpace>;
@@ -284,6 +286,32 @@ impl MarkerInputData {
         let minimap_bound: Box2<FakeSpace> = Box2::new(min, max);
         minimap_bound.to_rect()
     }
+    
+    pub fn fakespace_minimap_drag_bound(&self) -> FakeBound {
+        let fakebound = self.fake_bound();
+        // fake means we're already scaled proportionate to self.scaling,
+        // or the scaling factor provided by Nexus, which is the coordinate system
+        // that self.compass_size, the worldmap size and the UI offsets live within
+        //
+        // having a way to construct *typed scalars* would be nice
+        let compass_size = self.compass_size();
+
+        // the thing on the side on hover-over
+        let width_to_ignore = 26.0;
+        let width_bound = Size2::new(width_to_ignore, 0.0);
+
+        let fakebound_size = fakebound.size - width_bound;
+
+        let max = match self.minimap_placement {
+            MinimapPlacement::Top => fakebound_size.with_height(compass_size.height),
+            MinimapPlacement::Bottom => fakebound_size - Size2::new(0.0, 37.0),
+        };
+        let min = max - compass_size;
+        let min = min.to_vector().to_point();
+        let max = max.to_vector().to_point();
+        let minimap_bound: Box2<FakeSpace> = Box2::new(min, max);
+        minimap_bound.to_rect()
+    }
 
     pub fn fake_to_minimap(&self, fakespace_minimap_bound: FakeBound) -> FakeToMinimap {
         // without matrices, this would be: point - minimap_bound.min
@@ -321,15 +349,23 @@ impl MarkerInputData {
         FakeToWorldmap::IDENTITY
     }
 
-    pub fn map_fake_to_worldmap(&self, point: FakePoint) -> WorldmapPoint {
+    pub fn map_fake_to_worldmap(&self, point: FakePoint) -> Option<WorldmapPoint> {
         // worldmapspace is actually THE SAME as fakespace,
         // it isn't confined at all. but it should still be contemplated about as
         // "separate"; it's a mode!
         //
         // things within fakespace cannot be out of bounds on worldmapspace
         // they are 1:1
-        let fake_to_worldmap = self.fake_to_worldmap();
-        fake_to_worldmap.map(point)
+        let fakespace_worldmap_bound = self.fakespace_worldmap_bound();
+        if fakespace_worldmap_bound.contains(&point) {
+            let fake_to_worldmap = self.fake_to_worldmap();
+            Some(fake_to_worldmap.map(point))
+        } else {
+            // the current point cannot be represented within the
+            // coordinate system, since it is *fully bounded*,
+            // this point would be out of bounds
+            None
+        }
     }
 
     // worldmap and minimap both have the same scaling factor of
@@ -487,17 +523,35 @@ impl MarkerInputData {
     pub fn map_fake_to_map(&self, point: FakePoint) -> Option<MapPoint> {
         match self.perspective {
             CurrentPerspective::Minimap => {
-                if let Some(intermediate) = self.map_fake_to_minimap(point) {
-                    Some(self.map_minimap_to_map(intermediate))
-                } else {
-                    None
-                }
+                self.map_fake_to_minimap(point).map(|intermediate| self.map_minimap_to_map(intermediate))
             }
             CurrentPerspective::Global => {
-                let intermediate = self.map_fake_to_worldmap(point);
-                Some(self.map_worldmap_to_map(intermediate))
+                self.map_fake_to_worldmap(point).map(|intermediate| self.map_worldmap_to_map(intermediate))
             }
         }
+    }
+
+    pub fn map_to_fake_tf(&self) -> Transform2<MapSpace, FakeSpace> {
+        match self.perspective {
+            CurrentPerspective::Minimap => {
+                let map_to_minimap = self.minimap_to_map().inverse();
+
+                let fakespace_minimap_bound = self.fakespace_minimap_bound();
+                let minimap_to_fake = self.fake_to_minimap(fakespace_minimap_bound).inverse();
+
+                let transforms = map_to_minimap.then(minimap_to_fake);
+                transforms
+            }
+            CurrentPerspective::Global => {
+                let map_to_worldmap = self.worldmap_to_map().inverse();
+
+                let worldmap_to_fake = self.fake_to_worldmap().inverse();
+
+                let transforms = map_to_worldmap.then(worldmap_to_fake);
+                transforms
+            }
+        }
+    
     }
 
     pub fn map_map_to_fake(&self, point: MapPoint) -> FakePoint {
@@ -525,14 +579,60 @@ impl MarkerInputData {
     // map space to screenspace
     pub fn map_map_to_screen(&self, point: MapPoint) -> Option<ScreenPoint> {
         let fake_point = self.map_map_to_fake(point);
-        if self.perspective == CurrentPerspective::Minimap {
-            let fakespace_minimap_bound = self.fakespace_minimap_bound();
-            if !fakespace_minimap_bound.contains(&fake_point) {
-                return None;
-            }
+        let bound = match self.perspective {
+            CurrentPerspective::Global => self.fakespace_worldmap_bound(),
+            CurrentPerspective::Minimap => self.fakespace_minimap_bound(),
+        };
+        if !bound.contains(&fake_point) {
+            return None;
         }
         let fake_to_screen = self.screen_to_fake().inverse();
         Some(fake_to_screen.map(fake_point))
+    }
+    
+    // map space to screenspace
+    pub fn map_map_to_screen_unchecked(&self, point: MapPoint) -> ScreenPoint {
+        let fake_point = self.map_map_to_fake(point);
+        let fake_to_screen = self.screen_to_fake().inverse();
+        fake_to_screen.map(fake_point)
+    }
+
+    pub fn random_map_screen_coordinate(&self) -> ScreenPoint {
+        let mut rng = rand::rng();
+        let bound = match self.perspective {
+            CurrentPerspective::Global => self.fakespace_worldmap_bound(),
+            CurrentPerspective::Minimap => self.fakespace_minimap_drag_bound(),
+        };
+        let tf = self.screen_to_fake().inverse();
+        let f_lb= tf.map(bound.min().round().map(|e| e + 2.0));
+        let [f_lb_x, f_lb_y] = f_lb.as_array();
+        let f_ub= tf.map(bound.max().round().map(|e| e - 2.0));
+        let [f_ub_x, f_ub_y] = f_ub.as_array();
+        let (lb_x, lb_y) = (*f_lb_x as u32, *f_lb_y as u32);
+        let (ub_x, ub_y) = (*f_ub_x as u32, *f_ub_y as u32);
+        let x = rng.random_range(lb_x..ub_x);
+        let y = rng.random_range(lb_y..ub_y);
+        ScreenPoint::new(x as f32, y as f32)
+    }
+
+    pub fn map_map_to_screen_drag(&self, point: MapPoint) -> (Option<ScreenPoint>, Option<ScreenVector>) {
+        let fake_point = self.map_map_to_fake(point);
+        let fake_to_screen = self.screen_to_fake().inverse();
+        let bound = match self.perspective {
+            CurrentPerspective::Global => self.fakespace_worldmap_bound(),
+            CurrentPerspective::Minimap => self.fakespace_minimap_bound(),
+        };
+        // if the point isn't on screen, we can't return its screen coordinates but we can return
+        // the amount of screen to move the minimap by to get it within bounds
+        if !bound.contains(&fake_point) {
+            let screen_centre = bound.center();
+            let distance = fake_point - screen_centre;
+            let distance = fake_to_screen.map(distance);
+            // the current working distance should now be the distance to the point as an f32,
+            // which isn't what we want; we want the actual Vector2 that encodes the distance
+            return (None, Some(distance))
+        }
+        (Some(fake_to_screen.map(fake_point)), None)
     }
 
     // screenspace to map space

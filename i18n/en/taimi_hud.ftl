@@ -57,6 +57,7 @@ enabled = { enable }d
 disabled = { disable }d
 author-arg = { author }: { $author }
 reset = Reset
+reset-timers = { reset } { timers }
 timer = Timer
 timers = { timer }s
 experimental-notice = Hi! This feature is (mostly) experimental. Some things may be confusing and it might require more thought and effort to use than the less experimental features. My apologies to any problems you have; feel free to reach out on Discord. - Kat
@@ -67,6 +68,8 @@ map-id-wrong = Map ID incorrect.
 no-positions = No marker positions provided.
 validation-fail = Validation failed due to:
 filename-empty = No filename provided.
+count = Count
+actions = Actions
 
 ## Addon
 
@@ -142,7 +145,7 @@ textures = Textures: { $count }
 ## Markers tab
 
 reload-markers = Reload { markers }
-marker-tab = { markers }
+marker-tab = Squad { markers }
 marker = Marker
 markers = { marker }s
 markers-place = Place { markers }
@@ -164,9 +167,15 @@ marker-not-on-screen = Not on screen
 select-a-marker = Please select a marker to configure!
 marker-filetype-explanation = There are three kinds of markers file, there is the kind that
   comes with the BlishHUD Commander's Markers module (integrated), there is the kind that they use to ship Community Markers and then there is my own format, which takes the per marker set format and makes it a single file per marker set.
+no-markers-for-map = No markers found for current map.
+cant-place-markers = Can't place
 
 ## Markers window
+clear-markers = { clear } { markers }
 
+## Edit markers window
+
+edit-markers = Create/edit markers
 set-map-id = Set Map ID to current map
 current-squad-markers = current squad markers
 take-squad-markers = Take from { current-squad-markers }
