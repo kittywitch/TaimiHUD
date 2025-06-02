@@ -1,24 +1,13 @@
 use {
-    crate::timer::{BlishVec3, Polytope, Position},
-    anyhow::anyhow,
-    chrono::{DateTime, Utc},
-    glam::Vec3,
-    glob::Paths,
-    nexus::{
+    crate::timer::{BlishVec3, Polytope, Position}, anyhow::anyhow, chrono::{DateTime, Utc}, glam::Vec3, glob::Paths, nexus::{
         gamebind::GameBind,
         paths::get_addon_dir,
-    },
-    serde::{Deserialize, Serialize},
-    serde_repr::{Deserialize_repr, Serialize_repr},
-    std::{
+    }, ordered_float::OrderedFloat, serde::{Deserialize, Serialize}, serde_repr::{Deserialize_repr, Serialize_repr}, std::{
         collections::HashMap,
         fs::exists,
         path::{Path, PathBuf},
         sync::Arc,
-    },
-    strum::IntoEnumIterator,
-    strum_macros::{Display, FromRepr, EnumIter},
-    tokio::{io::AsyncWriteExt, fs::{File, create_dir_all, OpenOptions, read_to_string}, sync::Semaphore, task::JoinSet},
+    }, strum::IntoEnumIterator, strum_macros::{Display, EnumIter, FromRepr}, tokio::{fs::{create_dir_all, read_to_string, File, OpenOptions}, io::AsyncWriteExt, sync::Semaphore, task::JoinSet}
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -374,7 +363,7 @@ fn default_true() -> bool {
     true
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Hash, Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MarkerSet {
     #[serde(default = "default_true")]
@@ -406,7 +395,7 @@ impl MarkerSet {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Hash, Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct MarkerEntry {
     #[serde(alias = "i")]
     pub marker: MarkerType,
@@ -416,17 +405,17 @@ pub struct MarkerEntry {
     pub position: MarkerPosition,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Hash, Eq, PartialEq, Serialize, Deserialize, Debug, Clone)]
 pub struct MarkerPosition {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+    pub x: OrderedFloat<f32>,
+    pub y: OrderedFloat<f32>,
+    pub z: OrderedFloat<f32>,
 }
 
 impl From<MarkerPosition> for Vec3 {
     // it's pre-swizzled
     fn from(local: MarkerPosition) -> Self {
-        Self::new(local.x, local.z, local.y)
+        Self::new(*local.x, *local.z, *local.y)
     }
 }
 
@@ -434,9 +423,9 @@ impl From<Vec3> for MarkerPosition {
     // it's pre-swizzled
     fn from(local: Vec3) -> Self {
         Self {
-            x: local.x,
-            y: local.z,
-            z: local.y,
+            x: OrderedFloat(local.x),
+            y: OrderedFloat(local.z),
+            z: OrderedFloat(local.y),
         }
     }
 }
@@ -463,7 +452,7 @@ impl From<MarkerPosition> for Polytope {
     }
 }
 
-#[derive(Serialize_repr, Deserialize_repr, FromRepr, Display, Debug, Clone, PartialEq)]
+#[derive(Hash, Eq, PartialEq, Serialize_repr, Deserialize_repr, FromRepr, Display, Debug, Clone)]
 #[repr(u8)]
 pub enum MarkerType {
     // Schema reference: https://github.com/manlaan/BlishHud-CommanderMarkers/blob/bhud-static/Manlaan.CommanderMarkers/README.md?plain=1#L69-L78

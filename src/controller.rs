@@ -25,7 +25,7 @@ use {
         texture::{load_texture_from_file, RawTextureReceiveCallback},
         texture_receive,
     }, relative_path::RelativePathBuf, std::{
-        collections::HashMap,
+        collections::{HashMap, HashSet},
         ffi::OsStr,
         fs::exists,
         path::PathBuf,
@@ -52,8 +52,8 @@ pub struct Controller {
     pub previous_combat_state: bool,
     #[cfg(feature = "markers")]
     pub markers: HashMap<String, Vec<Arc<MarkerSet>>>,
-    pub spent_markers: Vec<Arc<MarkerSet>>,
-    pub map_id_to_markers: HashMap<u32, Vec<Arc<MarkerSet>>>,
+    pub spent_markers: HashSet<Arc<MarkerSet>>,
+    pub map_id_to_markers: HashMap<u32, HashSet<Arc<MarkerSet>>>,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub mumble_pointer: Option<MumblePtr>,
@@ -189,11 +189,11 @@ impl Controller {
             Ok(()) => (),
             Err(err) => log::error!("Error loading markers: {}", err),
         }
-        let mut map_id_to_markers: HashMap<u32, Vec<Arc<MarkerSet>>> = HashMap::new();
+        let mut map_id_to_markers: HashMap<u32, HashSet<Arc<MarkerSet>>> = HashMap::new();
         let marker_sets: Vec<_> = self.markers.values().flatten().collect();
         for set in marker_sets {
             let entry = map_id_to_markers.entry(set.map_id).or_default();
-            entry.push(set.clone());
+            entry.insert(set.clone());
         }
         self.map_id_to_markers = map_id_to_markers;
     }
@@ -277,15 +277,15 @@ impl Controller {
             #[cfg(feature = "markers")]
             {
                 if let Some(map_id) = &self.map_id {
-                    let markers_for_map = match &self.map_id_to_markers.get(map_id) {
-                        Some(s) => s.as_slice(),
-                        None => &[],
-                    };
-                    for marker in markers_for_map {
-                        if marker.trigger(playpos) {
-                            let mut settings_lock = self.settings.write().await;
-                            settings_lock.set_window_state("markers", Some(true)).await;
-                            drop(settings_lock);
+                    if let Some(markers_for_map) = self.map_id_to_markers.get(map_id) {
+                        let mut new_spent_markers = Vec::new();
+                        for marker in markers_for_map.difference(&self.spent_markers) {
+                            if marker.trigger(playpos) {
+                                new_spent_markers.push(marker.clone());
+                                let mut settings_lock = self.settings.write().await;
+                                settings_lock.set_window_state("markers", Some(true)).await;
+                                drop(settings_lock);
+                            }
                         }
                     }
                 }
@@ -364,10 +364,12 @@ impl Controller {
                 let markers_for_map = self.map_id_to_markers.get(&new_map_id);
                 let markers_for_map = match markers_for_map {
                     Some(s) => s.clone(),
-                    None => Vec::new(),
+                    None => Default::default(),
                 };
-                let _ = self.rt_sender.send(RenderEvent::MarkerMap(markers_for_map)).await;
+                let event_markers = markers_for_map.into_iter().collect::<Vec<_>>();
+                let _ = self.rt_sender.send(RenderEvent::MarkerMap(event_markers)).await;
                 MarkerInputData::from_mapchange(new_map_id);
+                self.spent_markers = Default::default();
             }
             for timer in &mut self.current_timers {
                 timer.cleanup().await;
@@ -535,11 +537,11 @@ impl Controller {
         self.load_markers_files()
             .await
             .expect("markers load failed");
-        let mut map_id_to_markers: HashMap<u32, Vec<Arc<MarkerSet>>> = HashMap::new();
+        let mut map_id_to_markers: HashMap<u32, HashSet<Arc<MarkerSet>>> = HashMap::new();
         let marker_sets: Vec<_> = self.markers.values().flatten().collect();
         for set in marker_sets {
             let entry = map_id_to_markers.entry(set.map_id).or_default();
-            entry.push(set.clone());
+            entry.insert(set.clone());
         }
         self.map_id_to_markers = map_id_to_markers;
     }
