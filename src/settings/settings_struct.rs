@@ -1,23 +1,14 @@
 use {
-    super::{ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, TimerSettings},
-    crate::{controller::ProgressBarStyleChange, SETTINGS, SOURCES},
-    anyhow::anyhow,
-    chrono::{DateTime, Utc},
-    futures::stream::StreamExt,
-    magic_migrate::TryMigrate,
-    nexus::imgui::Ui,
-    serde::{Deserialize, Serialize},
-    std::{
+    super::{ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, TimerSettings}, crate::{controller::ProgressBarStyleChange, SETTINGS, SOURCES}, anyhow::anyhow, chrono::{DateTime, Utc}, futures::stream::StreamExt, magic_migrate::TryMigrate, nexus::imgui::Ui, serde::{Deserialize, Serialize}, std::{
         collections::{HashMap, HashSet},
         fmt::{self},
         path::{Path, PathBuf},
         sync::Arc,
-    },
-    tokio::{
+    }, strum_macros::{Display, EnumIter}, tokio::{
         fs::{create_dir_all, read_to_string, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
-    },
+    }
 };
 
 pub type SettingsLock = Arc<RwLock<Settings>>;
@@ -54,6 +45,46 @@ impl NeedsUpdate {
     }
 }
 
+#[derive(PartialEq, Deserialize, Serialize, Default, Debug, Clone, EnumIter)]
+pub enum SquadCondition {
+    #[default]
+    Always,
+    IfCommander,
+    IfLieutenantOrAbove,
+    Never,
+}
+
+#[derive(PartialEq, Deserialize, Serialize, Default, Debug, Clone, EnumIter)]
+pub enum MarkerAutoPlaceSettings {
+    OpenWindow(SquadCondition),
+    Place(SquadCondition),
+    #[default]
+    DoNothing,
+}
+
+impl fmt::Display for SquadCondition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use SquadCondition::*;
+        match &self {
+            Always => write!(f, "Always do action"),
+            IfCommander => write!(f, "Do action if squad commander"),
+            IfLieutenantOrAbove => write!(f, "Do action if lieutenant or commander"),
+            Never => write!(f, "Never do action"),
+        }
+    }
+}
+
+impl fmt::Display for MarkerAutoPlaceSettings {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use MarkerAutoPlaceSettings::*;
+        match &self {
+            OpenWindow(_t) => write!(f, "Open the markers window"),
+            Place(_t) => write!(f, "Place markers automatically"),
+            DoNothing => write!(f, "Do nothing"),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, TryMigrate, Default, Debug, Clone)]
 #[try_migrate(from = None)]
 pub struct Settings {
@@ -75,6 +106,8 @@ pub struct Settings {
     pub progress_bar: ProgressBarSettings,
     #[serde(default)]
     pub enable_katrender: bool,
+    #[serde(default)]
+    pub marker_autoplace: MarkerAutoPlaceSettings,
 }
 
 impl Settings {
@@ -203,6 +236,12 @@ impl Settings {
         let _ = self.save(&self.addon_dir).await;
         Ok(())
     }
+    
+    pub async fn set_marker_autoplace_settings(&mut self, maps: &MarkerAutoPlaceSettings) -> anyhow::Result<()> {
+        self.marker_autoplace = maps.clone();
+        let _ = self.save(&self.addon_dir).await;
+        Ok(())
+    }
 
     pub async fn download_latest(source: &RemoteSource) -> anyhow::Result<()> {
         let underlying_source = source.source();
@@ -287,6 +326,7 @@ impl Settings {
             markers_window_open: false,
             primary_window_open: false,
             enable_katrender: false,
+            marker_autoplace: Default::default(),
         }
     }
     pub async fn load(addon_dir: &Path) -> anyhow::Result<Self> {

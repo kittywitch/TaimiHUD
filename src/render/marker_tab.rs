@@ -299,7 +299,7 @@ impl MarkerTabState {
                     ui.table_next_column();
                     for marker in &selected_marker_set.markers {
                         // marker marker on the table
-                        ui.text_wrapped(format!("{}", marker.marker));
+                        marker.marker.icon(ui);
                         ui.table_next_column();
                         if let Some(description) = &marker.id {
                             if !description.is_empty() {

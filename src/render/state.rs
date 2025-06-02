@@ -178,7 +178,7 @@ impl RenderState {
         self.edit_marker_window.draw(ui);
         let mut items_to_delete = Vec::new();
         for (entry_name, errory) in &self.state_errors {
-            ui.open_popup(&entry_name);
+            ui.open_popup(entry_name);
             if let Some(_token) = PopupModal::new(&entry_name)
                 .always_auto_resize(true)
                 .begin_popup(ui)

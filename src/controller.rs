@@ -13,7 +13,7 @@ use {
 };
 use {
     crate::{
-        marker::{atomic::{ScreenBound, ScreenVector}, format::{MarkerEntry, MarkerFiletype}}, render::TextFont, settings::{RemoteSource, Settings, SettingsLock, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
+        marker::{atomic::{ScreenBound, ScreenVector}, format::{MarkerEntry, MarkerFiletype}}, render::TextFont, settings::{MarkerAutoPlaceSettings, RemoteSource, Settings, SettingsLock, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
     }, anyhow::anyhow, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, nexus::{
         data_link::{
             get_mumble_link_ptr,
@@ -52,8 +52,12 @@ pub struct Controller {
     pub previous_combat_state: bool,
     #[cfg(feature = "markers")]
     pub markers: HashMap<String, Vec<Arc<MarkerSet>>>,
+    #[cfg(feature = "markers")]
     pub spent_markers: HashSet<Arc<MarkerSet>>,
+    #[cfg(feature = "markers")]
     pub map_id_to_markers: HashMap<u32, HashSet<Arc<MarkerSet>>>,
+    #[cfg(feature = "markers")]
+    pub marker_autoplace: Option<MarkerAutoPlaceSettings>,
     pub rt_sender: Sender<RenderEvent>,
     pub cached_identity: Option<MumbleIdentityUpdate>,
     pub mumble_pointer: Option<MumblePtr>,
@@ -89,6 +93,8 @@ impl Controller {
             let _ = SOURCES.set(sources);
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
+                #[cfg(feature = "markers")]
+                marker_autoplace: Default::default(),
                 last_fov: 0.0,
                 previous_combat_state: Default::default(),
                 rt_sender,
@@ -115,6 +121,9 @@ impl Controller {
             let settings = SETTINGS.get().unwrap();
             let mut settings_lock = settings.write().await;
             settings_lock.handle_sources_changes();
+            drop(settings_lock);
+            let settings_lock = settings.read().await;
+            state.marker_autoplace = Some(settings_lock.marker_autoplace.clone());
             drop(settings_lock);
             state.setup_timers().await;
             #[cfg(feature = "markers")]
@@ -962,6 +971,15 @@ impl Controller {
         Ok(())
     }
 
+    #[cfg(feature = "markers")]
+    async fn set_marker_autoplace_settings(&mut self, maps: MarkerAutoPlaceSettings) -> anyhow::Result<()> {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.set_marker_autoplace_settings(&maps).await?;
+        self.marker_autoplace = Some(maps);
+        drop(settings_lock);
+        Ok(())
+    }
+
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
@@ -970,6 +988,8 @@ impl Controller {
             ClearMarkers => self.clear_markers().await,
             ReloadData => self.reload_data().await,
             ReloadTimers => self.reload_timers().await,
+            #[cfg(feature = "markers")]
+            MarkerAutoPlaceSettings(maps) => self.set_marker_autoplace_settings(maps).await?,
             #[cfg(feature = "markers")]
             ReloadMarkers => self.reload_markers().await,
             ToggleKatRender => self.toggle_katrender().await,
@@ -1024,6 +1044,8 @@ pub enum ControllerEvent {
     OpenOpenable(String, String),
     #[cfg(feature = "markers")]
     ClearMarkers,
+    #[cfg(feature = "markers")]
+    MarkerAutoPlaceSettings(MarkerAutoPlaceSettings),
     #[cfg(feature = "markers")]
     SetMarker(Arc<MarkerSet>),
     #[cfg(feature = "markers-edit")]

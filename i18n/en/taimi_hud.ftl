@@ -85,6 +85,8 @@ stock-imgui-progress-bar = Stock Imgui Progress Bar
 shadow = Shadow
 centre-text-after-icon = Centre text after icon
 imgui-notice = You can control-click on a slider element, or such, to be able to directly input data to it. Remember to press enter after inputting the value.
+marker-trigger = Marker set position trigger behaviour
+marker-condition = Behaviour condition
 
 ## Windows
 

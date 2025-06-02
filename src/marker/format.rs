@@ -1,8 +1,7 @@
 use {
-    crate::timer::{BlishVec3, Polytope, Position}, anyhow::anyhow, chrono::{DateTime, Utc}, glam::Vec3, glob::Paths, nexus::{
-        gamebind::GameBind,
-        paths::get_addon_dir,
-    }, ordered_float::OrderedFloat, serde::{Deserialize, Serialize}, serde_repr::{Deserialize_repr, Serialize_repr}, std::{
+    crate::{render::RenderState, timer::{BlishVec3, Polytope, Position}}, anyhow::anyhow, chrono::{DateTime, Utc}, glam::Vec3, glob::Paths, nexus::{
+        gamebind::GameBind, imgui::Ui, paths::get_addon_dir
+    }, ordered_float::OrderedFloat, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, serde_repr::{Deserialize_repr, Serialize_repr}, std::{
         collections::HashMap,
         fs::exists,
         path::{Path, PathBuf},
@@ -475,6 +474,24 @@ pub enum MarkerType {
 impl MarkerType {
     pub fn iter_real_values() -> impl Iterator<Item = Self> {
         (1..9).flat_map(|i| Self::from_repr(i))
+    }
+
+    pub fn filename(&self) -> RelativePathBuf {
+        let alert_str = format!("cmdr{}.png", self);
+        let path = RelativePathBuf::from(alert_str);
+        path
+    }
+
+    pub fn path(&self) -> PathBuf {
+        let filename = self.filename();
+        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let path = addon_dir.join("markers").join("icons");
+        let path = filename.to_path(path);
+        path
+    }
+
+    pub fn icon(&self, ui: &Ui) {
+        RenderState::icon(ui, Some(32.0), Some(&self.filename()), Some(&self.path()));
     }
 
     pub fn to_place_world_gamebind(&self) -> GameBind {
