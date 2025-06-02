@@ -266,7 +266,7 @@ impl EditMarkerWindowState {
         let prev = mem::replace(self, Self::new());
         if !self.open {
             let author = match ACCOUNT_NAME_CELL.get() {
-                Some(a) => a.clone(),
+                Some(a) => (a[1..]).to_string(),
                 None => match RealTimeApi::get() {
                     Some(rtapi) => {
                         if let Some(player_data) = rtapi.read_player() {

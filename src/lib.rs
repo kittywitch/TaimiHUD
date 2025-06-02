@@ -10,6 +10,9 @@ mod marker;
 #[cfg(feature = "space")]
 mod space;
 
+use arcdps::extras::UserInfoOwned;
+use controller::SquadState;
+use nexus::{event::extras::{SquadUpdate, EXTRAS_SQUAD_UPDATE}, rtapi::{event::{RTAPI_GROUP_MEMBER_JOINED, RTAPI_GROUP_MEMBER_LEFT, RTAPI_GROUP_MEMBER_UPDATE}, GroupMember, GroupMemberOwned}};
 //use i18n_embed_fl::fl;
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
@@ -321,6 +324,60 @@ fn load() {
             }
         }))
         .revert_on_unload();
+
+    RTAPI_GROUP_MEMBER_LEFT.subscribe(
+        event_consume!(
+            <GroupMember> | group_member | {
+                if let Some(group_member) = group_member {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let group_member: GroupMemberOwned = group_member.into();
+                        let event_send = sender.try_send(ControllerEvent::RTAPISquadUpdate(SquadState::Left, group_member));
+                        drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
+
+
+    RTAPI_GROUP_MEMBER_JOINED.subscribe(
+        event_consume!(
+            <GroupMember> | group_member | {
+                if let Some(group_member) = group_member {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let group_member: GroupMemberOwned = group_member.into();
+                        let event_send = sender.try_send(ControllerEvent::RTAPISquadUpdate(SquadState::Joined, group_member));
+                        drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
+
+
+    RTAPI_GROUP_MEMBER_UPDATE.subscribe(
+        event_consume!(
+            <GroupMember> | group_member | {
+                if let Some(group_member) = group_member {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let group_member: GroupMemberOwned = group_member.into();
+                        let event_send = sender.try_send(ControllerEvent::RTAPISquadUpdate(SquadState::Update, group_member));
+                        drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
+
+    EXTRAS_SQUAD_UPDATE.subscribe(
+        event_consume!(
+            <SquadUpdate> | update | {
+            if let Some(update) = update {
+                let update: Vec<UserInfoOwned> = update.iter().map(|x| unsafe { ptr::read(x) }.to_owned()).collect();
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::ExtrasSquadUpdate(update));
+                    drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
 
     pub const EV_LANGUAGE_CHANGED: Event<()> = unsafe { Event::new("EV_LANGUAGE_CHANGED") };
 

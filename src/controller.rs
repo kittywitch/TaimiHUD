@@ -1,5 +1,6 @@
 #[cfg(feature = "markers")]
 use {
+    arcdps::extras::UserInfoOwned,
     crate::marker::{
         atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint},
         format::{MarkerSet, RuntimeMarkers},
@@ -19,11 +20,7 @@ use {
             get_mumble_link_ptr,
             mumble::{MumblePtr, UiState},
             read_nexus_link, MumbleLink,
-        },
-        gamebind::invoke_gamebind_async,
-        paths::get_addon_dir,
-        texture::{load_texture_from_file, RawTextureReceiveCallback},
-        texture_receive,
+        }, gamebind::invoke_gamebind_async, paths::get_addon_dir, rtapi::{GroupMember, GroupMemberOwned}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive
     }, relative_path::RelativePathBuf, std::{
         collections::{HashMap, HashSet},
         ffi::OsStr,
@@ -48,6 +45,10 @@ use crate::space::dx11::PerspectiveInputData;
 
 #[derive(Debug, Clone)]
 pub struct Controller {
+    #[cfg(feature = "markers")]
+    pub rtapi_squad: HashMap<String, GroupMemberOwned>,
+    #[cfg(feature = "markers")]
+    pub extras_squad: HashMap<String, UserInfoOwned>,
     pub agent: Option<AgentOwned>,
     pub previous_combat_state: bool,
     #[cfg(feature = "markers")]
@@ -93,6 +94,10 @@ impl Controller {
             let _ = SOURCES.set(sources);
             let settings = Settings::load_access(&addon_dir.clone()).await;
             let mut state = Controller {
+                #[cfg(feature = "markers")]
+                rtapi_squad: Default::default(),
+                #[cfg(feature = "markers")]
+                extras_squad: Default::default(),
                 #[cfg(feature = "markers")]
                 marker_autoplace: Default::default(),
                 last_fov: 0.0,
@@ -175,6 +180,69 @@ impl Controller {
         self.markers = Some(markers.clone());
         Ok(())
     }*/
+
+    #[cfg(feature = "markers")]
+    async fn open_marker_window(&self) {
+        let mut settings_lock = self.settings.write().await;
+            settings_lock.set_window_state("markers", Some(true)).await;
+            drop(settings_lock);
+    }
+
+    #[cfg(feature = "markers")]
+    async fn handle_marker_autoplace(&self, marker: &MarkerSet) -> anyhow::Result<()> {
+        use crate::settings::SquadCondition;
+        let role = self.get_role().await;
+        log::info!("Role detected: {:?}", role);
+
+        if let Some(t) = &self.marker_autoplace {
+            match t {
+                MarkerAutoPlaceSettings::OpenWindow(s) => {
+                    match s {
+                        SquadCondition::Never => (),
+                        SquadCondition::IfCommander => {
+                            if let Some(role) = role {
+                                if role == SquadRoleState::Commander {
+                                    self.open_marker_window().await;
+                                }
+                            }
+                        },
+                        SquadCondition::IfLieutenantOrAbove => {
+                            if let Some(role) = role {
+                                if role >= SquadRoleState::Lieutenant {
+                                    self.open_marker_window().await;
+                                }
+                            }
+                        },
+                        SquadCondition::Always => self.open_marker_window().await,
+                    }
+                },
+                MarkerAutoPlaceSettings::Place(s) => {
+                    match s {
+                        SquadCondition::Never => (),
+                        SquadCondition::IfCommander => {
+                            if let Some(role) = role {
+                                if role == SquadRoleState::Commander {
+                                    self.set_marker(marker).await??;
+                                }
+                            }
+                        },
+                        SquadCondition::IfLieutenantOrAbove => {
+                            if let Some(role) = role {
+                                if role >= SquadRoleState::Lieutenant {
+                                    self.set_marker(marker).await??;
+                                }
+                            }
+                        },
+                        SquadCondition::Always => self.set_marker(marker).await??,
+                    }
+                
+                },
+                MarkerAutoPlaceSettings::DoNothing => (),
+            }
+
+        }
+        Ok(())
+    }
 
     #[cfg(feature = "markers")]
     async fn load_markers_files(&mut self) -> anyhow::Result<()> {
@@ -290,12 +358,12 @@ impl Controller {
                         let mut new_spent_markers = Vec::new();
                         for marker in markers_for_map.difference(&self.spent_markers) {
                             if marker.trigger(playpos) {
+                                log::debug!("Marker autoplace triggered for {}", marker.name);
                                 new_spent_markers.push(marker.clone());
-                                let mut settings_lock = self.settings.write().await;
-                                settings_lock.set_window_state("markers", Some(true)).await;
-                                drop(settings_lock);
+                                self.handle_marker_autoplace(marker).await?;
                             }
                         }
+                        self.spent_markers.extend(new_spent_markers);
                     }
                 }
                 if let Some(nexus_link) = read_nexus_link() {
@@ -561,6 +629,7 @@ impl Controller {
         invoke_gamebind_async(MarkerType::ClearMarkers.to_place_world_gamebind(), 10i32);
     }
 
+    #[cfg(feature = "markers")]
     fn get_viewport_point(
         rel: Vec2
     ) -> POINT {
@@ -575,6 +644,7 @@ impl Controller {
         abs
     }
 
+    #[cfg(feature = "markers")]
     fn get_viewport_coord(
         rel: Vec2
     ) -> (i32, i32) {
@@ -582,6 +652,7 @@ impl Controller {
         (point.x, point.y)
     }
 
+    #[cfg(feature = "markers")]
     fn get_abs_coord(
         rel: Vec2
     ) -> (i32, i32) {
@@ -591,17 +662,7 @@ impl Controller {
         (dx, dy)
     }
 
-    fn move_cursor_pos_old(
-        goal: Vec2,
-    ) -> anyhow::Result<()> {
-        let(x, y) = Self::get_viewport_coord(goal);
-        unsafe {
-            SetCursorPos(x, y)?;
-        }
-
-        Ok(())
-    }
-
+    #[cfg(feature = "markers")]
     fn mouse_event(
         coords: (i32, i32),
         flags: MOUSE_EVENT_FLAGS,
@@ -637,6 +698,7 @@ impl Controller {
 
     }
 
+    #[cfg(feature = "markers")]
     fn move_cursor_pos(
         goal: Vec2,
     ) -> anyhow::Result<()> {
@@ -645,6 +707,7 @@ impl Controller {
     }
 
 
+    #[cfg(feature = "markers")]
     async fn drag_mouse_abs(
         from: Vec2,
         to: Vec2,
@@ -664,6 +727,7 @@ impl Controller {
         Ok(())
     }
 
+    #[cfg(feature = "markers")]
     async fn drag_mouse_rel(
         from: ScreenPoint,
         amount: ScreenVector,
@@ -689,6 +753,7 @@ impl Controller {
 
     }
 
+    #[cfg(feature = "markers")]
     async fn place_marker(
         wait_duration: Duration,
         place_duration: i32,
@@ -704,6 +769,7 @@ impl Controller {
         invoke_gamebind_async(marker.marker.to_place_world_gamebind(), place_duration);
     }
 
+    #[cfg(feature = "markers")]
     async fn place_marker_from_map(
         wait_duration: Duration,
         place_duration: i32,
@@ -725,22 +791,17 @@ impl Controller {
     }
 
 #[cfg(feature = "markers")]
-    fn set_marker(
+    fn set_marker (
         &self,
-        markers: Arc<MarkerSet>
+        markers: &MarkerSet
     ) -> JoinHandle<anyhow::Result<()>> {
-        log::info!("spawny!");
-
-        tokio::spawn(Self::set_marker_task(markers, self.rt_sender.clone()))
+        tokio::spawn(Self::set_marker_task(markers.clone(), self.rt_sender.clone()))
     }
 
 
-    // notes to future kat:
-    // get rid of the whole Result<()> and handle logging and modalling about errors without
-    // requiring a reference to self or anythin'
-#[cfg(feature = "markers")]
+    #[cfg(feature = "markers")]
     async fn set_marker_task(
-        markers: Arc<MarkerSet>,
+        markers: MarkerSet,
         rt_sender: Sender<crate::RenderEvent>,
     ) -> anyhow::Result<()> {
         use anyhow::anyhow;
@@ -980,10 +1041,91 @@ impl Controller {
         Ok(())
     }
 
+    #[cfg(feature = "markers")]
+    async fn get_role(&self) ->  Option<SquadRoleState> {
+        use nexus::rtapi::RealTimeApi;
+
+
+        if let Some(rtapi) = RealTimeApi::get() {
+            if let Some(player) = rtapi.read_player() {
+                let account_name = player.account_name;
+                if let Some(squad_state) = self.rtapi_squad.get(&account_name) {
+                    if squad_state.is_commander {
+                        return Some(SquadRoleState::Commander);
+                    } else if squad_state.is_lieutenant {
+                        return Some(SquadRoleState::Lieutenant);
+                    } else {
+                        return Some(SquadRoleState::Member)
+                    }
+                }
+            }
+        }
+        if !self.extras_squad.is_empty() {
+            use crate::ACCOUNT_NAME_CELL;
+            use arcdps::extras::user::UserRole;
+            if let Some(account_name) = ACCOUNT_NAME_CELL.get() {
+                if let Some(squad_state) = self.extras_squad.get(account_name) {
+                    return match squad_state.role {
+                        UserRole::SquadLeader => Some(SquadRoleState::Commander),
+                        UserRole::Lieutenant => Some(SquadRoleState::Lieutenant),
+                        UserRole::Member => Some(SquadRoleState::Member),
+                        _ => None,
+                    }
+                }
+            }
+        }
+        if let Some(identity) = &self.cached_identity {
+            if identity.is_commander {
+                return Some(SquadRoleState::Commander);
+            }
+        }
+        None
+    }
+
+    #[cfg(feature = "markers")]
+    async fn rtapi_squad_update(&mut self, change: SquadState, member: GroupMemberOwned) {
+        use crate::ACCOUNT_NAME_CELL;
+
+        let account_name = ACCOUNT_NAME_CELL.get();
+        if let Some(account_name) = account_name {
+            match change {
+                SquadState::Left => {
+                    if member.account_name == *account_name {
+                        self.rtapi_squad.clear();
+                    } else {
+                        self.rtapi_squad.remove(&member.account_name);
+                    }
+                },
+                SquadState::Joined => {
+                    self.rtapi_squad.insert(member.account_name.clone(), member);
+                },
+                SquadState::Update => {
+                    if let Some(entry) = self.rtapi_squad.get_mut(&member.account_name) {
+                        *entry = member;
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "markers")]
+    async fn extras_squad_update(&mut self, data: Vec<UserInfoOwned>) {
+        self.extras_squad.clear();
+        for datum in data {
+            if let Some(account_name) = &datum.account_name {
+                self.extras_squad.insert(account_name.clone(), datum);
+            }
+        }
+    }
+
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
         match event {
+            #[cfg(feature = "markers")]
+            ExtrasSquadUpdate(members) => self.extras_squad_update(members).await,
+            #[cfg(feature = "markers")]
+            RTAPISquadUpdate(change, member) => self.rtapi_squad_update(change, member).await,
             #[cfg(feature = "markers")]
             ClearMarkers => self.clear_markers().await,
             ReloadData => self.reload_data().await,
@@ -1003,7 +1145,7 @@ impl Controller {
             TimerReset => self.reset_timers().await,
             CheckDataSourceUpdates => self.check_updates().await,
             #[cfg(feature = "markers")]
-            SetMarker( t) => { self.set_marker( t); },
+            SetMarker( t) => { self.set_marker( &t); },
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
             ProgressBarStyle(style) => self.progress_bar_style(style).await,
@@ -1023,6 +1165,14 @@ impl Controller {
     }
 }
 
+
+#[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Display)]
+pub enum SquadRoleState {
+    Member,
+    Lieutenant,
+    Commander,
+}
+
 #[derive(Debug, Clone, Display)]
 pub enum ProgressBarStyleChange {
     Centre(bool),
@@ -1040,7 +1190,18 @@ pub enum MarkerSaveEvent {
 }
 
 #[derive(Debug, Clone, Display)]
+pub enum SquadState {
+    Update,
+    Joined,
+    Left,
+}
+
+#[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
+    #[cfg(feature = "markers")]
+    ExtrasSquadUpdate(Vec<UserInfoOwned>),
+    #[cfg(feature = "markers")]
+    RTAPISquadUpdate(SquadState, GroupMemberOwned),
     OpenOpenable(String, String),
     #[cfg(feature = "markers")]
     ClearMarkers,

@@ -87,6 +87,7 @@ centre-text-after-icon = Centre text after icon
 imgui-notice = You can control-click on a slider element, or such, to be able to directly input data to it. Remember to press enter after inputting the value.
 marker-trigger = Marker set position trigger behaviour
 marker-condition = Behaviour condition
+autoplace-warning = If you do not have RTAPI installed, we will not be able to detect whether you are a lieutenant instead of just a commander.
 
 ## Windows
 
