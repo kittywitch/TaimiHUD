@@ -1,5 +1,5 @@
 use {
-    crate::{render::RenderState, timer::{BlishVec3, Polytope, Position}}, anyhow::anyhow, chrono::{DateTime, Utc}, glam::Vec3, glob::Paths, nexus::{
+    crate::{render::RenderState, timer::{BlishVec3, Polytope, Position}, SETTINGS}, anyhow::anyhow, chrono::{DateTime, Utc}, glam::Vec3, glob::Paths, nexus::{
         gamebind::GameBind, imgui::Ui, paths::get_addon_dir
     }, ordered_float::OrderedFloat, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, serde_repr::{Deserialize_repr, Serialize_repr}, std::{
         collections::HashMap,
@@ -381,6 +381,37 @@ pub struct MarkerSet {
 }
 
 impl MarkerSet {
+    pub fn id(&self) -> String {
+        let mut pieces = Vec::new();
+        if let Some(category) = &self.category {
+            pieces.push(category.clone());
+        }
+        if let Some(author) = &self.author {
+            pieces.push(author.clone());
+        }
+        if !self.description.is_empty() {
+            pieces.push(self.description.clone());
+        }
+        if !self.name.is_empty() {
+            pieces.push(self.name.clone());
+        }
+        pieces.join("/")
+    }
+
+    pub fn status(&self) -> bool {
+        let settings = SETTINGS.get().unwrap();
+        if let Ok(settings_lock) = settings.try_read() {
+            let result = if let Some(marker) = settings_lock.markers.get(&self.id()) {
+                !marker.disabled
+            } else {
+                self.enabled
+            };
+            result
+        } else {
+            self.enabled
+        }
+    }
+
     pub fn trigger(&self, pos: Vec3) -> bool {
         let trig_vec: Vec3 = self.trigger.clone().into();
         trig_vec.distance(pos) <= 15.0
@@ -476,22 +507,8 @@ impl MarkerType {
         (1..9).flat_map(|i| Self::from_repr(i))
     }
 
-    pub fn filename(&self) -> RelativePathBuf {
-        let alert_str = format!("cmdr{}.png", self);
-        let path = RelativePathBuf::from(alert_str);
-        path
-    }
-
-    pub fn path(&self) -> PathBuf {
-        let filename = self.filename();
-        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
-        let path = addon_dir.join("markers").join("icons");
-        let path = filename.to_path(path);
-        path
-    }
-
     pub fn icon(&self, ui: &Ui) {
-        RenderState::icon(ui, Some(32.0), Some(&self.filename()), Some(&self.path()));
+        RenderState::marker_icon(ui, Some(32.0), &self);
     }
 
     pub fn to_place_world_gamebind(&self) -> GameBind {

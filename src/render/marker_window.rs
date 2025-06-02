@@ -45,6 +45,12 @@ impl MarkerWindowState {
                         let event_send = sender.try_send(ControllerEvent::ClearMarkers);
                         drop(event_send);
                     }
+                    ui.same_line();
+                    if ui.button(&fl!("clear-spent-autoplace")) {
+                        let sender = CONTROLLER_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::ClearSpentAutoplace);
+                        drop(event_send);
+                    }
                     let mid = MarkerInputData::read();
                     if !self.markers_for_map.is_empty() {
                         let table_flags =

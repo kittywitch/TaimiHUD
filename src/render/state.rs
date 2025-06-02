@@ -2,12 +2,7 @@
 use {crate::marker::atomic::MarkerInputData, crate::marker::format::MarkerSet};
 use {
     crate::{
-        controller::ControllerEvent,
-        fl,
-        render::{PrimaryWindowState, TimerWindowState, MarkerWindowState},
-        settings::ProgressBarSettings,
-        timer::{PhaseState, TextAlert, TimerFile},
-        CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE,
+        controller::ControllerEvent, fl, marker::format::MarkerType, marker_icon_data, render::{MarkerWindowState, PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
     },
     glam::Vec2,
     nexus::{
@@ -197,6 +192,30 @@ impl RenderState {
             self.state_errors.remove(&item);
         }
     }
+    pub fn marker_icon(
+        ui: &Ui,
+        height: Option<f32>,
+        marker: &MarkerType,
+    ) {
+        let gooey = IMGUI_TEXTURES.get().unwrap();
+        let gooey_lock = gooey.read().unwrap();
+        if let Some(icon) = gooey_lock.get(&marker.to_string()) {
+            let size = match height {
+                Some(height) => [height, height],
+                None => icon.size(),
+            };
+            Image::new(icon.id(), size).build(ui);
+            ui.same_line();
+        } else if let Some(data) = marker_icon_data(marker.clone()) {
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::LoadTextureIntegrated(
+                        marker.to_string(),
+                        data
+                    ));
+                    drop(event_send);
+        }
+    }
+
     pub fn icon(
         ui: &Ui,
         height: Option<f32>,

@@ -49,8 +49,6 @@ pub struct EditMarkerWindowState {
 }
 
 pub struct IndividualMarkerState {
-    pub alert_icon: Option<RelativePathBuf>,
-    pub path: Option<PathBuf>,
     pub position: PositionInput,
     pub description: String,
 }
@@ -58,8 +56,6 @@ pub struct IndividualMarkerState {
 impl Default for IndividualMarkerState {
     fn default() -> Self {
         Self {
-            alert_icon: Default::default(),
-            path: Default::default(),
             position: Default::default(),
             description: "".to_string(),
         }
@@ -80,8 +76,6 @@ impl IndividualMarkerState {
             let mut position_input = PositionInput::default();
             position_input.position = Some(position);
             markers[i] = Self {
-                alert_icon: Default::default(),
-                path: Default::default(),
                 position: position_input,
                 description: me.id.clone().unwrap_or("".to_string()),
             };
@@ -394,18 +388,9 @@ impl EditMarkerWindowState {
                     ui.table_next_column();
                     for (i, value) in MarkerType::iter_real_values().enumerate() {
                         let pushy = ui.push_id(Id::Str(&format!("{}", value)));
-                        if let (None, None) = (&self.markers[i].alert_icon, &self.markers[i].path) {
-                                let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
-                                let alert_str = format!("cmdr{value}.png");
-                                let alert_icon = Path::new(&alert_str);
-                                let alert_icon = RelativePathBuf::from_path(alert_icon)
-                                    .expect("Can't make path relative");
-                                let path = addon_dir.join("markers").join("icons");
-                                let path = alert_icon.to_path(path);
-                                self.markers[i].alert_icon = Some(alert_icon.clone());
-                                self.markers[i].path = Some(path.clone());
+                        if let Some(mt) = MarkerType::from_repr(i as u8) {
+                            mt.icon(ui);
                         }
-                        RenderState::icon(ui, Some(32.0), self.markers[i].alert_icon.as_ref(), self.markers[i].path.as_ref());
                         ui.table_next_column();
                         let label_size = ui.push_item_width(-1.0);
                         let label = format!("##Marker Description {value}");

@@ -7,7 +7,7 @@ mod v1;
 
 pub use {
     progress_bar_config::ProgressBarSettings,
-    settings_struct::{NeedsUpdate, Settings, SettingsLock, SquadCondition, MarkerAutoPlaceSettings},
+    settings_struct::{NeedsUpdate, Settings, SettingsLock, SquadCondition, MarkerSettings, MarkerAutoPlaceSettings},
     source::{GitHubSource, RemoteSource, Source},
     sources::{SourceKind, SourcesFile},
     v1::{RemoteState, TimerSettings},

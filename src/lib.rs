@@ -12,6 +12,7 @@ mod space;
 
 use arcdps::extras::UserInfoOwned;
 use controller::SquadState;
+use marker::format::MarkerType;
 use nexus::{event::extras::{SquadUpdate, EXTRAS_SQUAD_UPDATE}, rtapi::{event::{RTAPI_GROUP_MEMBER_JOINED, RTAPI_GROUP_MEMBER_LEFT, RTAPI_GROUP_MEMBER_UPDATE}, GroupMember, GroupMemberOwned}};
 //use i18n_embed_fl::fl;
 #[cfg(feature = "space")]
@@ -127,6 +128,30 @@ static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
 thread_local! {
     static ENGINE_INITIALIZED: Cell<bool> = const { Cell::new(false) };
     static ENGINE: RefCell<Option<Engine>> = panic!("!");
+}
+
+fn marker_icon_data(marker_type: MarkerType) -> Option<Vec<u8>> {
+    let arrow = include_bytes!("../icons/markers/cmdrArrow.png");
+    let circle = include_bytes!("../icons/markers/cmdrCircle.png");
+    let cross = include_bytes!("../icons/markers/cmdrCross.png");
+    let heart = include_bytes!("../icons/markers/cmdrHeart.png");
+    let spiral = include_bytes!("../icons/markers/cmdrSpiral.png");
+    let square = include_bytes!("../icons/markers/cmdrSquare.png");
+    let star = include_bytes!("../icons/markers/cmdrStar.png");
+    let triangle = include_bytes!("../icons/markers/cmdrTriangle.png");
+    use MarkerType::*;
+    match marker_type {
+        Arrow => Some(Vec::from(arrow)),
+        Circle => Some(Vec::from(circle)),
+        Cross => Some(Vec::from(cross)),
+        Heart => Some(Vec::from(heart)),
+        Spiral => Some(Vec::from(spiral)),
+        Square => Some(Vec::from(square)),
+        Star => Some(Vec::from(star)),
+        Triangle => Some(Vec::from(triangle)),
+        Blank => None,
+        ClearMarkers => None,
+    }
 }
 
 fn load() {

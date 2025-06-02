@@ -1,27 +1,18 @@
 use {
-    crate::{
-        controller::ControllerEvent,
-        fl,
-        marker::{
+    super::Alignment, crate::{
+        controller::ControllerEvent, fl, marker::{
             atomic::{LocalPoint, MarkerInputData, ScreenPoint, SignObtainer},
             format::MarkerSet,
-        },
-        render::RenderState,
-        RenderEvent, CONTROLLER_SENDER, RENDER_SENDER,
-    },
-    glam::Vec3,
-    indexmap::IndexMap,
-    nexus::{
+        }, render::RenderState, settings::MarkerSettings, RenderEvent, CONTROLLER_SENDER, RENDER_SENDER, SETTINGS
+    }, glam::{Vec2, Vec3}, indexmap::IndexMap, nexus::{
         imgui::{
-            ChildWindow, Condition, Selectable, TableColumnSetup, TableFlags, TreeNode,
-            TreeNodeFlags, Ui, WindowFlags, PopupModal,
+            ChildWindow, Condition, PopupModal, Selectable, TableColumnSetup, TableFlags, TreeNode, TreeNodeFlags, Ui, WindowFlags
         },
         paths::get_addon_dir,
-    },
-    std::{
+    }, std::{
         collections::{HashMap, HashSet},
         sync::Arc,
-    },
+    }
 };
 
 pub struct MarkerTabState {
@@ -104,14 +95,16 @@ impl MarkerTabState {
             .size([0.0, 0.0])
             .build(ui, || {
                 let header_flags = TreeNodeFlags::FRAMED;
+                let height = Vec2::from_array(ui.calc_text_size("U\nI"));
+                let height = height.y;
                 // interface design is my passion
                 for idx in 0..self.markers.len() {
-                    self.draw_category(ui, header_flags, idx);
+                    self.draw_category(ui, header_flags, idx, height);
                 }
             });
     }
 
-    fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, idx: usize) {
+    fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, idx: usize, height: f32) {
         let (category_name, category) = self
             .markers
             .get_index(idx)
@@ -123,7 +116,7 @@ impl MarkerTabState {
                 if let Some(selected_marker) = &self.marker_selection {
                     selected = Arc::ptr_eq(selected_marker, marker);
                 }
-                let element_selected = Self::draw_marker_set_in_sidebar(ui, marker, selected);
+                let element_selected = Self::draw_marker_set_in_sidebar(ui, marker, selected, height);
                 if element_selected && element_selected != selected {
                     self.marker_selection = Some(marker.clone());
                 }
@@ -147,8 +140,11 @@ impl MarkerTabState {
         }
     }
 
-    fn draw_marker_set_in_sidebar(ui: &Ui, marker: &Arc<MarkerSet>, selected_in: bool) -> bool {
+    fn draw_marker_set_in_sidebar(ui: &Ui, marker: &Arc<MarkerSet>, selected_in: bool, height: f32) -> bool {
         let mut selected = selected_in;
+        let widget_pos = Vec2::from(ui.cursor_pos());
+        let window_size = Vec2::from(ui.window_content_region_max());
+        let widget_size = window_size.with_y(height);
         let group_token = ui.begin_group();
         if Selectable::new(&marker.combined())
             .selected(selected)
@@ -156,11 +152,11 @@ impl MarkerTabState {
         {
             selected = true;
         }
-        /*if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
-            let settings_for_marker = settings.markers.get(&marker.id);
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            let settings_for_marker = settings.markers.get(&marker.id());
             ui.same_line();
             let (color, text) = match settings_for_marker {
-                Some(markerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], "Disabled"),
+                Some(MarkerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], "Disabled"),
                 _ => ([0.0, 1.0, 0.0, 1.0], "Enabled"),
             };
             let text_size = Vec2::from(ui.calc_text_size(text));
@@ -172,7 +168,7 @@ impl MarkerTabState {
                 text_size,
             );
             ui.text_colored(color, text);
-        }*/
+        }
         ui.dummy([0.0, 4.0]);
         group_token.end();
         selected
@@ -343,17 +339,27 @@ impl MarkerTabState {
                     if let Some(token) = table_token {
                         token.end();
                     }
-                    if screen_positions.len() == selected_marker_set.markers.len() {
-                        ui.dummy([4.0; 2]);
-                        if ui.button(&fl!("markers-place")) {
-                            let sender = CONTROLLER_SENDER.get().unwrap();
-                            let event_send = sender.try_send(ControllerEvent::SetMarker(
-                                selected_marker_set.clone(),
-                            ));
-                            drop(event_send);
-                        }
-                        pushy.pop();
+                    ui.dummy([4.0; 2]);
+                    let button_text = match selected_marker_set.status() {
+                        true => fl!("autoplacement-disable"),
+                        false => fl!("autoplacement-enable"),
+                    };
+                    if ui.button(button_text) {
+                        let sender = CONTROLLER_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::MarkerToggle(
+                            selected_marker_set.id()
+                        ));
+                        drop(event_send);
                     }
+                    ui.dummy([4.0; 2]);
+                    if ui.button(&fl!("markers-place")) {
+                        let sender = CONTROLLER_SENDER.get().unwrap();
+                        let event_send = sender.try_send(ControllerEvent::SetMarker(
+                            selected_marker_set.clone(),
+                        ));
+                        drop(event_send);
+                    }
+                    pushy.pop();
                 } else {
                     ui.text(&fl!("select-a-marker"));
                 }

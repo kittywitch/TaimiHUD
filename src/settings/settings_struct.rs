@@ -45,6 +45,25 @@ impl NeedsUpdate {
     }
 }
 
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
+pub struct MarkerSettings {
+    #[serde(default)]
+    pub disabled: bool,
+}
+
+impl MarkerSettings {
+    pub fn disable(&mut self) {
+        self.disabled = true;
+    }
+    pub fn enable(&mut self) {
+        self.disabled = false;
+    }
+    pub fn toggle(&mut self) -> bool {
+        self.disabled = !self.disabled;
+        self.disabled
+    }
+}
+
 #[derive(PartialEq, Deserialize, Serialize, Default, Debug, Clone, EnumIter)]
 pub enum SquadCondition {
     #[default]
@@ -94,6 +113,8 @@ pub struct Settings {
     addon_dir: PathBuf,
     #[serde(default)]
     pub timers: HashMap<String, TimerSettings>,
+    #[serde(default)]
+    pub markers: HashMap<String, MarkerSettings>,
     #[serde(default)]
     pub remotes: Vec<RemoteState>,
     #[serde(default)]
@@ -219,6 +240,28 @@ impl Settings {
         }
         let _ = self.save(&self.addon_dir).await;
     }
+    pub async fn toggle_marker(&mut self, marker: String) -> bool {
+        let entry = self.markers.entry(marker.clone()).or_default();
+        let new_state = entry.toggle();
+        let _ = self.save(&self.addon_dir).await;
+        new_state
+    }
+    pub async fn disable_marker(&mut self, marker: String) {
+        if let Some(entry_mut) = self.markers.get_mut(&marker) {
+            entry_mut.disable();
+        } else {
+            self.markers.insert(marker, MarkerSettings { disabled: true });
+        }
+        let _ = self.save(&self.addon_dir).await;
+    }
+    pub async fn enable_marker(&mut self, marker: String) {
+        if let Some(entry_mut) = self.markers.get_mut(&marker) {
+            entry_mut.enable();
+        } else {
+            self.markers.insert(marker, MarkerSettings::default());
+        }
+        let _ = self.save(&self.addon_dir).await;
+    }
 
     #[allow(dead_code)]
     pub async fn get_status_for(&self, source: &RemoteSource) -> Option<&RemoteState> {
@@ -320,6 +363,7 @@ impl Settings {
             last_checked: None,
             addon_dir: addon_dir.to_path_buf(),
             timers: Default::default(),
+            markers: Default::default(),
             remotes: RemoteState::suggested_sources().collect(),
             progress_bar: Default::default(),
             timers_window_open: false,

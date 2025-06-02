@@ -172,9 +172,12 @@ marker-filetype-explanation = There are three kinds of markers file, there is th
   comes with the BlishHUD Commander's Markers module (integrated), there is the kind that they use to ship Community Markers and then there is my own format, which takes the per marker set format and makes it a single file per marker set.
 no-markers-for-map = No markers found for current map.
 cant-place-markers = Can't place
+autoplacement-disable = Disable auto-placement
+autoplacement-enable = Enable auto-placement
 
 ## Markers window
 clear-markers = { clear } { markers }
+clear-spent-autoplace = Reset spent auto-placement
 
 ## Edit markers window
 

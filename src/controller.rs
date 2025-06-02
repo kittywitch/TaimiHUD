@@ -20,7 +20,7 @@ use {
             get_mumble_link_ptr,
             mumble::{MumblePtr, UiState},
             read_nexus_link, MumbleLink,
-        }, gamebind::invoke_gamebind_async, paths::get_addon_dir, rtapi::{GroupMember, GroupMemberOwned}, texture::{load_texture_from_file, RawTextureReceiveCallback}, texture_receive
+        }, gamebind::invoke_gamebind_async, paths::get_addon_dir, rtapi::{GroupMember, GroupMemberOwned}, texture::{load_texture_from_file, load_texture_from_memory, RawTextureReceiveCallback}, texture_receive
     }, relative_path::RelativePathBuf, std::{
         collections::{HashMap, HashSet},
         ffi::OsStr,
@@ -190,56 +190,58 @@ impl Controller {
 
     #[cfg(feature = "markers")]
     async fn handle_marker_autoplace(&self, marker: &MarkerSet) -> anyhow::Result<()> {
-        use crate::settings::SquadCondition;
-        let role = self.get_role().await;
-        log::info!("Role detected: {:?}", role);
+        if marker.status() {
+            use crate::settings::SquadCondition;
+            let role = self.get_role().await;
+            log::info!("Role detected: {:?}", role);
 
-        if let Some(t) = &self.marker_autoplace {
-            match t {
-                MarkerAutoPlaceSettings::OpenWindow(s) => {
-                    match s {
-                        SquadCondition::Never => (),
-                        SquadCondition::IfCommander => {
-                            if let Some(role) = role {
-                                if role == SquadRoleState::Commander {
-                                    self.open_marker_window().await;
+            if let Some(t) = &self.marker_autoplace {
+                match t {
+                    MarkerAutoPlaceSettings::OpenWindow(s) => {
+                        match s {
+                            SquadCondition::Never => (),
+                            SquadCondition::IfCommander => {
+                                if let Some(role) = role {
+                                    if role == SquadRoleState::Commander {
+                                        self.open_marker_window().await;
+                                    }
                                 }
-                            }
-                        },
-                        SquadCondition::IfLieutenantOrAbove => {
-                            if let Some(role) = role {
-                                if role >= SquadRoleState::Lieutenant {
-                                    self.open_marker_window().await;
+                            },
+                            SquadCondition::IfLieutenantOrAbove => {
+                                if let Some(role) = role {
+                                    if role >= SquadRoleState::Lieutenant {
+                                        self.open_marker_window().await;
+                                    }
                                 }
-                            }
-                        },
-                        SquadCondition::Always => self.open_marker_window().await,
-                    }
-                },
-                MarkerAutoPlaceSettings::Place(s) => {
-                    match s {
-                        SquadCondition::Never => (),
-                        SquadCondition::IfCommander => {
-                            if let Some(role) = role {
-                                if role == SquadRoleState::Commander {
-                                    self.set_marker(marker).await??;
+                            },
+                            SquadCondition::Always => self.open_marker_window().await,
+                        }
+                    },
+                    MarkerAutoPlaceSettings::Place(s) => {
+                        match s {
+                            SquadCondition::Never => (),
+                            SquadCondition::IfCommander => {
+                                if let Some(role) = role {
+                                    if role == SquadRoleState::Commander {
+                                        self.set_marker(marker).await??;
+                                    }
                                 }
-                            }
-                        },
-                        SquadCondition::IfLieutenantOrAbove => {
-                            if let Some(role) = role {
-                                if role >= SquadRoleState::Lieutenant {
-                                    self.set_marker(marker).await??;
+                            },
+                            SquadCondition::IfLieutenantOrAbove => {
+                                if let Some(role) = role {
+                                    if role >= SquadRoleState::Lieutenant {
+                                        self.set_marker(marker).await??;
+                                    }
                                 }
-                            }
-                        },
-                        SquadCondition::Always => self.set_marker(marker).await??,
-                    }
-                
-                },
-                MarkerAutoPlaceSettings::DoNothing => (),
+                            },
+                            SquadCondition::Always => self.set_marker(marker).await??,
+                        }
+                    
+                    },
+                    MarkerAutoPlaceSettings::DoNothing => (),
+                }
+
             }
-
         }
         Ok(())
     }
@@ -511,6 +513,24 @@ impl Controller {
             }
             _ => (),
         }
+    }
+
+    async fn toggle_marker(&mut self, id: &str) {
+        let mut settings_lock = self.settings.write().await;
+        let disabled = settings_lock.toggle_marker(id.to_string()).await;
+        drop(settings_lock);
+    }
+
+    async fn enable_marker(&mut self, id: &str) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.enable_marker(id.to_string()).await;
+        drop(settings_lock);
+    }
+
+    async fn disable_marker(&mut self, id: &str) {
+        let mut settings_lock = self.settings.write().await;
+        settings_lock.disable_marker(id.to_string()).await;
+        drop(settings_lock);
     }
 
     async fn toggle_timer(&mut self, id: &str) {
@@ -1118,10 +1138,38 @@ impl Controller {
         }
     }
 
+    #[cfg(feature = "markers")]
+    async fn clear_spent_autoplace(&mut self) {
+        self.spent_markers.clear();
+    }
+
+    async fn load_texture_integrated(&mut self, identifier: String, data: Vec<u8>) {
+            let cally: RawTextureReceiveCallback = texture_receive!(|id, texture| {
+                let gooey = IMGUI_TEXTURES.get().unwrap();
+                let mut gooey_lock = gooey.write().unwrap();
+                if let Some(texture) = texture {
+                    gooey_lock
+                        .entry(id.into())
+                        .or_insert(Arc::new(texture.clone()));
+                }
+                drop(gooey_lock);
+                log::info!("Texture {id} loaded.");
+            });
+        load_texture_from_memory(identifier, &data, Some(cally));
+    }
+
     async fn handle_event(&mut self, event: ControllerEvent) -> anyhow::Result<bool> {
         use ControllerEvent::*;
         log::debug!("Controller received event: {}", event);
         match event {
+            #[cfg(feature = "markers")]
+            ClearSpentAutoplace => self.clear_spent_autoplace().await,
+            #[cfg(feature = "markers")]
+            MarkerEnable(id) => self.enable_marker(&id).await,
+            #[cfg(feature = "markers")]
+            MarkerDisable(id) => self.disable_marker(&id).await,
+            #[cfg(feature = "markers")]
+            MarkerToggle(id) => self.toggle_marker(&id).await,
             #[cfg(feature = "markers")]
             ExtrasSquadUpdate(members) => self.extras_squad_update(members).await,
             #[cfg(feature = "markers")]
@@ -1151,6 +1199,7 @@ impl Controller {
             ProgressBarStyle(style) => self.progress_bar_style(style).await,
             WindowState(window, state) => self.set_window_state(window, state).await,
             LoadTexture(rel, base) => self.load_texture(rel, base).await,
+            LoadTextureIntegrated(identifier, data) => self.load_texture_integrated(identifier, data).await,
             #[cfg(feature = "markers-edit")]
             SaveMarker(e) => self.save_marker(e).await?,
             #[cfg(feature = "markers-edit")]
@@ -1199,6 +1248,8 @@ pub enum SquadState {
 #[derive(Debug, Clone, Display)]
 pub enum ControllerEvent {
     #[cfg(feature = "markers")]
+    ClearSpentAutoplace,
+    #[cfg(feature = "markers")]
     ExtrasSquadUpdate(Vec<UserInfoOwned>),
     #[cfg(feature = "markers")]
     RTAPISquadUpdate(SquadState, GroupMemberOwned),
@@ -1233,12 +1284,24 @@ pub enum ControllerEvent {
     WindowState(String, Option<bool>),
     #[strum(to_string = "Id {0}, pressed {1}")]
     TimerKeyTrigger(String, bool),
+    LoadTextureIntegrated(String, Vec<u8>),
     LoadTexture(RelativePathBuf, PathBuf),
     CheckDataSourceUpdates,
     ReloadTimers,
     #[cfg(feature = "markers")]
     ReloadMarkers,
     ReloadData,
+
+    #[cfg(feature = "markers")]
+    #[strum(to_string = "Toggled {0}")]
+    MarkerToggle(String),
+    #[cfg(feature = "markers")]
+    #[allow(dead_code)]
+    MarkerEnable(String),
+    #[cfg(feature = "markers")]
+    #[allow(dead_code)]
+    MarkerDisable(String),
+
     #[allow(dead_code)]
     TimerEnable(String),
     #[allow(dead_code)]
