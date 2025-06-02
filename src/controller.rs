@@ -1,34 +1,54 @@
 #[cfg(feature = "markers")]
 use {
-    arcdps::extras::UserInfoOwned,
     crate::marker::{
         atomic::{CurrentPerspective, MarkerInputData, MinimapPlacement, ScreenPoint},
         format::{MarkerSet, RuntimeMarkers},
     },
+    arcdps::extras::UserInfoOwned,
+    tokio::task::JoinHandle,
     windows::Win32::{
         Foundation::POINT,
         Graphics::Gdi::ClientToScreen,
-        UI::WindowsAndMessaging::{GetCursorPos, GetForegroundWindow, SetCursorPos},
+        UI::WindowsAndMessaging::{GetCursorPos, GetForegroundWindow},
     },
-    tokio::task::JoinHandle,
 };
 use {
     crate::{
-        marker::{atomic::{ScreenBound, ScreenVector}, format::{MarkerEntry, MarkerFiletype}}, render::TextFont, settings::{MarkerAutoPlaceSettings, RemoteSource, Settings, SettingsLock, SourcesFile}, timer::{CombatState, Position, TimerFile, TimerMachine}, MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES
-    }, anyhow::anyhow, arcdps::{evtc::event::Event as arcEvent, AgentOwned}, glam::{f32::Vec3, Vec2}, nexus::{
+        marker::{
+            atomic::ScreenVector,
+            format::{MarkerEntry, MarkerFiletype},
+        },
+        render::TextFont,
+        settings::{MarkerAutoPlaceSettings, RemoteSource, Settings, SettingsLock, SourcesFile},
+        timer::{CombatState, Position, TimerFile, TimerMachine},
+        MumbleIdentityUpdate, RenderEvent, IMGUI_TEXTURES, SETTINGS, SOURCES,
+    },
+    anyhow::anyhow,
+    arcdps::{evtc::event::Event as arcEvent, AgentOwned},
+    glam::{f32::Vec3, Vec2},
+    nexus::{
         data_link::{
             get_mumble_link_ptr,
             mumble::{MumblePtr, UiState},
             read_nexus_link, MumbleLink,
-        }, gamebind::invoke_gamebind_async, paths::get_addon_dir, rtapi::{GroupMember, GroupMemberOwned}, texture::{load_texture_from_file, load_texture_from_memory, RawTextureReceiveCallback}, texture_receive
-    }, relative_path::RelativePathBuf, std::{
+        },
+        gamebind::invoke_gamebind_async,
+        paths::get_addon_dir,
+        rtapi::GroupMemberOwned,
+        texture::{load_texture_from_file, load_texture_from_memory, RawTextureReceiveCallback},
+        texture_receive,
+    },
+    relative_path::RelativePathBuf,
+    std::{
         collections::{HashMap, HashSet},
         ffi::OsStr,
         fs::exists,
         path::PathBuf,
         sync::{Arc, RwLock},
         time::SystemTime,
-    }, strum_macros::Display, tokio::{
+    },
+    strum_macros::Display,
+    tokio::{
         fs::create_dir_all,
         runtime, select,
         sync::{
@@ -36,8 +56,17 @@ use {
             Mutex,
         },
         time::{interval, sleep, Duration},
-
-    }, windows::Win32::{Foundation::GetLastError, UI::{Input::KeyboardAndMouse::{SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN, MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEINPUT, MOUSE_EVENT_FLAGS}, WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN}}}
+    },
+    windows::Win32::{
+        Foundation::GetLastError,
+        UI::{
+            Input::KeyboardAndMouse::{
+                SendInput, INPUT, INPUT_0, INPUT_MOUSE, MOUSEEVENTF_ABSOLUTE, MOUSEEVENTF_LEFTDOWN,
+                MOUSEEVENTF_LEFTUP, MOUSEEVENTF_MOVE, MOUSEINPUT, MOUSE_EVENT_FLAGS,
+            },
+            WindowsAndMessaging::{GetSystemMetrics, SM_CXSCREEN, SM_CYSCREEN},
+        },
+    },
 };
 
 #[cfg(feature = "space")]
@@ -184,8 +213,8 @@ impl Controller {
     #[cfg(feature = "markers")]
     async fn open_marker_window(&self) {
         let mut settings_lock = self.settings.write().await;
-            settings_lock.set_window_state("markers", Some(true)).await;
-            drop(settings_lock);
+        settings_lock.set_window_state("markers", Some(true)).await;
+        drop(settings_lock);
     }
 
     #[cfg(feature = "markers")]
@@ -197,50 +226,44 @@ impl Controller {
 
             if let Some(t) = &self.marker_autoplace {
                 match t {
-                    MarkerAutoPlaceSettings::OpenWindow(s) => {
-                        match s {
-                            SquadCondition::Never => (),
-                            SquadCondition::IfCommander => {
-                                if let Some(role) = role {
-                                    if role == SquadRoleState::Commander {
-                                        self.open_marker_window().await;
-                                    }
+                    MarkerAutoPlaceSettings::OpenWindow(s) => match s {
+                        SquadCondition::Never => (),
+                        SquadCondition::IfCommander => {
+                            if let Some(role) = role {
+                                if role == SquadRoleState::Commander {
+                                    self.open_marker_window().await;
                                 }
-                            },
-                            SquadCondition::IfLieutenantOrAbove => {
-                                if let Some(role) = role {
-                                    if role >= SquadRoleState::Lieutenant {
-                                        self.open_marker_window().await;
-                                    }
-                                }
-                            },
-                            SquadCondition::Always => self.open_marker_window().await,
+                            }
                         }
+                        SquadCondition::IfLieutenantOrAbove => {
+                            if let Some(role) = role {
+                                if role >= SquadRoleState::Lieutenant {
+                                    self.open_marker_window().await;
+                                }
+                            }
+                        }
+                        SquadCondition::Always => self.open_marker_window().await,
                     },
-                    MarkerAutoPlaceSettings::Place(s) => {
-                        match s {
-                            SquadCondition::Never => (),
-                            SquadCondition::IfCommander => {
-                                if let Some(role) = role {
-                                    if role == SquadRoleState::Commander {
-                                        self.set_marker(marker).await??;
-                                    }
+                    MarkerAutoPlaceSettings::Place(s) => match s {
+                        SquadCondition::Never => (),
+                        SquadCondition::IfCommander => {
+                            if let Some(role) = role {
+                                if role == SquadRoleState::Commander {
+                                    self.set_marker(marker).await??;
                                 }
-                            },
-                            SquadCondition::IfLieutenantOrAbove => {
-                                if let Some(role) = role {
-                                    if role >= SquadRoleState::Lieutenant {
-                                        self.set_marker(marker).await??;
-                                    }
-                                }
-                            },
-                            SquadCondition::Always => self.set_marker(marker).await??,
+                            }
                         }
-                    
+                        SquadCondition::IfLieutenantOrAbove => {
+                            if let Some(role) = role {
+                                if role >= SquadRoleState::Lieutenant {
+                                    self.set_marker(marker).await??;
+                                }
+                            }
+                        }
+                        SquadCondition::Always => self.set_marker(marker).await??,
                     },
                     MarkerAutoPlaceSettings::DoNothing => (),
                 }
-
             }
         }
         Ok(())
@@ -446,7 +469,10 @@ impl Controller {
                     None => Default::default(),
                 };
                 let event_markers = markers_for_map.into_iter().collect::<Vec<_>>();
-                let _ = self.rt_sender.send(RenderEvent::MarkerMap(event_markers)).await;
+                let _ = self
+                    .rt_sender
+                    .send(RenderEvent::MarkerMap(event_markers))
+                    .await;
                 MarkerInputData::from_mapchange(new_map_id);
                 self.spent_markers = Default::default();
             }
@@ -650,9 +676,7 @@ impl Controller {
     }
 
     #[cfg(feature = "markers")]
-    fn get_viewport_point(
-        rel: Vec2
-    ) -> POINT {
+    fn get_viewport_point(rel: Vec2) -> POINT {
         let hwnd = unsafe { GetForegroundWindow() };
         let mut abs: POINT = POINT {
             x: rel.x as i32,
@@ -665,28 +689,21 @@ impl Controller {
     }
 
     #[cfg(feature = "markers")]
-    fn get_viewport_coord(
-        rel: Vec2
-    ) -> (i32, i32) {
+    fn get_viewport_coord(rel: Vec2) -> (i32, i32) {
         let point = Self::get_viewport_point(rel);
         (point.x, point.y)
     }
 
     #[cfg(feature = "markers")]
-    fn get_abs_coord(
-        rel: Vec2
-    ) -> (i32, i32) {
-        let(x, y) = Self::get_viewport_coord(rel);
-        let dx =  (x * 65536) / unsafe { GetSystemMetrics(SM_CXSCREEN) };
+    fn get_abs_coord(rel: Vec2) -> (i32, i32) {
+        let (x, y) = Self::get_viewport_coord(rel);
+        let dx = (x * 65536) / unsafe { GetSystemMetrics(SM_CXSCREEN) };
         let dy = (y * 65536) / unsafe { GetSystemMetrics(SM_CYSCREEN) };
         (dx, dy)
     }
 
     #[cfg(feature = "markers")]
-    fn mouse_event(
-        coords: (i32, i32),
-        flags: MOUSE_EVENT_FLAGS,
-    ) -> anyhow::Result<()> {
+    fn mouse_event(coords: (i32, i32), flags: MOUSE_EVENT_FLAGS) -> anyhow::Result<()> {
         let (dx, dy) = coords;
         let mousey = INPUT {
             r#type: INPUT_MOUSE,
@@ -702,36 +719,25 @@ impl Controller {
             },
         };
         let inputs = [mousey];
-        let result = unsafe {
-            SendInput(&inputs,size_of_val(&inputs) as i32)
-        };
-        let error = unsafe {
-            GetLastError()
-        }.to_hresult();
+        let result = unsafe { SendInput(&inputs, size_of_val(&inputs) as i32) };
+        let error = unsafe { GetLastError() }.to_hresult();
         if error.0 != 0 {
-            return Err(anyhow!("Error code: {}", error.0))
+            return Err(anyhow!("Error code: {}", error.0));
         }
         match result {
             0 => Err(anyhow!("mouse event blocked by another thread")),
-            _ => Ok(())
+            _ => Ok(()),
         }
-
     }
 
     #[cfg(feature = "markers")]
-    fn move_cursor_pos(
-        goal: Vec2,
-    ) -> anyhow::Result<()> {
+    fn move_cursor_pos(goal: Vec2) -> anyhow::Result<()> {
         let coords = Self::get_abs_coord(goal);
         Self::mouse_event(coords, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE)
     }
 
-
     #[cfg(feature = "markers")]
-    async fn drag_mouse_abs(
-        from: Vec2,
-        to: Vec2,
-    ) -> anyhow::Result<()> {
+    async fn drag_mouse_abs(from: Vec2, to: Vec2) -> anyhow::Result<()> {
         let wait_duration = Duration::from_millis(10);
         let from_abs = Self::get_abs_coord(from);
         let to_abs = Self::get_abs_coord(to);
@@ -740,7 +746,7 @@ impl Controller {
         sleep(wait_duration).await;
         Self::mouse_event(from_abs, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTDOWN)?;
         sleep(wait_duration).await;
-        Self::mouse_event(to_abs, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE )?;
+        Self::mouse_event(to_abs, MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE)?;
         sleep(wait_duration).await;
         Self::mouse_event(to_abs, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTUP)?;
         sleep(wait_duration).await;
@@ -748,13 +754,9 @@ impl Controller {
     }
 
     #[cfg(feature = "markers")]
-    async fn drag_mouse_rel(
-        from: ScreenPoint,
-        amount: ScreenVector,
-    ) -> anyhow::Result<()> {
+    async fn drag_mouse_rel(from: ScreenPoint, amount: ScreenVector) -> anyhow::Result<()> {
         let wait_duration = Duration::from_millis(30);
         let from_abs = Self::get_abs_coord(from.into());
-
 
         let [amt_x, amt_y] = amount.as_array();
         let amount = (*amt_x as i32, *amt_y as i32);
@@ -765,12 +767,11 @@ impl Controller {
         sleep(wait_duration).await;
         Self::mouse_event(from_abs, MOUSEEVENTF_ABSOLUTE | MOUSEEVENTF_LEFTDOWN)?;
         sleep(wait_duration).await;
-        Self::mouse_event(amount, MOUSEEVENTF_MOVE )?;
+        Self::mouse_event(amount, MOUSEEVENTF_MOVE)?;
         sleep(wait_duration).await;
         Self::mouse_event((0i32, 0i32), MOUSEEVENTF_LEFTUP)?;
-        sleep(wait_duration*10).await;
+        sleep(wait_duration * 10).await;
         Ok(())
-
     }
 
     #[cfg(feature = "markers")]
@@ -778,7 +779,7 @@ impl Controller {
         wait_duration: Duration,
         place_duration: i32,
         point: ScreenPoint,
-        marker: &MarkerEntry
+        marker: &MarkerEntry,
     ) {
         sleep(wait_duration).await;
         match Self::move_cursor_pos(point.into()) {
@@ -794,41 +795,39 @@ impl Controller {
         wait_duration: Duration,
         place_duration: i32,
         point: Vec3,
-        marker: &MarkerEntry
+        marker: &MarkerEntry,
     ) {
-        use glamour::Vector2;
-
-        use crate::marker::atomic::{LocalPoint, ScreenSpace, ScreenVector};
+        use crate::marker::atomic::LocalPoint;
         let mid = MarkerInputData::read();
-            if let Some(mid) = mid {
+        if let Some(mid) = mid {
             let point: LocalPoint = Vec3::from(marker.position.clone()).into();
             let point = mid.map_local_to_map(point);
             let point = mid.map_map_to_screen(point);
-            if let Some(point) =  point {
+            if let Some(point) = point {
                 Self::place_marker(wait_duration, 10i32, point, marker).await;
             }
         }
     }
 
-#[cfg(feature = "markers")]
-    fn set_marker (
-        &self,
-        markers: &MarkerSet
-    ) -> JoinHandle<anyhow::Result<()>> {
-        tokio::spawn(Self::set_marker_task(markers.clone(), self.rt_sender.clone()))
+    #[cfg(feature = "markers")]
+    fn set_marker(&self, markers: &MarkerSet) -> JoinHandle<anyhow::Result<()>> {
+        tokio::spawn(Self::set_marker_task(
+            markers.clone(),
+            self.rt_sender.clone(),
+        ))
     }
-
 
     #[cfg(feature = "markers")]
     async fn set_marker_task(
         markers: MarkerSet,
         rt_sender: Sender<crate::RenderEvent>,
     ) -> anyhow::Result<()> {
-        use anyhow::anyhow;
-        use glamour::{TransformMap, Vector2};
-        use windows::Win32::Graphics::Gdi::ScreenToClient;
-
-        use crate::marker::atomic::{LocalPoint, MapPoint, ScreenSpace, ScreenVector};
+        use {
+            crate::marker::atomic::{LocalPoint, MapPoint},
+            anyhow::anyhow,
+            glamour::TransformMap,
+            windows::Win32::Graphics::Gdi::ScreenToClient,
+        };
         if let Some(mid) = MarkerInputData::read() {
             let player_position = mid.local_player_pos;
             let mut too_far = false;
@@ -839,24 +838,30 @@ impl Controller {
                 }
             }
             if too_far {
-                let err = anyhow!("Player is too far away from the markers they are trying to place.");
+                let err =
+                    anyhow!("Player is too far away from the markers they are trying to place.");
                 let _ = rt_sender
-                    .send(RenderEvent::OpenableError(format!("Error setting marker set: {}", &markers.name), err))
+                    .send(RenderEvent::OpenableError(
+                        format!("Error setting marker set: {}", &markers.name),
+                        err,
+                    ))
                     .await;
-                return Err(anyhow!("Player is too far away from the markers they are trying to place."))
+                return Err(anyhow!(
+                    "Player is too far away from the markers they are trying to place."
+                ));
             }
         }
 
         let wait_duration = Duration::from_millis(50);
         let mut pos_ptr: POINT = POINT::default();
         let original_position = unsafe {
-                let hwnd = GetForegroundWindow();
-                let pos  = GetCursorPos(&mut pos_ptr);
-                let _ = ScreenToClient(hwnd, &mut pos_ptr);
-                pos
-            }
-            .map_err(anyhow::Error::from)
-            .map(|()| pos_ptr)?;
+            let hwnd = GetForegroundWindow();
+            let pos = GetCursorPos(&mut pos_ptr);
+            let _ = ScreenToClient(hwnd, &mut pos_ptr);
+            pos
+        }
+        .map_err(anyhow::Error::from)
+        .map(|()| pos_ptr)?;
         for marker in &markers.markers {
             // check if it is possible to place immediately
             let local_point: LocalPoint = Vec3::from(marker.position.clone()).into();
@@ -864,22 +869,27 @@ impl Controller {
                 let map_point = mid.map_local_to_map(local_point);
                 let screen_point = mid.map_map_to_screen(map_point);
                 (Some(map_point), screen_point)
-            } else { (None, None) };
+            } else {
+                (None, None)
+            };
             match screen_point {
                 // if the marker is on the map, that's fine, place it
-                Some(point) =>  {
+                Some(point) => {
                     Self::place_marker(wait_duration, 10i32, point, marker).await;
-                },
+                }
                 // if the marker isn't on the map, we need to get our perspective to include
                 // the marker
                 None => {
                     if let Some(map_point) = map_point {
                         let max_attempts = 10; // inshallah
                         let mut attempts = 0;
-                        let map_centre: Option<MapPoint> = MarkerInputData::read().map(|mid| mid.global_map.into());
+                        let map_centre: Option<MapPoint> =
+                            MarkerInputData::read().map(|mid| mid.global_map.into());
                         log::debug!("Reached none arm for marker placement");
                         if let Some(mut map_centre) = map_centre {
-                            while (map_centre.distance(map_point) > 5.0) && (attempts < max_attempts) {
+                            while (map_centre.distance(map_point) > 5.0)
+                                && (attempts < max_attempts)
+                            {
                                 log::debug!("Attempt {}/{}", attempts, max_attempts);
                                 if let Some(mid) = MarkerInputData::read() {
                                     let bounds = mid.screen_bound();
@@ -889,35 +899,54 @@ impl Controller {
                                     let drag_from = mid.random_map_screen_coordinate();
                                     let difference_map = map_point - map_centre;
                                     let difference_fake = mid.map_to_fake_tf().map(difference_map);
-                                    let difference_screen = mid.screen_to_fake().inverse().map(difference_fake);
+                                    let difference_screen =
+                                        mid.screen_to_fake().inverse().map(difference_fake);
 
                                     // the l
                                     let (min, max) = (bounds.min(), bounds.max());
                                     let drag_res = drag_from - difference_screen;
                                     let drag_res = drag_res.clamp(min, max);
-                                    log::debug!("Map centre: {:?}, destination: {:?}", map_centre, map_point);
+                                    log::debug!(
+                                        "Map centre: {:?}, destination: {:?}",
+                                        map_centre,
+                                        map_point
+                                    );
                                     log::debug!("Min: {:?}, max: {:?}", min, max);
-                                    log::debug!("Attempting a drag from {:?} to {:?}", drag_from, drag_res);
+                                    log::debug!(
+                                        "Attempting a drag from {:?} to {:?}",
+                                        drag_from,
+                                        drag_res
+                                    );
                                     Self::drag_mouse_abs(drag_from.into(), drag_res.into()).await?;
                                     sleep(wait_duration).await;
-
                                 }
                                 attempts += 1;
                             }
                             log::info!("Attempts: {}", attempts);
                             if map_centre.distance(map_point) > 5.0 {
-                                let err = anyhow!("Could not drag map perspective to marker location!");
+                                let err =
+                                    anyhow!("Could not drag map perspective to marker location!");
                                 let _ = rt_sender
-                                    .send(RenderEvent::OpenableError(format!("Error setting marker set: {}", &markers.name), err))
+                                    .send(RenderEvent::OpenableError(
+                                        format!("Error setting marker set: {}", &markers.name),
+                                        err,
+                                    ))
                                     .await;
-                                return Err(anyhow!("Could not drag map perspective to marker location!"))
+                                return Err(anyhow!(
+                                    "Could not drag map perspective to marker location!"
+                                ));
                             } else {
-                                Self::place_marker_from_map(wait_duration, 10i32, marker.position.clone().into(), marker).await;
+                                Self::place_marker_from_map(
+                                    wait_duration,
+                                    10i32,
+                                    marker.position.clone().into(),
+                                    marker,
+                                )
+                                .await;
                             }
                         }
-
                     }
-                },
+                }
                 _ => unreachable!("set_marker: this should not happen!"),
             }
         }
@@ -1012,20 +1041,21 @@ impl Controller {
         match e {
             MarkerSaveEvent::Append(ms, p) => {
                 RuntimeMarkers::append(&p, ms).await?;
-            },
+            }
             MarkerSaveEvent::Create(ms, p, ft) => {
                 RuntimeMarkers::create(&p, ft, ms).await?;
-            },
+            }
             MarkerSaveEvent::Edit(ms, p, oc, idx) => {
                 RuntimeMarkers::edit(ms, &p, oc, idx).await?;
-            },
+            }
         }
         self.reload_markers().await;
         Ok(())
     }
 
     #[cfg(feature = "markers-edit")]
-    async fn delete_marker(&mut self,
+    async fn delete_marker(
+        &mut self,
         path: &PathBuf,
         category: Option<String>,
         idx: usize,
@@ -1034,7 +1064,6 @@ impl Controller {
         self.reload_markers().await;
         Ok(())
     }
-
 
     #[cfg(feature = "markers-edit")]
     async fn get_marker_paths(&self) -> anyhow::Result<()> {
@@ -1053,7 +1082,10 @@ impl Controller {
     }
 
     #[cfg(feature = "markers")]
-    async fn set_marker_autoplace_settings(&mut self, maps: MarkerAutoPlaceSettings) -> anyhow::Result<()> {
+    async fn set_marker_autoplace_settings(
+        &mut self,
+        maps: MarkerAutoPlaceSettings,
+    ) -> anyhow::Result<()> {
         let mut settings_lock = self.settings.write().await;
         settings_lock.set_marker_autoplace_settings(&maps).await?;
         self.marker_autoplace = Some(maps);
@@ -1062,9 +1094,8 @@ impl Controller {
     }
 
     #[cfg(feature = "markers")]
-    async fn get_role(&self) ->  Option<SquadRoleState> {
+    async fn get_role(&self) -> Option<SquadRoleState> {
         use nexus::rtapi::RealTimeApi;
-
 
         if let Some(rtapi) = RealTimeApi::get() {
             if let Some(player) = rtapi.read_player() {
@@ -1075,14 +1106,13 @@ impl Controller {
                     } else if squad_state.is_lieutenant {
                         return Some(SquadRoleState::Lieutenant);
                     } else {
-                        return Some(SquadRoleState::Member)
+                        return Some(SquadRoleState::Member);
                     }
                 }
             }
         }
         if !self.extras_squad.is_empty() {
-            use crate::ACCOUNT_NAME_CELL;
-            use arcdps::extras::user::UserRole;
+            use {crate::ACCOUNT_NAME_CELL, arcdps::extras::user::UserRole};
             if let Some(account_name) = ACCOUNT_NAME_CELL.get() {
                 if let Some(squad_state) = self.extras_squad.get(account_name) {
                     return match squad_state.role {
@@ -1090,7 +1120,7 @@ impl Controller {
                         UserRole::Lieutenant => Some(SquadRoleState::Lieutenant),
                         UserRole::Member => Some(SquadRoleState::Member),
                         _ => None,
-                    }
+                    };
                 }
             }
         }
@@ -1115,10 +1145,10 @@ impl Controller {
                     } else {
                         self.rtapi_squad.remove(&member.account_name);
                     }
-                },
+                }
                 SquadState::Joined => {
                     self.rtapi_squad.insert(member.account_name.clone(), member);
-                },
+                }
                 SquadState::Update => {
                     if let Some(entry) = self.rtapi_squad.get_mut(&member.account_name) {
                         *entry = member;
@@ -1144,17 +1174,17 @@ impl Controller {
     }
 
     async fn load_texture_integrated(&mut self, identifier: String, data: Vec<u8>) {
-            let cally: RawTextureReceiveCallback = texture_receive!(|id, texture| {
-                let gooey = IMGUI_TEXTURES.get().unwrap();
-                let mut gooey_lock = gooey.write().unwrap();
-                if let Some(texture) = texture {
-                    gooey_lock
-                        .entry(id.into())
-                        .or_insert(Arc::new(texture.clone()));
-                }
-                drop(gooey_lock);
-                log::info!("Texture {id} loaded.");
-            });
+        let cally: RawTextureReceiveCallback = texture_receive!(|id, texture| {
+            let gooey = IMGUI_TEXTURES.get().unwrap();
+            let mut gooey_lock = gooey.write().unwrap();
+            if let Some(texture) = texture {
+                gooey_lock
+                    .entry(id.into())
+                    .or_insert(Arc::new(texture.clone()));
+            }
+            drop(gooey_lock);
+            log::info!("Texture {id} loaded.");
+        });
         load_texture_from_memory(identifier, &data, Some(cally));
     }
 
@@ -1193,17 +1223,25 @@ impl Controller {
             TimerReset => self.reset_timers().await,
             CheckDataSourceUpdates => self.check_updates().await,
             #[cfg(feature = "markers")]
-            SetMarker( t) => { self.set_marker( &t); },
+            SetMarker(t) => {
+                self.set_marker(&t);
+            }
             TimerKeyTrigger(id, is_release) => self.timer_key_trigger(id, is_release).await,
             DoDataSourceUpdate { source } => self.do_update(&source).await,
             ProgressBarStyle(style) => self.progress_bar_style(style).await,
             WindowState(window, state) => self.set_window_state(window, state).await,
             LoadTexture(rel, base) => self.load_texture(rel, base).await,
-            LoadTextureIntegrated(identifier, data) => self.load_texture_integrated(identifier, data).await,
+            LoadTextureIntegrated(identifier, data) => {
+                self.load_texture_integrated(identifier, data).await
+            }
             #[cfg(feature = "markers-edit")]
             SaveMarker(e) => self.save_marker(e).await?,
             #[cfg(feature = "markers-edit")]
-            DeleteMarker { path, category, idx } => self.delete_marker(&path, category, idx).await?,
+            DeleteMarker {
+                path,
+                category,
+                idx,
+            } => self.delete_marker(&path, category, idx).await?,
             #[cfg(feature = "markers-edit")]
             GetMarkerPaths => self.get_marker_paths().await?,
             Quit => return Ok(false),
@@ -1213,7 +1251,6 @@ impl Controller {
         Ok(true)
     }
 }
-
 
 #[derive(Ord, PartialOrd, Eq, PartialEq, Debug, Clone, Display)]
 pub enum SquadRoleState {

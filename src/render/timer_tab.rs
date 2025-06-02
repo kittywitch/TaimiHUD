@@ -236,11 +236,7 @@ impl TimerTabState {
                     }
                     if let Some(path) = &selected_timer.path {
                         let path_display = format!("{}", path.display());
-                        RenderState::font_text(
-                            "font",
-                            ui,
-                            &fl!("location", path = path_display),
-                        );
+                        RenderState::font_text("font", ui, &fl!("location", path = path_display));
                     }
                     RenderState::font_text(
                         "font",

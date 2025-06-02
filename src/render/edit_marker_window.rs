@@ -1,33 +1,31 @@
 use {
-    super::RenderState,
     crate::{
-        ControllerEvent,
-        CONTROLLER_SENDER,
+        controller::MarkerSaveEvent,
         fl,
         marker::{
             atomic::MarkerInputData,
-            format::{MarkerEntry, MarkerSet, MarkerFiletype, MarkerType},
+            format::{MarkerEntry, MarkerFiletype, MarkerSet, MarkerType},
         },
-        controller::MarkerSaveEvent,
-        util::{PositionInput, ComboInput, UiExt},
-        ACCOUNT_NAME_CELL,
+        util::{ComboInput, PositionInput, UiExt},
+        ControllerEvent, ACCOUNT_NAME_CELL, CONTROLLER_SENDER,
     },
     glam::Vec3,
     nexus::{
-        imgui::{Id, TableColumnFlags, Selectable, ComboBox, PopupModal, TableColumnSetup, TableFlags, Ui, Window},
-        paths::get_addon_dir,
+        imgui::{
+            ComboBox, Id, PopupModal, Selectable, TableColumnFlags, TableColumnSetup, TableFlags,
+            Ui, Window,
+        },
         rtapi::{GroupType, RealTimeApi},
     },
+    std::{f32, mem, path::PathBuf},
     strum::IntoEnumIterator,
-    relative_path::RelativePathBuf,
-    std::{f32, path::{PathBuf, Path}, mem},
 };
 
 /*
 * To-do:
 *  - refactor this to actually take an Option<T> where T is a struct instance of the data
 *  associated with a pre-existing marker instance, such that when you are *editing* instead of
-*  creating, it becomes 
+*  creating, it becomes
 */
 pub struct EditMarkerWindowState {
     pub open: bool,
@@ -140,7 +138,11 @@ impl EditMarkerWindowState {
         if self.map_id <= 0 {
             conditions.push(fl!("map-id-wrong"));
         }
-        let positions: Vec<_> = self.markers.iter().flat_map(|x| x.position.position).collect();
+        let positions: Vec<_> = self
+            .markers
+            .iter()
+            .flat_map(|x| x.position.position)
+            .collect();
         let pos_count = positions.len();
         if pos_count == 0 {
             conditions.push(fl!("no-positions"));
@@ -184,13 +186,14 @@ impl EditMarkerWindowState {
                     let evt = match save_mode {
                         MarkerSaveMode::Create => {
                             MarkerSaveEvent::Create(ms, path.into(), self.filetype.clone().unwrap())
-                        },
-                        MarkerSaveMode::Append => {
-                            MarkerSaveEvent::Append(ms, path.into())
-                        },
-                        MarkerSaveMode::Edit => {
-                            MarkerSaveEvent::Edit(ms, path.into(), self.original_category.clone(), self.idx.unwrap())
-                        },
+                        }
+                        MarkerSaveMode::Append => MarkerSaveEvent::Append(ms, path.into()),
+                        MarkerSaveMode::Edit => MarkerSaveEvent::Edit(
+                            ms,
+                            path.into(),
+                            self.original_category.clone(),
+                            self.idx.unwrap(),
+                        ),
                     };
                     let sender = CONTROLLER_SENDER.get().unwrap();
                     let event_send = sender.try_send(ControllerEvent::SaveMarker(evt));
@@ -418,7 +421,8 @@ impl EditMarkerWindowState {
                         if ui.button(&fl!("save-edit")) {
                             self.problems = self.validate_presave();
                             if self.problems.is_empty() {
-                                self.formatted_name = fl!("save-edit-item", item = self.name.clone());
+                                self.formatted_name =
+                                    fl!("save-edit-item", item = self.name.clone());
                                 ui.open_popup(&self.formatted_name);
                             }
                         }
@@ -433,7 +437,8 @@ impl EditMarkerWindowState {
                     }
                     if let Some(_token) = PopupModal::new(&self.formatted_name)
                         .always_auto_resize(true)
-                        .begin_popup(ui) {
+                        .begin_popup(ui)
+                    {
                         if self.save_mode == Some(MarkerSaveMode::Edit) {
                             ui.text_colored([1.0, 1.0, 0.0, 1.0], fl!("overwrite-markerset"));
                             if ui.button(fl!("save")) {
@@ -441,8 +446,7 @@ impl EditMarkerWindowState {
                                 return true;
                             }
                             ui.same_line();
-                        }
-                        else {
+                        } else {
                             self.draw_validate(ui);
                             let msm_name = |item: &MarkerSaveMode| match item {
                                 MarkerSaveMode::Create => fl!("save-standalone"),
@@ -451,10 +455,12 @@ impl EditMarkerWindowState {
                             };
                             let save_mode_closure = || {
                                 let mut selected = self.save_mode.clone();
-                                for item in [ MarkerSaveMode::Create, MarkerSaveMode::Append ].iter() {
+                                for item in [MarkerSaveMode::Create, MarkerSaveMode::Append].iter()
+                                {
                                     if Selectable::new(msm_name(item))
                                         .selected(Some(item) == self.save_mode.as_ref())
-                                        .build(ui) {
+                                        .build(ui)
+                                    {
                                         selected = Some(item.clone());
                                         // standalone paths are relative
                                         // append paths are absolute
@@ -470,7 +476,8 @@ impl EditMarkerWindowState {
                             };
                             if let Some(Some(selection)) = ComboBox::new(fl!("save-mode"))
                                 .preview_value(combo_box_text)
-                                .build(ui, save_mode_closure) {
+                                .build(ui, save_mode_closure)
+                            {
                                 self.save_mode = Some(selection);
                             }
                         }
@@ -481,7 +488,8 @@ impl EditMarkerWindowState {
                                     for item in MarkerFiletype::iter() {
                                         if Selectable::new(item.to_string())
                                             .selected(Some(&item) == self.filetype.as_ref())
-                                            .build(ui) {
+                                            .build(ui)
+                                        {
                                             selected = Some(item.clone());
                                         }
                                     }
@@ -493,7 +501,8 @@ impl EditMarkerWindowState {
                                 };
                                 if let Some(Some(selection)) = ComboBox::new(fl!("filetype"))
                                     .preview_value(combo_box_text)
-                                    .build(ui, filetype_closure) {
+                                    .build(ui, filetype_closure)
+                                {
                                     self.filetype = Some(selection);
                                 }
                                 ui.help_marker(|| {
@@ -510,7 +519,7 @@ impl EditMarkerWindowState {
                                     }
                                 }
                                 ui.same_line();
-                            },
+                            }
                             Some(MarkerSaveMode::Append) => {
                                 let filename_closure = || {
                                     let mut selected = self.path.clone();
@@ -518,7 +527,8 @@ impl EditMarkerWindowState {
                                         let path_name = format!("{}", item.display());
                                         if Selectable::new(&path_name)
                                             .selected(Some(&path_name) == self.path.as_ref())
-                                            .build(ui) {
+                                            .build(ui)
+                                        {
                                             selected = Some(path_name);
                                         }
                                     }
@@ -530,7 +540,8 @@ impl EditMarkerWindowState {
                                 };
                                 if let Some(Some(selection)) = ComboBox::new(fl!("filename"))
                                     .preview_value(combo_box_text)
-                                    .build(ui, filename_closure) {
+                                    .build(ui, filename_closure)
+                                {
                                     self.path = Some(selection).clone();
                                 }
                                 if ui.button(fl!("refresh-files")) {
@@ -545,7 +556,7 @@ impl EditMarkerWindowState {
                                     }
                                 }
                                 ui.same_line();
-                            },
+                            }
                             _ => (),
                         }
                         if ui.button(fl!("close")) {

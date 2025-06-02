@@ -5,8 +5,11 @@ use {
         point3, Angle, Box2, Contains, Point2, Point3, Rect, Size2, Transform2, TransformMap, Unit,
         Vector2,
     },
-    std::{f32, sync::{Arc, OnceLock}},
     rand::prelude::*,
+    std::{
+        f32,
+        sync::{Arc, OnceLock},
+    },
 };
 
 pub static MARKERINPUTDATA: OnceLock<Arc<AtomicArc<MarkerInputData>>> = OnceLock::new();
@@ -286,7 +289,7 @@ impl MarkerInputData {
         let minimap_bound: Box2<FakeSpace> = Box2::new(min, max);
         minimap_bound.to_rect()
     }
-    
+
     pub fn fakespace_minimap_drag_bound(&self) -> FakeBound {
         let fakebound = self.fake_bound();
         // fake means we're already scaled proportionate to self.scaling,
@@ -522,12 +525,12 @@ impl MarkerInputData {
     // how to convert the fake screen coordinate into continent
     pub fn map_fake_to_map(&self, point: FakePoint) -> Option<MapPoint> {
         match self.perspective {
-            CurrentPerspective::Minimap => {
-                self.map_fake_to_minimap(point).map(|intermediate| self.map_minimap_to_map(intermediate))
-            }
-            CurrentPerspective::Global => {
-                self.map_fake_to_worldmap(point).map(|intermediate| self.map_worldmap_to_map(intermediate))
-            }
+            CurrentPerspective::Minimap => self
+                .map_fake_to_minimap(point)
+                .map(|intermediate| self.map_minimap_to_map(intermediate)),
+            CurrentPerspective::Global => self
+                .map_fake_to_worldmap(point)
+                .map(|intermediate| self.map_worldmap_to_map(intermediate)),
         }
     }
 
@@ -551,7 +554,6 @@ impl MarkerInputData {
                 transforms
             }
         }
-    
     }
 
     pub fn map_map_to_fake(&self, point: MapPoint) -> FakePoint {
@@ -589,7 +591,7 @@ impl MarkerInputData {
         let fake_to_screen = self.screen_to_fake().inverse();
         Some(fake_to_screen.map(fake_point))
     }
-    
+
     // map space to screenspace
     pub fn map_map_to_screen_unchecked(&self, point: MapPoint) -> ScreenPoint {
         let fake_point = self.map_map_to_fake(point);
@@ -604,9 +606,9 @@ impl MarkerInputData {
             CurrentPerspective::Minimap => self.fakespace_minimap_drag_bound(),
         };
         let tf = self.screen_to_fake().inverse();
-        let f_lb= tf.map(bound.min().round().map(|e| e + 2.0));
+        let f_lb = tf.map(bound.min().round().map(|e| e + 2.0));
         let [f_lb_x, f_lb_y] = f_lb.as_array();
-        let f_ub= tf.map(bound.max().round().map(|e| e - 2.0));
+        let f_ub = tf.map(bound.max().round().map(|e| e - 2.0));
         let [f_ub_x, f_ub_y] = f_ub.as_array();
         let (lb_x, lb_y) = (*f_lb_x as u32, *f_lb_y as u32);
         let (ub_x, ub_y) = (*f_ub_x as u32, *f_ub_y as u32);
@@ -615,7 +617,10 @@ impl MarkerInputData {
         ScreenPoint::new(x as f32, y as f32)
     }
 
-    pub fn map_map_to_screen_drag(&self, point: MapPoint) -> (Option<ScreenPoint>, Option<ScreenVector>) {
+    pub fn map_map_to_screen_drag(
+        &self,
+        point: MapPoint,
+    ) -> (Option<ScreenPoint>, Option<ScreenVector>) {
         let fake_point = self.map_map_to_fake(point);
         let fake_to_screen = self.screen_to_fake().inverse();
         let bound = match self.perspective {
@@ -630,7 +635,7 @@ impl MarkerInputData {
             let distance = fake_to_screen.map(distance);
             // the current working distance should now be the distance to the point as an f32,
             // which isn't what we want; we want the actual Vector2 that encodes the distance
-            return (None, Some(distance))
+            return (None, Some(distance));
         }
         (Some(fake_to_screen.map(fake_point)), None)
     }

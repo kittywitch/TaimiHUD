@@ -2,7 +2,14 @@
 use {crate::marker::atomic::MarkerInputData, crate::marker::format::MarkerSet};
 use {
     crate::{
-        controller::ControllerEvent, fl, marker::format::MarkerType, marker_icon_data, render::{MarkerWindowState, PrimaryWindowState, TimerWindowState}, settings::ProgressBarSettings, timer::{PhaseState, TextAlert, TimerFile}, CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE
+        controller::ControllerEvent,
+        fl,
+        marker::format::MarkerType,
+        marker_icon_data,
+        render::{MarkerWindowState, PrimaryWindowState, TimerWindowState},
+        settings::ProgressBarSettings,
+        timer::{PhaseState, TextAlert, TimerFile},
+        CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE,
     },
     glam::Vec2,
     nexus::{
@@ -104,12 +111,10 @@ impl RenderState {
                 use RenderEvent::*;
                 match event {
                     #[cfg(feature = "markers-edit")]
-                    OpenEditMarkers(e) => {
-                        match e {
-                            None => self.edit_marker_window.open(),
-                            Some(e) => self.edit_marker_window.open_edit(e),
-                        }
-                    }
+                    OpenEditMarkers(e) => match e {
+                        None => self.edit_marker_window.open(),
+                        Some(e) => self.edit_marker_window.open_edit(e),
+                    },
                     #[cfg(feature = "markers")]
                     MarkerMap(markers) => {
                         self.marker_window.new_map_markers(markers);
@@ -192,11 +197,7 @@ impl RenderState {
             self.state_errors.remove(&item);
         }
     }
-    pub fn marker_icon(
-        ui: &Ui,
-        height: Option<f32>,
-        marker: &MarkerType,
-    ) {
+    pub fn marker_icon(ui: &Ui, height: Option<f32>, marker: &MarkerType) {
         let gooey = IMGUI_TEXTURES.get().unwrap();
         let gooey_lock = gooey.read().unwrap();
         if let Some(icon) = gooey_lock.get(&marker.to_string()) {
@@ -209,10 +210,10 @@ impl RenderState {
         } else if let Some(data) = marker_icon_data(marker.clone()) {
             let sender = CONTROLLER_SENDER.get().unwrap();
             let event_send = sender.try_send(ControllerEvent::LoadTextureIntegrated(
-                        marker.to_string(),
-                        data
-                    ));
-                    drop(event_send);
+                marker.to_string(),
+                data,
+            ));
+            drop(event_send);
         }
     }
 

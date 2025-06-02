@@ -10,10 +10,6 @@ mod marker;
 #[cfg(feature = "space")]
 mod space;
 
-use arcdps::extras::UserInfoOwned;
-use controller::SquadState;
-use marker::format::MarkerType;
-use nexus::{event::extras::{SquadUpdate, EXTRAS_SQUAD_UPDATE}, rtapi::{event::{RTAPI_GROUP_MEMBER_JOINED, RTAPI_GROUP_MEMBER_LEFT, RTAPI_GROUP_MEMBER_UPDATE}, GroupMember, GroupMemberOwned}};
 //use i18n_embed_fl::fl;
 #[cfg(feature = "space")]
 use space::{engine::SpaceEvent, resources::Texture, Engine};
@@ -23,21 +19,31 @@ use {
         render::{RenderEvent, RenderState},
         settings::SettingsLock,
     },
-    arcdps::AgentOwned,
+    arcdps::{extras::UserInfoOwned, AgentOwned},
+    controller::SquadState,
     i18n_embed::{
         fluent::{fluent_language_loader, FluentLanguageLoader},
         DefaultLocalizer, LanguageLoader, RustEmbedNotifyAssets,
     },
+    marker::format::MarkerType,
     nexus::{
         event::{
             arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL},
-            event_consume, Event, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
+            event_consume,
+            extras::{SquadUpdate, EXTRAS_SQUAD_UPDATE},
+            Event, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
         keybind::{keybind_handler, register_keybind_with_string},
         localization::translate,
         paths::get_addon_dir,
         quick_access::{add_quick_access, add_quick_access_context_menu},
+        rtapi::{
+            event::{
+                RTAPI_GROUP_MEMBER_JOINED, RTAPI_GROUP_MEMBER_LEFT, RTAPI_GROUP_MEMBER_UPDATE,
+            },
+            GroupMember, GroupMemberOwned,
+        },
         texture::Texture as NexusTexture,
         AddonFlags, UpdateProvider,
     },
@@ -363,7 +369,6 @@ fn load() {
         )
     ).revert_on_unload();
 
-
     RTAPI_GROUP_MEMBER_JOINED.subscribe(
         event_consume!(
             <GroupMember> | group_member | {
@@ -376,7 +381,6 @@ fn load() {
             }
         )
     ).revert_on_unload();
-
 
     RTAPI_GROUP_MEMBER_UPDATE.subscribe(
         event_consume!(

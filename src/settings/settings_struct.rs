@@ -1,14 +1,24 @@
 use {
-    super::{ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, TimerSettings}, crate::{controller::ProgressBarStyleChange, SETTINGS, SOURCES}, anyhow::anyhow, chrono::{DateTime, Utc}, futures::stream::StreamExt, magic_migrate::TryMigrate, nexus::imgui::Ui, serde::{Deserialize, Serialize}, std::{
+    super::{ProgressBarSettings, RemoteSource, RemoteState, Source, SourceKind, TimerSettings},
+    crate::{controller::ProgressBarStyleChange, SETTINGS, SOURCES},
+    anyhow::anyhow,
+    chrono::{DateTime, Utc},
+    futures::stream::StreamExt,
+    magic_migrate::TryMigrate,
+    nexus::imgui::Ui,
+    serde::{Deserialize, Serialize},
+    std::{
         collections::{HashMap, HashSet},
         fmt::{self},
         path::{Path, PathBuf},
         sync::Arc,
-    }, strum_macros::{Display, EnumIter}, tokio::{
+    },
+    strum_macros::EnumIter,
+    tokio::{
         fs::{create_dir_all, read_to_string, try_exists, File},
         io::AsyncWriteExt,
         sync::RwLock,
-    }
+    },
 };
 
 pub type SettingsLock = Arc<RwLock<Settings>>;
@@ -250,7 +260,8 @@ impl Settings {
         if let Some(entry_mut) = self.markers.get_mut(&marker) {
             entry_mut.disable();
         } else {
-            self.markers.insert(marker, MarkerSettings { disabled: true });
+            self.markers
+                .insert(marker, MarkerSettings { disabled: true });
         }
         let _ = self.save(&self.addon_dir).await;
     }
@@ -279,8 +290,11 @@ impl Settings {
         let _ = self.save(&self.addon_dir).await;
         Ok(())
     }
-    
-    pub async fn set_marker_autoplace_settings(&mut self, maps: &MarkerAutoPlaceSettings) -> anyhow::Result<()> {
+
+    pub async fn set_marker_autoplace_settings(
+        &mut self,
+        maps: &MarkerAutoPlaceSettings,
+    ) -> anyhow::Result<()> {
         self.marker_autoplace = maps.clone();
         let _ = self.save(&self.addon_dir).await;
         Ok(())

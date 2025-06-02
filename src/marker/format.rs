@@ -1,12 +1,31 @@
 use {
-    crate::{render::RenderState, timer::{BlishVec3, Polytope, Position}, SETTINGS}, anyhow::anyhow, chrono::{DateTime, Utc}, glam::Vec3, glob::Paths, nexus::{
-        gamebind::GameBind, imgui::Ui, paths::get_addon_dir
-    }, ordered_float::OrderedFloat, relative_path::RelativePathBuf, serde::{Deserialize, Serialize}, serde_repr::{Deserialize_repr, Serialize_repr}, std::{
+    crate::{
+        render::RenderState,
+        timer::{BlishVec3, Polytope, Position},
+        SETTINGS,
+    },
+    anyhow::anyhow,
+    chrono::{DateTime, Utc},
+    glam::Vec3,
+    glob::Paths,
+    nexus::{gamebind::GameBind, imgui::Ui, paths::get_addon_dir},
+    ordered_float::OrderedFloat,
+    serde::{Deserialize, Serialize},
+    serde_repr::{Deserialize_repr, Serialize_repr},
+    std::{
         collections::HashMap,
         fs::exists,
         path::{Path, PathBuf},
         sync::Arc,
-    }, strum::IntoEnumIterator, strum_macros::{Display, EnumIter, FromRepr}, tokio::{fs::{create_dir_all, read_to_string, File, OpenOptions}, io::AsyncWriteExt, sync::Semaphore, task::JoinSet}
+    },
+    strum::IntoEnumIterator,
+    strum_macros::{Display, EnumIter, FromRepr},
+    tokio::{
+        fs::{create_dir_all, read_to_string, File, OpenOptions},
+        io::AsyncWriteExt,
+        sync::Semaphore,
+        task::JoinSet,
+    },
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -120,17 +139,26 @@ impl RuntimeMarkers {
         file.flush().await?;
         Ok(())
     }
-    
+
     pub async fn save(&self, path: &PathBuf) -> anyhow::Result<()> {
         log::debug!("MarkerFormat: Saving to \"{}\".", path.display());
         let settings_str = serde_json::to_string(&self.file)?;
-        let mut file = OpenOptions::new().write(true).truncate(true).open(path).await?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .await?;
         file.write_all(settings_str.as_bytes()).await?;
         file.flush().await?;
         Ok(())
     }
 
-    pub async fn edit(ms: MarkerSet, path: &PathBuf, original_category: Option<String>, idx: usize) -> anyhow::Result<()> {
+    pub async fn edit(
+        ms: MarkerSet,
+        path: &PathBuf,
+        original_category: Option<String>,
+        idx: usize,
+    ) -> anyhow::Result<()> {
         let mut file = Self::load_arcless(path).await?;
         if ms.category != original_category {
             file.remove(path, original_category, idx).await?;
@@ -143,42 +171,58 @@ impl RuntimeMarkers {
         Ok(())
     }
 
-    pub async fn delete(path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<()> {
+    pub async fn delete(
+        path: &PathBuf,
+        category: Option<String>,
+        idx: usize,
+    ) -> anyhow::Result<()> {
         let mut file = Self::load_arcless(path).await?;
         file.remove(path, category, idx).await?;
         file.save(path).await?;
         Ok(())
     }
 
-    pub async fn get_entry(&mut self, path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<&mut MarkerSet> {
+    pub async fn get_entry(
+        &mut self,
+        path: &PathBuf,
+        category: Option<String>,
+        idx: usize,
+    ) -> anyhow::Result<&mut MarkerSet> {
         match &mut self.file {
             MarkerFormats::Community(f) => {
-                let category = category.ok_or(anyhow!("Category not provided, required for File format"))?;
-                let category = f.categories.iter_mut().find(|c| c.name == category).ok_or(anyhow!("Couldn't find category {}", category))?;
+                let category =
+                    category.ok_or(anyhow!("Category not provided, required for File format"))?;
+                let category = f
+                    .categories
+                    .iter_mut()
+                    .find(|c| c.name == category)
+                    .ok_or(anyhow!("Couldn't find category {}", category))?;
                 Ok(&mut category.marker_sets[idx])
-            },
-            MarkerFormats::Taimi(t) => {
-                Ok(&mut t[idx])
-            },
-            MarkerFormats::Integrated(c) => {
-                Ok(&mut c.squad_marker_preset[idx])
-            },
+            }
+            MarkerFormats::Taimi(t) => Ok(&mut t[idx]),
+            MarkerFormats::Integrated(c) => Ok(&mut c.squad_marker_preset[idx]),
         }
     }
 
-    pub async fn remove(&mut self, path: &PathBuf, category: Option<String>, idx: usize) -> anyhow::Result<MarkerSet> {
+    pub async fn remove(
+        &mut self,
+        path: &PathBuf,
+        category: Option<String>,
+        idx: usize,
+    ) -> anyhow::Result<MarkerSet> {
         match &mut self.file {
             MarkerFormats::Community(f) => {
-                let category = category.ok_or(anyhow!("Category not provided, required for File format"))?;
-                let category = f.categories.iter_mut().find(|c| c.name == category).ok_or(anyhow!("Couldn't find category {}", category))?;
+                let category =
+                    category.ok_or(anyhow!("Category not provided, required for File format"))?;
+                let category = f
+                    .categories
+                    .iter_mut()
+                    .find(|c| c.name == category)
+                    .ok_or(anyhow!("Couldn't find category {}", category))?;
                 Ok(category.marker_sets.remove(idx))
-            },
-            MarkerFormats::Taimi(t) => {
-                Ok(t.remove(idx))
-            },
-            MarkerFormats::Integrated(c) => {
-                Ok(c.squad_marker_preset.remove(idx))
-            },
+            }
+            MarkerFormats::Taimi(t) => Ok(t.remove(idx)),
+            MarkerFormats::Integrated(c) => Ok(c.squad_marker_preset.remove(idx)),
         }
     }
 
@@ -197,32 +241,44 @@ impl RuntimeMarkers {
                                 name: mscat.clone(),
                                 marker_sets: Vec::new(),
                             });
-                            f.categories.iter_mut().find(|c| &c.name == mscat).ok_or(anyhow!("Can't find the category \"{}\" we should've made", mscat))?
-                        },
+                            f.categories
+                                .iter_mut()
+                                .find(|c| &c.name == mscat)
+                                .ok_or(anyhow!(
+                                    "Can't find the category \"{}\" we should've made",
+                                    mscat
+                                ))?
+                        }
                     };
                     category.marker_sets.push(ms);
                     f.last_edit = Utc::now();
                 } else {
-                    let category = match f.categories.iter_mut().find(|c| &c.name == "No category") {
+                    let category = match f.categories.iter_mut().find(|c| &c.name == "No category")
+                    {
                         Some(c) => c,
                         None => {
                             f.categories.push(MarkerCategory {
                                 name: "No category".to_string(),
                                 marker_sets: Vec::new(),
                             });
-                            f.categories.iter_mut().find(|c| &c.name == "No category").ok_or(anyhow!("Can't find the category \"No category\" we should've made"))?
-                        },
+                            f.categories
+                                .iter_mut()
+                                .find(|c| &c.name == "No category")
+                                .ok_or(anyhow!(
+                                    "Can't find the category \"No category\" we should've made"
+                                ))?
+                        }
                     };
                     category.marker_sets.push(ms);
                     f.last_edit = Utc::now();
                 }
-            },
+            }
             MarkerFormats::Taimi(t) => {
                 t.push(ms);
-            },
+            }
             MarkerFormats::Integrated(c) => {
                 c.squad_marker_preset.push(ms);
-            },
+            }
         }
         Ok(())
     }
@@ -234,7 +290,11 @@ impl RuntimeMarkers {
         Ok(())
     }
 
-    pub async fn create(path: &PathBuf, format: MarkerFiletype, ms: MarkerSet) -> anyhow::Result<()> {
+    pub async fn create(
+        path: &PathBuf,
+        format: MarkerFiletype,
+        ms: MarkerSet,
+    ) -> anyhow::Result<()> {
         let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
         let markers_dir = addon_dir.join("markers");
         if !exists(&markers_dir).expect("Can't check if directory exists") {
@@ -246,19 +306,17 @@ impl RuntimeMarkers {
                 let file_data = MarkerFile {
                     last_edit: Utc::now(),
                     path: Some(path.clone()),
-                    categories: vec![
-                        MarkerCategory {
-                            name: ms.category.clone().unwrap_or("No category".to_string()),
-                            marker_sets: vec![ms],
-                        }
-                    ],
+                    categories: vec![MarkerCategory {
+                        name: ms.category.clone().unwrap_or("No category".to_string()),
+                        marker_sets: vec![ms],
+                    }],
                 };
                 let file = RuntimeMarkers {
                     path: Some(path.clone()),
                     file: MarkerFormats::Community(file_data),
                 };
                 file.create_file(&path).await?;
-            },
+            }
             MarkerFiletype::Taimi => {
                 let file_data = vec![ms];
                 let file = RuntimeMarkers {
@@ -266,7 +324,7 @@ impl RuntimeMarkers {
                     file: MarkerFormats::Taimi(file_data),
                 };
                 file.create_file(&path).await?;
-            },
+            }
             MarkerFiletype::Integrated => {
                 let file_data = IntegratedMarkers {
                     version: "2.0.0".to_string(),
@@ -278,7 +336,7 @@ impl RuntimeMarkers {
                     file: MarkerFormats::Integrated(file_data),
                 };
                 file.create_file(&path).await?;
-            },
+            }
         }
         Ok(())
     }
@@ -303,7 +361,10 @@ impl RuntimeMarkers {
                 }
                 MarkerFormats::Taimi(t) => {
                     for (i, marker_set) in t.iter().enumerate() {
-                        let category_name = marker_set.category.clone().unwrap_or("No category".to_string());
+                        let category_name = marker_set
+                            .category
+                            .clone()
+                            .unwrap_or("No category".to_string());
                         let entry = finalized.entry(category_name.clone()).or_default();
                         let mut marker_set_data = marker_set.clone();
                         marker_set_data.category = Some(category_name.clone());
@@ -312,11 +373,14 @@ impl RuntimeMarkers {
                         let marker_set_arc = Arc::new(marker_set_data);
                         entry.push(marker_set_arc);
                     }
-                },
+                }
                 MarkerFormats::Integrated(c) => {
-                    for (i, marker_set ) in c.squad_marker_preset.iter().enumerate() {
+                    for (i, marker_set) in c.squad_marker_preset.iter().enumerate() {
                         // extend their format by allowing the Category :)
-                        let category_name = marker_set.category.clone().unwrap_or("Integrated".to_string());
+                        let category_name = marker_set
+                            .category
+                            .clone()
+                            .unwrap_or("Integrated".to_string());
                         let entry = finalized.entry(category_name.clone()).or_default();
                         let mut marker_set_data = marker_set.clone();
                         marker_set_data.category = Some(category_name.clone());
@@ -336,7 +400,7 @@ impl RuntimeMarkers {
 #[serde(rename_all = "camelCase")]
 pub struct MarkerFile {
     pub last_edit: DateTime<Utc>,
-    #[serde(skip,default)]
+    #[serde(skip, default)]
     pub path: Option<PathBuf>,
     pub categories: Vec<MarkerCategory>,
 }
@@ -345,7 +409,7 @@ pub struct MarkerFile {
 #[serde(rename_all = "camelCase")]
 pub struct IntegratedMarkers {
     pub version: String,
-    #[serde(skip,default)]
+    #[serde(skip, default)]
     pub path: Option<PathBuf>,
     pub squad_marker_preset: Vec<MarkerSet>,
 }
@@ -374,9 +438,9 @@ pub struct MarkerSet {
     pub map_id: u32,
     pub trigger: MarkerPosition,
     pub markers: Vec<MarkerEntry>,
-    #[serde(default,skip)]
+    #[serde(default, skip)]
     pub path: Option<PathBuf>,
-    #[serde(default,skip)]
+    #[serde(default, skip)]
     pub idx: Option<usize>,
 }
 
@@ -482,7 +546,9 @@ impl From<MarkerPosition> for Polytope {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Serialize_repr, Deserialize_repr, FromRepr, Display, Debug, Clone)]
+#[derive(
+    Hash, Eq, PartialEq, Serialize_repr, Deserialize_repr, FromRepr, Display, Debug, Clone,
+)]
 #[repr(u8)]
 pub enum MarkerType {
     // Schema reference: https://github.com/manlaan/BlishHud-CommanderMarkers/blob/bhud-static/Manlaan.CommanderMarkers/README.md?plain=1#L69-L78

@@ -1,16 +1,11 @@
 use {
-    std::sync::Arc,
-    glam::Vec3,
     crate::{
-        marker::{
-            format::MarkerSet,
-            atomic::{LocalPoint, ScreenPoint, MarkerInputData},
-        },
         fl,
-        settings::ProgressBarSettings,
+        marker::{atomic::MarkerInputData, format::MarkerSet},
         ControllerEvent, CONTROLLER_SENDER, SETTINGS,
     },
-    nexus::imgui::{StyleColor, Ui, Window, TableFlags, Id, TableColumnSetup, TableColumnFlags},
+    nexus::imgui::{Id, TableColumnFlags, TableColumnSetup, TableFlags, Ui, Window},
+    std::sync::Arc,
 };
 
 pub struct MarkerWindowState {
@@ -88,7 +83,10 @@ impl MarkerWindowState {
                         );
                         ui.table_next_column();
                         for marker in &self.markers_for_map {
-                            let id_token = ui.push_id(&format!("{}{:?}{:?}", marker.name, marker.author, marker.category));
+                            let id_token = ui.push_id(&format!(
+                                "{}{:?}{:?}",
+                                marker.name, marker.author, marker.category
+                            ));
                             ui.text(format!("{}", marker.name));
                             ui.table_next_column();
                             if let Some(category) = &marker.category {
@@ -99,22 +97,21 @@ impl MarkerWindowState {
                             ui.table_next_column();
                             ui.text_wrapped(format!("{}", marker.description));
                             ui.table_next_column();
-                                if ui.button(&fl!("markers-place")) {
-                                    let sender = CONTROLLER_SENDER.get().unwrap();
-                                    let event_send = sender.try_send(ControllerEvent::SetMarker(
-                                        marker.clone(),
-                                    ));
-                                    drop(event_send);
-                                }
+                            if ui.button(&fl!("markers-place")) {
+                                let sender = CONTROLLER_SENDER.get().unwrap();
+                                let event_send =
+                                    sender.try_send(ControllerEvent::SetMarker(marker.clone()));
+                                drop(event_send);
+                            }
                             ui.table_next_column();
                             id_token.end();
                         }
-                            if let Some(token) = table_token {
-                                token.end();
-                            }
-                            } else {
-                                ui.text_wrapped(fl!("no-markers-for-map"));
-                            }
+                        if let Some(token) = table_token {
+                            token.end();
+                        }
+                    } else {
+                        ui.text_wrapped(fl!("no-markers-for-map"));
+                    }
                 });
         }
 

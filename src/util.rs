@@ -86,14 +86,15 @@ impl ComboInput {
     pub fn draw(&mut self, ui: &Ui) {
         if self.make_entry {
             let entry = self.entry.get_or_insert_default();
-            ui.input_text(&self.label,entry).build();
+            ui.input_text(&self.label, entry).build();
         } else {
             let closure = || {
                 let mut selected = self.entry.clone();
                 for item in &self.data {
                     if Selectable::new(item)
                         .selected(Some(item) == self.entry.as_ref())
-                        .build(ui) {
+                        .build(ui)
+                    {
                         selected = Some(item.clone())
                     }
                 }
@@ -105,7 +106,8 @@ impl ComboInput {
             };
             if let Some(Some(selection)) = ComboBox::new(self.label.clone())
                 .preview_value(combo_box_text)
-                .build(ui, closure) {
+                .build(ui, closure)
+            {
                 self.entry = Some(selection);
             }
         }
@@ -122,8 +124,6 @@ impl ComboInput {
         self.entry.clone()
     }
 }
-
-
 
 #[derive(Default)]
 pub struct PositionInput {

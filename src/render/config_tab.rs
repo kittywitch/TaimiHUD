@@ -1,7 +1,11 @@
 use {
     super::TimerWindowState,
     crate::{
-        controller::ProgressBarStyleChange, fl, render::TextFont, settings::{MarkerAutoPlaceSettings, SquadCondition}, ControllerEvent, CONTROLLER_SENDER, SETTINGS
+        controller::ProgressBarStyleChange,
+        fl,
+        render::TextFont,
+        settings::{MarkerAutoPlaceSettings, SquadCondition},
+        ControllerEvent, CONTROLLER_SENDER, SETTINGS,
     },
     nexus::imgui::{ComboBox, Condition, Selectable, Slider, TreeNode, TreeNodeFlags, Ui},
     strum::IntoEnumIterator,
@@ -15,7 +19,11 @@ pub struct ConfigTabState {
 
 impl ConfigTabState {
     pub fn new() -> Self {
-        Self { katrender: false, marker_autoplace: Default::default(), marker_autoplace_inner: Default::default() }
+        Self {
+            katrender: false,
+            marker_autoplace: Default::default(),
+            marker_autoplace_inner: Default::default(),
+        }
     }
 
     pub fn draw(&mut self, ui: &Ui, timer_window_state: &mut TimerWindowState) {
@@ -62,7 +70,9 @@ impl ConfigTabState {
             {
                 self.marker_autoplace = selection;
                 let sender = CONTROLLER_SENDER.get().unwrap();
-                let event_send = sender.try_send(ControllerEvent::MarkerAutoPlaceSettings(self.marker_autoplace.clone()));
+                let event_send = sender.try_send(ControllerEvent::MarkerAutoPlaceSettings(
+                    self.marker_autoplace.clone(),
+                ));
                 drop(event_send);
             }
             if let Some(inner) = &self.marker_autoplace_inner {
@@ -83,14 +93,20 @@ impl ConfigTabState {
                     .build(ui, autoplace_inner_closure)
                 {
                     match &mut self.marker_autoplace {
-                        MarkerAutoPlaceSettings::OpenWindow(ref mut t) => { *t = selection.clone(); },
-                        MarkerAutoPlaceSettings::Place(ref mut t) => { *t = selection.clone(); },
+                        MarkerAutoPlaceSettings::OpenWindow(ref mut t) => {
+                            *t = selection.clone();
+                        }
+                        MarkerAutoPlaceSettings::Place(ref mut t) => {
+                            *t = selection.clone();
+                        }
                         _ => (),
                     };
                     let sender = CONTROLLER_SENDER.get().unwrap();
-                    let event_send = sender.try_send(ControllerEvent::MarkerAutoPlaceSettings(self.marker_autoplace.clone()));
+                    let event_send = sender.try_send(ControllerEvent::MarkerAutoPlaceSettings(
+                        self.marker_autoplace.clone(),
+                    ));
                     drop(event_send);
-            }
+                }
             }
         };
         let timers_window_closure = || {
