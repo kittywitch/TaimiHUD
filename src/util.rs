@@ -5,7 +5,7 @@
 use {
     crate::{fl, marker::atomic::MarkerInputData},
     glam::Vec3,
-    nexus::imgui::{InputFloat3, StyleColor, Ui},
+    nexus::imgui::{ComboBox, InputFloat3, Selectable, StyleColor, Ui},
 };
 
 #[allow(dead_code)]
@@ -58,6 +58,70 @@ impl UiExt for Ui<'_> {
             }
             self.tooltip_text(fl!("open-button", kind = url.as_ref()));
         }
+    }
+}
+
+pub struct ComboInput {
+    label: String,
+    make_entry: bool,
+    pub entry: Option<String>,
+    pub data: Vec<String>,
+}
+
+impl ComboInput {
+    pub fn new(label: &str) -> Self {
+        Self {
+            label: label.to_string(),
+            make_entry: false,
+            entry: None,
+            data: Default::default(),
+        }
+    }
+
+    pub fn update(&mut self, data: Vec<String>) {
+        log::info!("Categories updated: {:?}", data);
+        self.data = data;
+    }
+
+    pub fn draw(&mut self, ui: &Ui) {
+        if self.make_entry {
+            let entry = self.entry.get_or_insert_default();
+            ui.input_text(&self.label, entry).build();
+        } else {
+            let closure = || {
+                let mut selected = self.entry.clone();
+                for item in &self.data {
+                    if Selectable::new(item)
+                        .selected(Some(item) == self.entry.as_ref())
+                        .build(ui)
+                    {
+                        selected = Some(item.clone())
+                    }
+                }
+                selected
+            };
+            let combo_box_text = match &self.entry {
+                Some(s) => s,
+                None => "",
+            };
+            if let Some(Some(selection)) = ComboBox::new(self.label.clone())
+                .preview_value(combo_box_text)
+                .build(ui, closure)
+            {
+                self.entry = Some(selection);
+            }
+        }
+        let button_text = match self.make_entry {
+            false => fl!("create-arg", arg = self.label.clone()),
+            true => fl!("not-create-arg", arg = self.label.clone()),
+        };
+        if ui.button(button_text) {
+            self.make_entry = !self.make_entry;
+        }
+    }
+
+    pub fn result(&self) -> Option<String> {
+        self.entry.clone()
     }
 }
 
@@ -117,6 +181,11 @@ impl PositionInput {
             if ui.button(&fl!("revert")) {
                 self.opened = false;
                 self.position = self.position_before_edit;
+            }
+            ui.same_line();
+            if ui.button(&fl!("clear")) {
+                self.opened = false;
+                self.position = None;
             }
         }
     }

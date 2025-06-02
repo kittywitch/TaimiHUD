@@ -19,21 +19,31 @@ use {
         render::{RenderEvent, RenderState},
         settings::SettingsLock,
     },
-    arcdps::AgentOwned,
+    arcdps::{extras::UserInfoOwned, AgentOwned},
+    controller::SquadState,
     i18n_embed::{
         fluent::{fluent_language_loader, FluentLanguageLoader},
         DefaultLocalizer, LanguageLoader, RustEmbedNotifyAssets,
     },
+    marker::format::MarkerType,
     nexus::{
         event::{
             arc::{CombatData, ACCOUNT_NAME, COMBAT_LOCAL},
-            event_consume, Event, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
+            event_consume,
+            extras::{SquadUpdate, EXTRAS_SQUAD_UPDATE},
+            Event, MumbleIdentityUpdate, MUMBLE_IDENTITY_UPDATED,
         },
         gui::{register_render, render, RenderType},
         keybind::{keybind_handler, register_keybind_with_string},
         localization::translate,
         paths::get_addon_dir,
         quick_access::{add_quick_access, add_quick_access_context_menu},
+        rtapi::{
+            event::{
+                RTAPI_GROUP_MEMBER_JOINED, RTAPI_GROUP_MEMBER_LEFT, RTAPI_GROUP_MEMBER_UPDATE,
+            },
+            GroupMember, GroupMemberOwned,
+        },
         texture::Texture as NexusTexture,
         AddonFlags, UpdateProvider,
     },
@@ -124,6 +134,30 @@ static SETTINGS: OnceLock<SettingsLock> = OnceLock::new();
 thread_local! {
     static ENGINE_INITIALIZED: Cell<bool> = const { Cell::new(false) };
     static ENGINE: RefCell<Option<Engine>> = panic!("!");
+}
+
+fn marker_icon_data(marker_type: MarkerType) -> Option<Vec<u8>> {
+    let arrow = include_bytes!("../icons/markers/cmdrArrow.png");
+    let circle = include_bytes!("../icons/markers/cmdrCircle.png");
+    let cross = include_bytes!("../icons/markers/cmdrCross.png");
+    let heart = include_bytes!("../icons/markers/cmdrHeart.png");
+    let spiral = include_bytes!("../icons/markers/cmdrSpiral.png");
+    let square = include_bytes!("../icons/markers/cmdrSquare.png");
+    let star = include_bytes!("../icons/markers/cmdrStar.png");
+    let triangle = include_bytes!("../icons/markers/cmdrTriangle.png");
+    use MarkerType::*;
+    match marker_type {
+        Arrow => Some(Vec::from(arrow)),
+        Circle => Some(Vec::from(circle)),
+        Cross => Some(Vec::from(cross)),
+        Heart => Some(Vec::from(heart)),
+        Spiral => Some(Vec::from(spiral)),
+        Square => Some(Vec::from(square)),
+        Star => Some(Vec::from(star)),
+        Triangle => Some(Vec::from(triangle)),
+        Blank => None,
+        ClearMarkers => None,
+    }
 }
 
 fn load() {
@@ -263,6 +297,11 @@ fn load() {
                 let sender = CONTROLLER_SENDER.get().unwrap();
                 let _ = sender.try_send(ControllerEvent::WindowState("timers".to_string(), None));
             }
+            #[cfg(feature = "markers")]
+            if ui.button("Markers") {
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                let _ = sender.try_send(ControllerEvent::WindowState("markers".to_string(), None));
+            }
             if ui.button("Primary") {
                 let sender = CONTROLLER_SENDER.get().unwrap();
                 let _ = sender.try_send(ControllerEvent::WindowState("primary".to_string(), None));
@@ -316,6 +355,58 @@ fn load() {
             }
         }))
         .revert_on_unload();
+
+    RTAPI_GROUP_MEMBER_LEFT.subscribe(
+        event_consume!(
+            <GroupMember> | group_member | {
+                if let Some(group_member) = group_member {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let group_member: GroupMemberOwned = group_member.into();
+                        let event_send = sender.try_send(ControllerEvent::RTAPISquadUpdate(SquadState::Left, group_member));
+                        drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
+
+    RTAPI_GROUP_MEMBER_JOINED.subscribe(
+        event_consume!(
+            <GroupMember> | group_member | {
+                if let Some(group_member) = group_member {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let group_member: GroupMemberOwned = group_member.into();
+                        let event_send = sender.try_send(ControllerEvent::RTAPISquadUpdate(SquadState::Joined, group_member));
+                        drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
+
+    RTAPI_GROUP_MEMBER_UPDATE.subscribe(
+        event_consume!(
+            <GroupMember> | group_member | {
+                if let Some(group_member) = group_member {
+                    let sender = CONTROLLER_SENDER.get().unwrap();
+                    let group_member: GroupMemberOwned = group_member.into();
+                        let event_send = sender.try_send(ControllerEvent::RTAPISquadUpdate(SquadState::Update, group_member));
+                        drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
+
+    EXTRAS_SQUAD_UPDATE.subscribe(
+        event_consume!(
+            <SquadUpdate> | update | {
+            if let Some(update) = update {
+                let update: Vec<UserInfoOwned> = update.iter().map(|x| unsafe { ptr::read(x) }.to_owned()).collect();
+                let sender = CONTROLLER_SENDER.get().unwrap();
+                    let event_send = sender.try_send(ControllerEvent::ExtrasSquadUpdate(update));
+                    drop(event_send);
+                }
+            }
+        )
+    ).revert_on_unload();
 
     pub const EV_LANGUAGE_CHANGED: Event<()> = unsafe { Event::new("EV_LANGUAGE_CHANGED") };
 

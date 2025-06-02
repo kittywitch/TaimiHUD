@@ -13,6 +13,7 @@ use {
         path::{Path, PathBuf},
         sync::Arc,
     },
+    strum_macros::EnumIter,
     tokio::{
         fs::{create_dir_all, read_to_string, try_exists, File},
         io::AsyncWriteExt,
@@ -54,6 +55,65 @@ impl NeedsUpdate {
     }
 }
 
+#[derive(Deserialize, Serialize, Default, Debug, Clone, PartialEq)]
+pub struct MarkerSettings {
+    #[serde(default)]
+    pub disabled: bool,
+}
+
+impl MarkerSettings {
+    pub fn disable(&mut self) {
+        self.disabled = true;
+    }
+    pub fn enable(&mut self) {
+        self.disabled = false;
+    }
+    pub fn toggle(&mut self) -> bool {
+        self.disabled = !self.disabled;
+        self.disabled
+    }
+}
+
+#[derive(PartialEq, Deserialize, Serialize, Default, Debug, Clone, EnumIter)]
+pub enum SquadCondition {
+    #[default]
+    Always,
+    IfCommander,
+    IfLieutenantOrAbove,
+    Never,
+}
+
+#[derive(PartialEq, Deserialize, Serialize, Default, Debug, Clone, EnumIter)]
+pub enum MarkerAutoPlaceSettings {
+    OpenWindow(SquadCondition),
+    Place(SquadCondition),
+    #[default]
+    DoNothing,
+}
+
+impl fmt::Display for SquadCondition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use SquadCondition::*;
+        match &self {
+            Always => write!(f, "Always do action"),
+            IfCommander => write!(f, "Do action if squad commander"),
+            IfLieutenantOrAbove => write!(f, "Do action if lieutenant or commander"),
+            Never => write!(f, "Never do action"),
+        }
+    }
+}
+
+impl fmt::Display for MarkerAutoPlaceSettings {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        use MarkerAutoPlaceSettings::*;
+        match &self {
+            OpenWindow(_t) => write!(f, "Open the markers window"),
+            Place(_t) => write!(f, "Place markers automatically"),
+            DoNothing => write!(f, "Do nothing"),
+        }
+    }
+}
+
 #[derive(Deserialize, Serialize, TryMigrate, Default, Debug, Clone)]
 #[try_migrate(from = None)]
 pub struct Settings {
@@ -64,15 +124,21 @@ pub struct Settings {
     #[serde(default)]
     pub timers: HashMap<String, TimerSettings>,
     #[serde(default)]
+    pub markers: HashMap<String, MarkerSettings>,
+    #[serde(default)]
     pub remotes: Vec<RemoteState>,
     #[serde(default)]
     pub primary_window_open: bool,
     #[serde(default)]
     pub timers_window_open: bool,
     #[serde(default)]
+    pub markers_window_open: bool,
+    #[serde(default)]
     pub progress_bar: ProgressBarSettings,
     #[serde(default)]
     pub enable_katrender: bool,
+    #[serde(default)]
+    pub marker_autoplace: MarkerAutoPlaceSettings,
 }
 
 impl Settings {
@@ -143,6 +209,7 @@ impl Settings {
         let window_open = match window {
             "primary" => &mut self.primary_window_open,
             "timers" => &mut self.timers_window_open,
+            "markers" => &mut self.markers_window_open,
             _ => unreachable!("unsupported window"),
         };
 
@@ -183,6 +250,29 @@ impl Settings {
         }
         let _ = self.save(&self.addon_dir).await;
     }
+    pub async fn toggle_marker(&mut self, marker: String) -> bool {
+        let entry = self.markers.entry(marker.clone()).or_default();
+        let new_state = entry.toggle();
+        let _ = self.save(&self.addon_dir).await;
+        new_state
+    }
+    pub async fn disable_marker(&mut self, marker: String) {
+        if let Some(entry_mut) = self.markers.get_mut(&marker) {
+            entry_mut.disable();
+        } else {
+            self.markers
+                .insert(marker, MarkerSettings { disabled: true });
+        }
+        let _ = self.save(&self.addon_dir).await;
+    }
+    pub async fn enable_marker(&mut self, marker: String) {
+        if let Some(entry_mut) = self.markers.get_mut(&marker) {
+            entry_mut.enable();
+        } else {
+            self.markers.insert(marker, MarkerSettings::default());
+        }
+        let _ = self.save(&self.addon_dir).await;
+    }
 
     #[allow(dead_code)]
     pub async fn get_status_for(&self, source: &RemoteSource) -> Option<&RemoteState> {
@@ -197,6 +287,15 @@ impl Settings {
         if let Some(remote) = self.remotes.iter_mut().find(|dd| *dd.source == *source) {
             remote.uninstall().await?;
         }
+        let _ = self.save(&self.addon_dir).await;
+        Ok(())
+    }
+
+    pub async fn set_marker_autoplace_settings(
+        &mut self,
+        maps: &MarkerAutoPlaceSettings,
+    ) -> anyhow::Result<()> {
+        self.marker_autoplace = maps.clone();
         let _ = self.save(&self.addon_dir).await;
         Ok(())
     }
@@ -278,11 +377,14 @@ impl Settings {
             last_checked: None,
             addon_dir: addon_dir.to_path_buf(),
             timers: Default::default(),
+            markers: Default::default(),
             remotes: RemoteState::suggested_sources().collect(),
             progress_bar: Default::default(),
             timers_window_open: false,
+            markers_window_open: false,
             primary_window_open: false,
             enable_katrender: false,
+            marker_autoplace: Default::default(),
         }
     }
     pub async fn load(addon_dir: &Path) -> anyhow::Result<Self> {

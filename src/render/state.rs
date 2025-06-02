@@ -4,7 +4,9 @@ use {
     crate::{
         controller::ControllerEvent,
         fl,
-        render::{PrimaryWindowState, TimerWindowState},
+        marker::format::MarkerType,
+        marker_icon_data,
+        render::{MarkerWindowState, PrimaryWindowState, TimerWindowState},
         settings::ProgressBarSettings,
         timer::{PhaseState, TextAlert, TimerFile},
         CONTROLLER_SENDER, IMGUI_TEXTURES, RENDER_STATE,
@@ -29,12 +31,13 @@ use {
 };
 
 #[cfg(feature = "markers-edit")]
-use super::marker_window::EditMarkerWindowState;
+use super::edit_marker_window::EditMarkerWindowState;
 
 pub enum RenderEvent {
     TimerData(Vec<Arc<TimerFile>>),
     #[cfg(feature = "markers")]
     MarkerData(HashMap<String, Vec<Arc<MarkerSet>>>),
+    MarkerMap(Vec<Arc<MarkerSet>>),
     AlertFeed(PhaseState),
     OpenableError(String, anyhow::Error),
     AlertReset(Arc<TimerFile>),
@@ -44,7 +47,9 @@ pub enum RenderEvent {
     #[allow(dead_code)]
     RenderKeybindUpdate,
     #[cfg(feature = "markers-edit")]
-    OpenEditMarkers,
+    OpenEditMarkers(Option<MarkerSet>),
+    #[cfg(feature = "markers-edit")]
+    GiveMarkerPaths(Vec<PathBuf>),
     ProgressBarUpdate(ProgressBarSettings),
 }
 
@@ -63,6 +68,8 @@ pub struct RenderState {
     pub primary_window: PrimaryWindowState,
     #[cfg(feature = "markers-edit")]
     pub edit_marker_window: EditMarkerWindowState,
+    #[cfg(feature = "markers")]
+    pub marker_window: MarkerWindowState,
     timer_window: TimerWindowState,
     receiver: Receiver<RenderEvent>,
     alert: Option<TextAlert>,
@@ -79,6 +86,8 @@ impl RenderState {
             timer_window: TimerWindowState::new(),
             #[cfg(feature = "markers-edit")]
             edit_marker_window: EditMarkerWindowState::new(),
+            #[cfg(feature = "markers")]
+            marker_window: MarkerWindowState::new(),
             last_display_size: Default::default(),
             state_errors: Default::default(),
         }
@@ -102,8 +111,17 @@ impl RenderState {
                 use RenderEvent::*;
                 match event {
                     #[cfg(feature = "markers-edit")]
-                    OpenEditMarkers => {
-                        self.edit_marker_window.open();
+                    OpenEditMarkers(e) => match e {
+                        None => self.edit_marker_window.open(),
+                        Some(e) => self.edit_marker_window.open_edit(e),
+                    },
+                    #[cfg(feature = "markers")]
+                    MarkerMap(markers) => {
+                        self.marker_window.new_map_markers(markers);
+                    }
+                    #[cfg(feature = "markers-edit")]
+                    GiveMarkerPaths(paths) => {
+                        self.edit_marker_window.set_filenames(paths);
                     }
                     OpenableError(key, err) => {
                         self.state_errors.insert(key, err);
@@ -119,10 +137,15 @@ impl RenderState {
                             checking_for_updates;
                     }
                     TimerData(timers) => {
+                        self.primary_window.timer_tab.timer_selection = None;
                         self.primary_window.timer_tab.timers_update(timers);
                     }
                     #[cfg(feature = "markers")]
                     MarkerData(markers) => {
+                        self.primary_window.marker_tab.marker_selection = None;
+                        let categories: Vec<_> = markers.keys().cloned().collect();
+                        #[cfg(feature = "markers-edit")]
+                        self.edit_marker_window.category_update(categories);
                         self.primary_window.marker_tab.marker_update(markers);
                     }
                     AlertStart(alert) => {
@@ -149,9 +172,51 @@ impl RenderState {
         self.timer_window.draw(ui);
         self.primary_window
             .draw(ui, &mut self.timer_window, &mut self.state_errors);
+        #[cfg(feature = "markers")]
+        self.marker_window.draw(ui);
         #[cfg(feature = "markers-edit")]
         self.edit_marker_window.draw(ui);
+        let mut items_to_delete = Vec::new();
+        for (entry_name, errory) in &self.state_errors {
+            ui.open_popup(entry_name);
+            if let Some(_token) = PopupModal::new(&entry_name)
+                .always_auto_resize(true)
+                .begin_popup(ui)
+            {
+                ui.text(format!("{:?}", errory));
+                ui.dummy([4.0; 2]);
+                if ui.button(fl!("okay")) {
+                    items_to_delete.push(entry_name.clone());
+                    ui.close_current_popup();
+                }
+            } else {
+                ui.close_current_popup();
+            }
+        }
+        for item in items_to_delete {
+            self.state_errors.remove(&item);
+        }
     }
+    pub fn marker_icon(ui: &Ui, height: Option<f32>, marker: &MarkerType) {
+        let gooey = IMGUI_TEXTURES.get().unwrap();
+        let gooey_lock = gooey.read().unwrap();
+        if let Some(icon) = gooey_lock.get(&marker.to_string()) {
+            let size = match height {
+                Some(height) => [height, height],
+                None => icon.size(),
+            };
+            Image::new(icon.id(), size).build(ui);
+            ui.same_line();
+        } else if let Some(data) = marker_icon_data(marker.clone()) {
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::LoadTextureIntegrated(
+                marker.to_string(),
+                data,
+            ));
+            drop(event_send);
+        }
+    }
+
     pub fn icon(
         ui: &Ui,
         height: Option<f32>,
@@ -203,33 +268,9 @@ impl RenderState {
                 openable.clone(),
             ));
             drop(event_send);
-            match open::that_detached(&openable) {
-                Ok(_) => {}
-                Err(err) => {
-                    state_errors.insert(entry_name.clone(), err.into());
-                }
-            }
         }
         if ui.is_item_hovered() {
             ui.tooltip_text(fl!("location", path = openable_display));
-        }
-        if let Some(errory) = state_errors.get(&entry_name) {
-            ui.open_popup(&entry_name);
-            if let Some(_token) = PopupModal::new(&entry_name)
-                .always_auto_resize(true)
-                .begin_popup(ui)
-            {
-                ui.text(&entry_name);
-                ui.dummy([4.0, 4.0]);
-                ui.text_wrapped(format!("{:?}", errory));
-                ui.dummy([4.0, 4.0]);
-                if ui.button(fl!("okay")) {
-                    state_errors.remove(&entry_name);
-                    ui.close_current_popup();
-                }
-            } else {
-                ui.close_current_popup();
-            }
         }
     }
 

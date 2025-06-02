@@ -1,4 +1,5 @@
 use {
+    super::Alignment,
     crate::{
         controller::ControllerEvent,
         fl,
@@ -7,13 +8,14 @@ use {
             format::MarkerSet,
         },
         render::RenderState,
-        RenderEvent, CONTROLLER_SENDER, RENDER_SENDER,
+        settings::MarkerSettings,
+        RenderEvent, CONTROLLER_SENDER, RENDER_SENDER, SETTINGS,
     },
-    glam::Vec3,
+    glam::{Vec2, Vec3},
     indexmap::IndexMap,
     nexus::{
         imgui::{
-            ChildWindow, Condition, Selectable, TableColumnSetup, TableFlags, TreeNode,
+            ChildWindow, Condition, PopupModal, Selectable, TableColumnSetup, TableFlags, TreeNode,
             TreeNodeFlags, Ui, WindowFlags,
         },
         paths::get_addon_dir,
@@ -26,8 +28,9 @@ use {
 
 pub struct MarkerTabState {
     markers: IndexMap<String, Vec<Arc<MarkerSet>>>,
-    marker_selection: Option<Arc<MarkerSet>>,
+    pub marker_selection: Option<Arc<MarkerSet>>,
     category_status: HashSet<String>,
+    formatted_name: String,
 }
 
 impl MarkerTabState {
@@ -38,6 +41,7 @@ impl MarkerTabState {
             markers: Default::default(),
             marker_selection: Default::default(),
             category_status: Default::default(),
+            formatted_name: Default::default(),
         }
     }
 
@@ -65,11 +69,17 @@ impl MarkerTabState {
         );
         ui.same_line();
         #[cfg(feature = "markers-edit")]
-        if ui.button("Create Marker Set") {
+        if ui.button(fl!("marker-set-create")) {
             let _ = RENDER_SENDER
                 .get()
                 .unwrap()
-                .try_send(RenderEvent::OpenEditMarkers);
+                .try_send(RenderEvent::OpenEditMarkers(None));
+        }
+        ui.same_line();
+        if ui.button(fl!("reload-markers")) {
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::ReloadMarkers);
+            drop(event_send);
         }
         #[allow(clippy::collapsible_if)]
         if self.category_status.len() != self.markers.keys().len() {
@@ -96,14 +106,16 @@ impl MarkerTabState {
             .size([0.0, 0.0])
             .build(ui, || {
                 let header_flags = TreeNodeFlags::FRAMED;
+                let height = Vec2::from_array(ui.calc_text_size("U\nI"));
+                let height = height.y;
                 // interface design is my passion
                 for idx in 0..self.markers.len() {
-                    self.draw_category(ui, header_flags, idx);
+                    self.draw_category(ui, header_flags, idx, height);
                 }
             });
     }
 
-    fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, idx: usize) {
+    fn draw_category(&mut self, ui: &Ui, header_flags: TreeNodeFlags, idx: usize, height: f32) {
         let (category_name, category) = self
             .markers
             .get_index(idx)
@@ -115,7 +127,8 @@ impl MarkerTabState {
                 if let Some(selected_marker) = &self.marker_selection {
                     selected = Arc::ptr_eq(selected_marker, marker);
                 }
-                let element_selected = Self::draw_marker_set_in_sidebar(ui, marker, selected);
+                let element_selected =
+                    Self::draw_marker_set_in_sidebar(ui, marker, selected, height);
                 if element_selected && element_selected != selected {
                     self.marker_selection = Some(marker.clone());
                 }
@@ -139,8 +152,16 @@ impl MarkerTabState {
         }
     }
 
-    fn draw_marker_set_in_sidebar(ui: &Ui, marker: &Arc<MarkerSet>, selected_in: bool) -> bool {
+    fn draw_marker_set_in_sidebar(
+        ui: &Ui,
+        marker: &Arc<MarkerSet>,
+        selected_in: bool,
+        height: f32,
+    ) -> bool {
         let mut selected = selected_in;
+        let widget_pos = Vec2::from(ui.cursor_pos());
+        let window_size = Vec2::from(ui.window_content_region_max());
+        let widget_size = window_size.with_y(height);
         let group_token = ui.begin_group();
         if Selectable::new(&marker.combined())
             .selected(selected)
@@ -148,11 +169,11 @@ impl MarkerTabState {
         {
             selected = true;
         }
-        /*if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
-            let settings_for_marker = settings.markers.get(&marker.id);
+        if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
+            let settings_for_marker = settings.markers.get(&marker.id());
             ui.same_line();
             let (color, text) = match settings_for_marker {
-                Some(markerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], "Disabled"),
+                Some(MarkerSettings { disabled: true, .. }) => ([1.0, 0.0, 0.0, 1.0], "Disabled"),
                 _ => ([0.0, 1.0, 0.0, 1.0], "Enabled"),
             };
             let text_size = Vec2::from(ui.calc_text_size(text));
@@ -164,7 +185,7 @@ impl MarkerTabState {
                 text_size,
             );
             ui.text_colored(color, text);
-        }*/
+        }
         ui.dummy([0.0, 4.0]);
         group_token.end();
         selected
@@ -209,19 +230,54 @@ impl MarkerTabState {
                         RenderState::font_text("ui", ui, &fl!("author-arg", author = author));
                     }
                     if let Some(path) = &selected_marker_set.path {
-                        let path_display = format!("{:?}", path);
+                        let path_display = format!("{}", path.display());
                         ui.text_wrapped(&fl!("location", path = path_display));
                     }
-                    RenderState::font_text(
-                        "ui",
-                        ui,
-                        &format!("{}", &selected_marker_set.description),
-                    );
-                    ui.text(&fl!("map-id-arg", id = selected_marker_set.map_id.clone()));
+                    RenderState::font_text("ui", ui, &selected_marker_set.description);
+                    ui.text(&fl!("map-id-arg", id = selected_marker_set.map_id));
                     ui.text(&fl!(
                         "markers-arg",
                         count = selected_marker_set.markers.len()
                     ));
+                    #[cfg(feature = "markers-edit")]
+                    if ui.button(fl!("marker-set-edit")) {
+                        let raw_inner =
+                            Arc::<MarkerSet>::unwrap_or_clone(selected_marker_set.clone());
+                        let _ = RENDER_SENDER
+                            .get()
+                            .unwrap()
+                            .try_send(RenderEvent::OpenEditMarkers(Some(raw_inner)));
+                    }
+                    ui.same_line();
+                    // TODO: add confirm ^^;
+                    #[cfg(feature = "markers-edit")]
+                    if selected_marker_set.idx.is_some() && selected_marker_set.path.is_some() {
+                        if ui.button(&fl!("marker-set-delete")) {
+                            self.formatted_name =
+                                fl!("delete-item", item = selected_marker_set.name.clone());
+                            ui.open_popup(&self.formatted_name);
+                        }
+                    }
+                    #[cfg(feature = "markers-edit")]
+                    if let Some(_token) = PopupModal::new(&self.formatted_name)
+                        .always_auto_resize(true)
+                        .begin_popup(ui)
+                    {
+                        ui.text_colored([1.0, 0.0, 0.0, 1.0], fl!("delete-markerset-warning"));
+                        if ui.button(fl!("delete")) {
+                            let sender = CONTROLLER_SENDER.get().unwrap();
+                            let event_send = sender.try_send(ControllerEvent::DeleteMarker {
+                                path: selected_marker_set.path.clone().unwrap(),
+                                category: selected_marker_set.category.clone(),
+                                idx: selected_marker_set.idx.unwrap(),
+                            });
+                            drop(event_send);
+                        }
+                        ui.same_line();
+                        if ui.button(fl!("cancel")) {
+                            ui.close_current_popup();
+                        }
+                    }
                     let screen_positions: Vec<ScreenPoint> = selected_marker_set
                         .markers
                         .iter()
@@ -254,7 +310,7 @@ impl MarkerTabState {
                     ui.table_next_column();
                     for marker in &selected_marker_set.markers {
                         // marker marker on the table
-                        ui.text_wrapped(format!("{}", marker.marker));
+                        marker.marker.icon(ui);
                         ui.table_next_column();
                         if let Some(description) = &marker.id {
                             if !description.is_empty() {
@@ -295,21 +351,28 @@ impl MarkerTabState {
                             ui.table_next_column();
                         }
                     }
-                    drop(table_token);
-                    if screen_positions.len() == selected_marker_set.markers.len() {
-                        ui.dummy([4.0; 2]);
-                        if ui.button(&fl!("markers-place")) {
-                            let sender = CONTROLLER_SENDER.get().unwrap();
-                            let event_send = sender.try_send(ControllerEvent::SetMarker(
-                                screen_positions,
-                                selected_marker_set.clone(),
-                            ));
-                            drop(event_send);
-                        }
-                        pushy.pop();
+                    if let Some(token) = table_token {
+                        token.end();
                     }
-                    // TODO: add confirm ^^;
-                    if ui.button(&fl!("marker-set-delete")) {}
+                    ui.dummy([4.0; 2]);
+                    let button_text = match selected_marker_set.status() {
+                        true => fl!("autoplacement-disable"),
+                        false => fl!("autoplacement-enable"),
+                    };
+                    if ui.button(button_text) {
+                        let sender = CONTROLLER_SENDER.get().unwrap();
+                        let event_send = sender
+                            .try_send(ControllerEvent::MarkerToggle(selected_marker_set.id()));
+                        drop(event_send);
+                    }
+                    ui.dummy([4.0; 2]);
+                    if ui.button(&fl!("markers-place")) {
+                        let sender = CONTROLLER_SENDER.get().unwrap();
+                        let event_send = sender
+                            .try_send(ControllerEvent::SetMarker(selected_marker_set.clone()));
+                        drop(event_send);
+                    }
+                    pushy.pop();
                 } else {
                     ui.text(&fl!("select-a-marker"));
                 }

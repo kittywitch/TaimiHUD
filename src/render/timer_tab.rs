@@ -23,7 +23,7 @@ use {
 pub struct TimerTabState {
     timers: Vec<Arc<TimerFile>>,
     categories: IndexMap<String, Vec<Arc<TimerFile>>>,
-    timer_selection: Option<Arc<TimerFile>>,
+    pub timer_selection: Option<Arc<TimerFile>>,
     category_status: HashSet<String>,
     sources_to_timers: IndexMap<Arc<RemoteSource>, Vec<Arc<TimerFile>>>,
     //search_string: String,
@@ -64,6 +64,11 @@ impl TimerTabState {
             timers_dir,
         );
         ui.same_line();
+        if ui.button(fl!("reload-timers")) {
+            let sender = CONTROLLER_SENDER.get().unwrap();
+            let event_send = sender.try_send(ControllerEvent::ReloadTimers);
+            drop(event_send);
+        }
         /*let button_text = match timer_window_state.open {
             true => "Close Timers",
             false => "Open Timers",
@@ -176,7 +181,7 @@ impl TimerTabState {
                 }
                 _ => ([0.0, 1.0, 0.0, 1.0], &fl!("enabled")),
             };
-            let text_size = Vec2::from(ui.calc_text_size(&text));
+            let text_size = Vec2::from(ui.calc_text_size(text));
             Alignment::set_cursor(
                 ui,
                 Alignment::RIGHT_MIDDLE,
@@ -228,14 +233,10 @@ impl TimerTabState {
                         );
                     } else {
                         RenderState::font_text("font", ui, &fl!("source-adhoc"));
-                        if let Some(path) = &selected_timer.path {
-                            let path_display = format!("{:?}", path);
-                            RenderState::font_text(
-                                "font",
-                                ui,
-                                &fl!("location", path = path_display),
-                            );
-                        }
+                    }
+                    if let Some(path) = &selected_timer.path {
+                        let path_display = format!("{}", path.display());
+                        RenderState::font_text("font", ui, &fl!("location", path = path_display));
                     }
                     RenderState::font_text(
                         "font",
@@ -245,7 +246,7 @@ impl TimerTabState {
                     RenderState::font_text(
                         "font",
                         ui,
-                        &fl!("map-id-arg", id = selected_timer.map_id.clone()),
+                        &fl!("map-id-arg", id = selected_timer.map_id),
                     );
                     ui.dummy([4.0; 2]);
                     ui.separator();
