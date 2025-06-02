@@ -1,0 +1,15 @@
+[
+  {
+    "identifier": "trail",
+    "kind": "Vertex",
+    "path": "trail.hlsl",
+    "entrypoint": "VSMain",
+    "layout_type": "JustVertex",
+  },
+  {
+    "identifier": "trail",
+    "kind": "Pixel",
+    "path": "trail.hlsl",
+    "entrypoint": "PSMain",
+  },
+]

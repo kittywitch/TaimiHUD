@@ -5,7 +5,7 @@ use {
             ID3D11DepthStencilState, ID3D11DepthStencilView, ID3D11Device, ID3D11DeviceContext,
             ID3D11RasterizerState, ID3D11RenderTargetView, ID3D11Texture2D,
             D3D11_BIND_DEPTH_STENCIL, D3D11_CLEAR_DEPTH, D3D11_CLEAR_STENCIL,
-            D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_LESS, D3D11_CULL_BACK,
+            D3D11_COMPARISON_ALWAYS, D3D11_COMPARISON_LESS, D3D11_CULL_BACK, D3D11_CULL_NONE,
             D3D11_DEFAULT_STENCIL_READ_MASK, D3D11_DEFAULT_STENCIL_WRITE_MASK,
             D3D11_DEPTH_STENCILOP_DESC, D3D11_DEPTH_STENCIL_DESC, D3D11_DEPTH_STENCIL_VIEW_DESC,
             D3D11_DEPTH_STENCIL_VIEW_DESC_0, D3D11_DEPTH_WRITE_MASK_ALL,
@@ -227,7 +227,7 @@ impl DepthHandler {
         log::info!("Setting up rasterizer state");
         let rasterizer_state_desc = D3D11_RASTERIZER_DESC {
             FillMode: D3D11_FILL_SOLID,
-            CullMode: D3D11_CULL_BACK,
+            CullMode: D3D11_CULL_NONE,
             FrontCounterClockwise: true.into(),
             DepthBias: 0,
             DepthBiasClamp: 0.0,

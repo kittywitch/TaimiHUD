@@ -80,6 +80,7 @@ impl Model {
             MiscFlags: 0,
             StructureByteStride: 0,
         };
+        log::info!("Creating vertex buffer with {} elements", count);
         let buffer = unsafe {
             device.CreateBuffer(
                 &vertex_buffer_desc,

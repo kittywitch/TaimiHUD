@@ -204,7 +204,7 @@ fn load() {
                     let _ = SPACE_SENDER.set(space_sender);
                     let drawstate_inner = Engine::initialise(ui, space_receiver);
                     if let Err(error) = &drawstate_inner {
-                        log::error!("DrawState setup failed: {}", error);
+                        log::error!("DrawState setup failed: {error:?}");
                     };
                     ENGINE.set(drawstate_inner.ok());
                     ENGINE_INITIALIZED.set(true);

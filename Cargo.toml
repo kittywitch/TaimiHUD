@@ -94,7 +94,6 @@ indexmap = "2.9.0"
 relative-path = { version = "1.9.3", features = [ "serde" ] }
 bitflags = "2.9.0"
 mint = "0.5.9"
-
 itertools = { optional = true, version = "0.14.0" }
 tobj = { optional = true, version = "4.0.3", features = [ "merging", "reordering" ] }
 bevy_ecs = { optional = true, version = "0.16.0" }
@@ -116,6 +115,14 @@ i18n-embed-fl = "0.9.4"
 unic-langid-impl = "0.9.6"
 rand = "0.9.1"
 ordered-float = { version = "5.0.0", features = [ "serde" ] }
+bvh = "0.11.0"
+xml-rs = "0.8.26"
+uuid = "1.17.0"
+md5 = "0.7.0"
+base64 = "0.22.1"
+zip = "4.0.0"
+croner = "2.1.0"
+bitvec = "1.0.1"
 
 [target.'cfg(windows)'.dependencies]
 windows-strings = { optional = true, version = "0.4.0" }

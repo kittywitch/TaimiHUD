@@ -1,6 +1,6 @@
 use {
     crate::TEXTURES,
-    anyhow::anyhow,
+    anyhow::{anyhow, Context as _},
     image::ImageReader,
     std::{path::Path, sync::Arc},
     windows::Win32::Graphics::{
@@ -12,7 +12,9 @@ use {
             D3D11_SHADER_RESOURCE_VIEW_DESC_0, D3D11_SUBRESOURCE_DATA, D3D11_TEX2D_SRV,
             D3D11_TEXTURE2D_DESC, D3D11_USAGE_DEFAULT,
         },
-        Dxgi::Common::{DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_SAMPLE_DESC},
+        Dxgi::Common::{
+            DXGI_FORMAT_R32G32B32A32_FLOAT, DXGI_FORMAT_R8G8B8A8_UNORM, DXGI_SAMPLE_DESC,
+        },
     },
 };
 
@@ -102,6 +104,73 @@ impl Texture {
             tex_write.insert(path.to_path_buf(), tarc.clone());
             Ok(tarc.clone())
         }
+    }
+
+    pub fn load_rgba8_uncached(
+        device: &ID3D11Device,
+        image: image::FlatSamples<Vec<u8>>,
+    ) -> anyhow::Result<Texture> {
+        let texture = {
+            let desc = D3D11_TEXTURE2D_DESC {
+                Width: image.layout.width,
+                Height: image.layout.height,
+                MipLevels: 1,
+                ArraySize: 1,
+                Format: DXGI_FORMAT_R8G8B8A8_UNORM, // TODO: Is sRGB correct?
+                SampleDesc: DXGI_SAMPLE_DESC {
+                    Count: 1,
+                    Quality: 0,
+                },
+                Usage: D3D11_USAGE_DEFAULT,
+                BindFlags: (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET).0 as u32,
+                CPUAccessFlags: 0,
+                MiscFlags: D3D11_RESOURCE_MISC_GENERATE_MIPS.0 as u32,
+            };
+            let init_data = D3D11_SUBRESOURCE_DATA {
+                pSysMem: image.samples.as_ptr() as *const _,
+                SysMemPitch: image.layout.height_stride as u32,
+                SysMemSlicePitch: 0,
+            };
+            let mut d3d_texture = None;
+            unsafe {
+                device
+                    .CreateTexture2D(&desc, Some(&init_data), Some(&mut d3d_texture))
+                    .context("Creating Texture2D")?;
+            }
+            d3d_texture.expect("This will always be Some because CreateTexture2D returned S_OK")
+        };
+        let view = {
+            let view_desc = D3D11_SHADER_RESOURCE_VIEW_DESC {
+                Format: DXGI_FORMAT_R8G8B8A8_UNORM,
+                ViewDimension: D3D11_SRV_DIMENSION_TEXTURE2D,
+                Anonymous: D3D11_SHADER_RESOURCE_VIEW_DESC_0 {
+                    Texture2D: D3D11_TEX2D_SRV {
+                        MostDetailedMip: 0,
+                        MipLevels: u32::MAX,
+                    },
+                },
+            };
+            let mut view_ptr = None;
+            unsafe {
+                device
+                    .CreateShaderResourceView(&texture, Some(&view_desc), Some(&mut view_ptr))
+                    .context("Creating SRV")?;
+            }
+            view_ptr
+                .expect("This will always be Some because CreateShaderResourceView returned S_OK")
+        };
+
+        let texture = Texture {
+            texture,
+            view: vec![Some(view)],
+            dimensions: [image.layout.width, image.layout.height],
+        };
+
+        // let device_context =
+        //     unsafe { device.GetImmediateContext() }.expect("Should always succeed.");
+        // texture.generate_mips(&device_context);
+
+        Ok(texture)
     }
 
     pub fn generate_mips(&self, device_context: &ID3D11DeviceContext) {

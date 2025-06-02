@@ -21,6 +21,13 @@ pub struct ShaderDescription {
     pub kind: ShaderKind,
     pub path: PathBuf,
     pub entrypoint: String,
+    pub layout_type: Option<ShaderLayout>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Copy, Clone)]
+pub enum ShaderLayout {
+    JustVertex,
+    VertexInstance,
 }
 
 impl ShaderDescription {
