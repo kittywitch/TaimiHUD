@@ -383,12 +383,14 @@ impl Controller {
                         let mut new_spent_markers = Vec::new();
                         for marker in markers_for_map.difference(&self.spent_markers) {
                             if marker.trigger(playpos) {
-                                log::debug!("Marker autoplace triggered for {}", marker.name);
                                 new_spent_markers.push(marker.clone());
-                                self.handle_marker_autoplace(marker).await?;
                             }
                         }
-                        self.spent_markers.extend(new_spent_markers);
+                        self.spent_markers.extend(new_spent_markers.clone());
+                        for spent_marker in new_spent_markers {
+                            log::debug!("Marker autoplace triggered for {}", spent_marker.name);
+                            self.handle_marker_autoplace(&spent_marker).await?;
+                        }
                     }
                 }
                 if let Some(nexus_link) = read_nexus_link() {
@@ -935,6 +937,7 @@ impl Controller {
                                 return Err(anyhow!(
                                     "Could not drag map perspective to marker location!"
                                 ));
+                                break;
                             } else {
                                 Self::place_marker_from_map(
                                     wait_duration,
