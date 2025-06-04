@@ -163,7 +163,7 @@ impl PositionInput {
             }
         }
     }
-    pub fn draw_edit_manual(&mut self, ui: &Ui) {
+    pub fn draw_edit_manual(&mut self, ui: &Ui, trigger: bool) {
         let button_text = match self.opened {
             true => fl!("set-manually-save"),
             false => fl!("set-manually"),
@@ -176,8 +176,18 @@ impl PositionInput {
         }
         if self.opened {
             let position_as_type = self.position.get_or_insert_default().as_mut();
-            let position_input = InputFloat3::new(ui, fl!("manual-position"), position_as_type);
-            position_input.build();
+            if !trigger {
+                let text =  fl!("manual-position");
+                let text_width = ui.calc_text_size(&text)[0] + 4.0f32;
+                let item_width_token = ui.push_item_width(-text_width);
+                let position_input = InputFloat3::new(ui, &text, position_as_type);
+                position_input.build();
+                item_width_token.pop(ui);
+            } else {
+                let text =  fl!("manual-position");
+                let position_input = InputFloat3::new(ui, &text, position_as_type);
+                position_input.build();
+            }
             if ui.button(&fl!("revert")) {
                 self.opened = false;
                 self.position = self.position_before_edit;

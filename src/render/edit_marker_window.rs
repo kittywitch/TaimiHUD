@@ -321,7 +321,7 @@ impl EditMarkerWindowState {
                     description_input.build();
                     self.trigger.draw_display(ui, true);
                     self.trigger.draw_take_current(ui);
-                    self.trigger.draw_edit_manual(ui);
+                    self.trigger.draw_edit_manual(ui, true);
                     ui.dummy([4.0; 2]);
                     if let Some(rtapi) = RealTimeApi::get() {
                         if let Some(group) = rtapi.read_group() {
@@ -391,7 +391,7 @@ impl EditMarkerWindowState {
                     ui.table_next_column();
                     for (i, value) in MarkerType::iter_real_values().enumerate() {
                         let pushy = ui.push_id(Id::Str(&format!("{}", value)));
-                        if let Some(mt) = MarkerType::from_repr(i as u8) {
+                        if let Some(mt) = MarkerType::from_repr(i as u8+1) {
                             mt.icon(ui);
                         }
                         ui.table_next_column();
@@ -407,7 +407,7 @@ impl EditMarkerWindowState {
                         self.markers[i].position.draw_display(ui, false);
                         ui.table_next_column();
                         self.markers[i].position.draw_take_current(ui);
-                        self.markers[i].position.draw_edit_manual(ui);
+                        self.markers[i].position.draw_edit_manual(ui, false);
                         ui.table_next_column();
                         pushy.pop();
                     }

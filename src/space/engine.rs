@@ -115,7 +115,7 @@ impl Engine {
         schedule.add_systems(handle_marker_timings);
 
         let mut test_pack = Pack::load(DirectoryLoader::new(
-            addon_dir.join("markers/tw_ALL_IN_ONE"),
+            addon_dir.join("pathing/tw_ALL_IN_ONE"),
         ))?;
         const TEST_TRAIL: &str = "tw_guides.tw_mc_soto.tw_mc_soto_trails.tw_mc_soto_trails_thewizardstower.tw_mc_soto_trails_thewizardstower_toggletrail";
         let test_trail = test_pack
