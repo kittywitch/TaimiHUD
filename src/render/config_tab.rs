@@ -41,9 +41,6 @@ impl ConfigTabState {
             drop(event_send);
         };
         let markers_window_closure = || {
-            ui.dummy([4.0, 4.0]);
-            ui.text_wrapped(&fl!("autoplace-warning"));
-            ui.dummy([4.0, 4.0]);
             if let Some(settings) = SETTINGS.get().and_then(|settings| settings.try_read().ok()) {
                 self.marker_autoplace = settings.marker_autoplace.clone();
                 self.marker_autoplace_inner = match &self.marker_autoplace {
@@ -52,6 +49,9 @@ impl ConfigTabState {
                     _ => None,
                 };
             }
+            ui.dummy([4.0, 4.0]);
+            ui.text_wrapped(&fl!("autoplace-warning"));
+            ui.dummy([4.0, 4.0]);
             let autoplace_closure = || {
                 let mut selected = None;
                 for autoplace in MarkerAutoPlaceSettings::iter() {
