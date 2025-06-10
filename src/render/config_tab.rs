@@ -40,6 +40,10 @@ impl ConfigTabState {
             let event_send = sender.try_send(ControllerEvent::ToggleKatRender);
             drop(event_send);
         };
+        #[cfg(feature = "goggles")]
+        if self.katrender {
+            crate::render::goggles::options_ui(ui);
+        }
         let markers_window_closure = || {
             ui.dummy([4.0, 4.0]);
             ui.text_wrapped(&fl!("autoplace-warning"));
