@@ -14,7 +14,7 @@ use {
         timer::{PhaseState, RotationType, TimerFile, TimerMarker},
         ADDON_DIR,
     },
-    anyhow::anyhow,
+    anyhow::{anyhow, Context},
     bevy_ecs::prelude::*,
     glam::{Mat4, Vec3, Vec3Swizzles},
     itertools::Itertools,
@@ -95,12 +95,15 @@ impl Engine {
     pub fn initialise(ui: &Ui, receiver: Receiver<SpaceEvent>) -> anyhow::Result<Engine> {
         let addon_dir = &*ADDON_DIR;
 
-        let render_backend = RenderBackend::setup(&addon_dir, ui.io().display_size)?;
+        let render_backend = RenderBackend::setup(&addon_dir, ui.io().display_size)
+            .context("Failed to set up render backend")?;
 
         let models_dir = addon_dir.join("models");
-        let object_descs = ObjectLoader::load_desc(&models_dir)?;
+        let object_descs = ObjectLoader::load_desc(&models_dir)
+            .context("Failed to load model descriptors")?;
         log::debug!("{:?}", object_descs);
-        let model_files = ObjFile::load(&models_dir, &object_descs)?;
+        let model_files = ObjFile::load(&models_dir, &object_descs)
+            .context("Failed to load model object")?;
 
         let object_kinds = object_descs.to_backings(
             &render_backend.device,
@@ -117,7 +120,7 @@ impl Engine {
 
         let mut test_pack = Pack::load(DirectoryLoader::new(
             addon_dir.join("pathing/tw_ALL_IN_ONE"),
-        ))?;
+        )).context("Failed to load pathing pack")?;
         const TEST_TRAIL: &str = "tw_guides.tw_mc_soto.tw_mc_soto_trails.tw_mc_soto_trails_thewizardstower.tw_mc_soto_trails_thewizardstower_toggletrail";
         let test_trail = test_pack
             .trails
@@ -127,7 +130,8 @@ impl Engine {
             .map(|(idx, _)| idx)
             .ok_or_else(|| anyhow::anyhow!("Can't find test trail"))?;
         let active_test_trail =
-            ActiveTrail::build(&mut test_pack, test_trail, &render_backend.device)?;
+            ActiveTrail::build(&mut test_pack, test_trail, &render_backend.device)
+            .context("trail building failed")?;
 
         let mut engine = Engine {
             model_files,
@@ -170,7 +174,7 @@ impl Engine {
                     &self.render_backend,
                     marker,
                     base_path.clone(),
-                )?);
+                ).context("marker object creation failed")?);
                 let entity = self.world.spawn((
                     Position(marker.position),
                     Marker {
@@ -223,8 +227,10 @@ impl Engine {
             Ok(event) => {
                 use SpaceEvent::*;
                 match event {
-                    MarkerFeed(phase_state) => self.new_phase(phase_state)?,
-                    MarkerReset(timer) => self.remove_phase(timer)?,
+                    MarkerFeed(phase_state) => self.new_phase(phase_state)
+                        .context("marker new phase")?,
+                    MarkerReset(timer) => self.remove_phase(timer)
+                        .context("marker remove phase")?,
                 }
             }
             Err(_error) => (),
@@ -239,7 +245,8 @@ impl Engine {
 
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;
-        self.process_event()?;
+        self.process_event()
+            .context("render engine event processing failure")?;
         self.schedule.run(&mut self.world);
         let backend = &mut self.render_backend;
         backend.prepare(&display_size);
@@ -284,7 +291,8 @@ impl Engine {
                     })
                     .collect();
                 r.backing
-                    .set_and_draw(slot, &backend.device, &device_context, &ibd)?;
+                    .set_and_draw(slot, &backend.device, &device_context, &ibd)
+                    .context("set and draw failed")?;
             }
         }
         if let Some(render_list) = &mut self.render_list {
