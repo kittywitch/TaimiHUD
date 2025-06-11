@@ -10,6 +10,7 @@ use {
         space::{
             pack::{loader::DirectoryLoader, trail::ActiveTrail},
             resources::ObjFile,
+            max_depth,
         },
         timer::{PhaseState, RotationType, TimerFile, TimerMarker},
         ADDON_DIR,
@@ -300,7 +301,7 @@ impl Engine {
                 &pdata,
                 display_size[0] / display_size[1],
                 0.1,
-                1000.0,
+                max_depth(),
             );
             let cam_origin = pdata.pos.into();
             let cam_dir = pdata.front.into();
