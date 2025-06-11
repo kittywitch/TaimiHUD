@@ -10,14 +10,16 @@ use {
         space::{
             pack::{loader::DirectoryLoader, trail::ActiveTrail},
             resources::ObjFile,
+            max_depth,
         },
         timer::{PhaseState, RotationType, TimerFile, TimerMarker},
+        ADDON_DIR,
     },
-    anyhow::anyhow,
+    anyhow::{anyhow, Context},
     bevy_ecs::prelude::*,
     glam::{Mat4, Vec3, Vec3Swizzles},
     itertools::Itertools,
-    nexus::{imgui::Ui, paths::get_addon_dir},
+    nexus::imgui::Ui,
     std::{collections::HashMap, path::PathBuf, sync::Arc},
     tokio::{sync::mpsc::Receiver, time::Instant},
 };
@@ -92,14 +94,17 @@ pub struct Engine {
 
 impl Engine {
     pub fn initialise(ui: &Ui, receiver: Receiver<SpaceEvent>) -> anyhow::Result<Engine> {
-        let addon_dir = get_addon_dir("Taimi").expect("Invalid addon dir");
+        let addon_dir = &*ADDON_DIR;
 
-        let render_backend = RenderBackend::setup(&addon_dir, ui.io().display_size)?;
+        let render_backend = RenderBackend::setup(&addon_dir, ui.io().display_size)
+            .context("Failed to set up render backend")?;
 
         let models_dir = addon_dir.join("models");
-        let object_descs = ObjectLoader::load_desc(&models_dir)?;
+        let object_descs = ObjectLoader::load_desc(&models_dir)
+            .context("Failed to load model descriptors")?;
         log::debug!("{:?}", object_descs);
-        let model_files = ObjFile::load(&models_dir, &object_descs)?;
+        let model_files = ObjFile::load(&models_dir, &object_descs)
+            .context("Failed to load model object")?;
 
         let object_kinds = object_descs.to_backings(
             &render_backend.device,
@@ -116,7 +121,7 @@ impl Engine {
 
         let mut test_pack = Pack::load(DirectoryLoader::new(
             addon_dir.join("pathing/tw_ALL_IN_ONE"),
-        ))?;
+        )).context("Failed to load pathing pack")?;
         const TEST_TRAIL: &str = "tw_guides.tw_mc_soto.tw_mc_soto_trails.tw_mc_soto_trails_thewizardstower.tw_mc_soto_trails_thewizardstower_toggletrail";
         let test_trail = test_pack
             .trails
@@ -126,7 +131,8 @@ impl Engine {
             .map(|(idx, _)| idx)
             .ok_or_else(|| anyhow::anyhow!("Can't find test trail"))?;
         let active_test_trail =
-            ActiveTrail::build(&mut test_pack, test_trail, &render_backend.device)?;
+            ActiveTrail::build(&mut test_pack, test_trail, &render_backend.device)
+            .context("trail building failed")?;
 
         let mut engine = Engine {
             model_files,
@@ -169,7 +175,7 @@ impl Engine {
                     &self.render_backend,
                     marker,
                     base_path.clone(),
-                )?);
+                ).context("marker object creation failed")?);
                 let entity = self.world.spawn((
                     Position(marker.position),
                     Marker {
@@ -222,8 +228,10 @@ impl Engine {
             Ok(event) => {
                 use SpaceEvent::*;
                 match event {
-                    MarkerFeed(phase_state) => self.new_phase(phase_state)?,
-                    MarkerReset(timer) => self.remove_phase(timer)?,
+                    MarkerFeed(phase_state) => self.new_phase(phase_state)
+                        .context("marker new phase")?,
+                    MarkerReset(timer) => self.remove_phase(timer)
+                        .context("marker remove phase")?,
                 }
             }
             Err(_error) => (),
@@ -238,15 +246,17 @@ impl Engine {
 
     pub fn render(&mut self, ui: &Ui) -> anyhow::Result<()> {
         let display_size = ui.io().display_size;
-        self.process_event()?;
+        self.process_event()
+            .context("render engine event processing failure")?;
         self.schedule.run(&mut self.world);
         let backend = &mut self.render_backend;
         backend.prepare(&display_size);
         let device_context =
-            unsafe { backend.device.GetImmediateContext() }.expect("I lost my context!");
+            unsafe { backend.device.GetImmediateContext() }
+            .context("I lost my context!")?;
         let slot = 0;
-        backend.perspective_handler.set(&device_context, slot);
-        backend.depth_handler.setup(&device_context);
+        let _prespective_token = backend.perspective_handler.set(&device_context, slot);
+        let _depth_token = backend.depth_handler.setup(&device_context);
         backend.blending_handler.set(&device_context);
         let pdata = PERSPECTIVEINPUTDATA.get().unwrap().load();
         let mut query = self.world.query::<(&mut Render, &Position)>();
@@ -283,7 +293,8 @@ impl Engine {
                     })
                     .collect();
                 r.backing
-                    .set_and_draw(slot, &backend.device, &device_context, &ibd)?;
+                    .set_and_draw(slot, &backend.device, &device_context, &ibd)
+                    .context("set and draw failed")?;
             }
         }
         if let Some(render_list) = &mut self.render_list {
@@ -291,7 +302,7 @@ impl Engine {
                 &pdata,
                 display_size[0] / display_size[1],
                 0.1,
-                1000.0,
+                max_depth(),
             );
             let cam_origin = pdata.pos.into();
             let cam_dir = pdata.front.into();

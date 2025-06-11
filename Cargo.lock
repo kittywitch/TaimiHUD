@@ -119,6 +119,7 @@ dependencies = [
  "arcdps_codegen",
  "chrono",
  "evtc",
+ "log",
  "num_enum",
  "windows 0.57.0",
 ]
@@ -154,6 +155,29 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "arcffi"
+version = "0.1.0"
+source = "git+https://github.com/arcnmx/arcloader#b4cab79986c98366be188cba8c5b05948af56a90"
+dependencies = [
+ "windows 0.61.1",
+ "windows-core 0.61.0",
+ "windows-strings 0.4.0",
+]
+
+[[package]]
+name = "arcloader-mumblelink"
+version = "0.1.0"
+source = "git+https://github.com/arcnmx/arcloader#b4cab79986c98366be188cba8c5b05948af56a90"
+dependencies = [
+ "arcffi",
+ "gw2_mumble 0.2.5",
+ "log",
+ "nexus",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1038,6 +1062,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ea8a8b81cacc08888170eef4d13b775126db426d0b348bee9d18c2c1eaf123cf"
 
 [[package]]
+name = "dpsapi"
+version = "0.1.0"
+source = "git+https://github.com/arcnmx/arcloader#b4cab79986c98366be188cba8c5b05948af56a90"
+dependencies = [
+ "arcdps",
+ "arcffi",
+ "dyload",
+ "log",
+ "nexus",
+]
+
+[[package]]
+name = "dyload"
+version = "0.1.0"
+source = "git+https://github.com/arcnmx/arcloader#b4cab79986c98366be188cba8c5b05948af56a90"
+dependencies = [
+ "arcffi",
+ "log",
+]
+
+[[package]]
 name = "either"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1530,6 +1575,21 @@ dependencies = [
  "strum 0.26.3",
  "thiserror 2.0.12",
  "windows 0.58.0",
+]
+
+[[package]]
+name = "gw2_mumble"
+version = "0.2.5"
+source = "git+https://github.com/zerthox/gw2-mumble-rs#7cb684bdb271253c99e2ad7fea4b448915ffe76f"
+dependencies = [
+ "bitflags 2.9.0",
+ "num_enum",
+ "serde",
+ "serde_json",
+ "serde_repr",
+ "strum 0.26.3",
+ "thiserror 2.0.12",
+ "windows 0.59.0",
 ]
 
 [[package]]
@@ -2258,6 +2318,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libudis86-sys"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "139bbf9ddb1bfc90c1ac64dd2923d9c957cd433cee7315c018125d72ab08a6b0"
+dependencies = [
+ "cc",
+ "libc",
+]
+
+[[package]]
 name = "libz-rs-sys"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2343,6 +2413,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fae87c125b03c1d2c0150c90365d7d6bcc53fb73a9acaef207d2d065860f062"
 dependencies = [
  "imgref",
+]
+
+[[package]]
+name = "mach2"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19b955cdeb2a02b9117f121ce63aa52d08ade45de53e48fe6a38b39c10f6f709"
+dependencies = [
+ "libc",
 ]
 
 [[package]]
@@ -2458,6 +2537,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "mmap-fixed-fixed"
+version = "0.1.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0681853891801e4763dc252e843672faf32bcfee27a0aa3b19733902af450acc"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "nalgebra"
 version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2501,7 +2590,7 @@ dependencies = [
  "bitfields",
  "bitflags 2.9.0",
  "env_filter",
- "gw2_mumble",
+ "gw2_mumble 0.2.4",
  "log",
  "nexus_codegen",
  "num_enum",
@@ -3355,6 +3444,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2b15c43186be67a4fd63bee50d0303afffcef381492ebe2c5d87f324e1b8815c"
 
 [[package]]
+name = "region"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e6b6ebd13bc009aef9cd476c1310d49ac354d36e240cf1bd753290f3dc7199a7"
+dependencies = [
+ "bitflags 1.3.2",
+ "libc",
+ "mach2",
+ "windows-sys 0.52.0",
+]
+
+[[package]]
 name = "relative-path"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3406,6 +3507,22 @@ dependencies = [
  "wasm-streams",
  "web-sys",
  "windows-registry",
+]
+
+[[package]]
+name = "retour"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9af44d40e2400b44d491bfaf8eae111b09f23ac4de6e92728e79d93e699c527"
+dependencies = [
+ "cfg-if",
+ "generic-array",
+ "libc",
+ "libudis86-sys",
+ "mmap-fixed-fixed",
+ "once_cell",
+ "region",
+ "slice-pool2",
 ]
 
 [[package]]
@@ -3852,6 +3969,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "slice-pool2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7a3d689654af89bdfeba29a914ab6ac0236d382eb3b764f7454dde052f2821f8"
+
+[[package]]
 name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3995,6 +4118,8 @@ dependencies = [
  "anyhow",
  "arc-atomic",
  "arcdps",
+ "arcffi",
+ "arcloader-mumblelink",
  "async-compression",
  "async-tar",
  "base64",
@@ -4007,6 +4132,7 @@ dependencies = [
  "bytes",
  "chrono",
  "croner",
+ "dpsapi",
  "fluent",
  "function_name",
  "futures",
@@ -4032,6 +4158,7 @@ dependencies = [
  "rand 0.9.1",
  "relative-path",
  "reqwest",
+ "retour",
  "rust-embed",
  "serde",
  "serde_json",
@@ -4802,6 +4929,16 @@ dependencies = [
 
 [[package]]
 name = "windows"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f919aee0a93304be7f62e8e5027811bbba96bcb1de84d6618be56e43f8a32a1"
+dependencies = [
+ "windows-core 0.59.0",
+ "windows-targets 0.53.0",
+]
+
+[[package]]
+name = "windows"
 version = "0.61.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c5ee8f3d025738cb02bad7868bbb5f8a6327501e870bf51f1b455b0a2454a419"
@@ -4849,6 +4986,19 @@ dependencies = [
 
 [[package]]
 name = "windows-core"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "810ce18ed2112484b0d4e15d022e5f598113e220c53e373fb31e67e21670c1ce"
+dependencies = [
+ "windows-implement 0.59.0",
+ "windows-interface 0.59.1",
+ "windows-result 0.3.2",
+ "windows-strings 0.3.1",
+ "windows-targets 0.53.0",
+]
+
+[[package]]
+name = "windows-core"
 version = "0.61.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4763c1de310c86d75a878046489e2e5ba02c649d185f21c67d4cf8a56d098980"
@@ -4886,6 +5036,17 @@ name = "windows-implement"
 version = "0.58.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bbd5b46c938e506ecbce286b6628a02171d56153ba733b6c741fc627ec9579b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "windows-implement"
+version = "0.59.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "83577b051e2f49a058c308f17f273b570a6a758386fc291b5f6a934dd84e48c1"
 dependencies = [
  "proc-macro2",
  "quote",
