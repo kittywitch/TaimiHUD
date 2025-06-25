@@ -1,4 +1,4 @@
-mod controller;
+t mod controller;
 mod render;
 mod settings;
 mod timer;
@@ -122,7 +122,7 @@ nexus::export! {
     unload,
     flags: AddonFlags::None,
     provider: UpdateProvider::GitHub,
-    update_link: "https://github.com/kittywitch/TaimiHUD",
+    update_link: "https://github.com/TaimiHUD/TaimiHUD",
     log_filter: "debug"
 }
 
