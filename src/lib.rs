@@ -1,4 +1,4 @@
-t mod controller;
+mod controller;
 mod render;
 mod settings;
 mod timer;
