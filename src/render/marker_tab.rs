@@ -83,7 +83,7 @@ impl MarkerTabState {
         }
         #[allow(clippy::collapsible_if)]
         if self.category_status.len() != self.markers.keys().len() {
-            if ui.button("Expand All") {
+            if ui.button(&fl!("expand-all")) {
                 self.category_status.extend(self.markers.keys().cloned());
             }
         }
@@ -94,7 +94,7 @@ impl MarkerTabState {
         }
         #[allow(clippy::collapsible_if)]
         if !self.category_status.is_empty() {
-            if ui.button("Collapse All") {
+            if ui.button(&fl!("collapse-all")) {
                 self.category_status.clear();
             }
         }

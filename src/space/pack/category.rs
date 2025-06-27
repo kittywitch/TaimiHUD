@@ -1,7 +1,5 @@
 use {
-    super::{attributes::MarkerAttributes, taco_safe_name, Pack, PartialItem},
-    indexmap::IndexMap,
-    std::sync::Arc,
+    super::{attributes::{parse_bool, MarkerAttributes}, taco_safe_name, Pack, PartialItem}, crate::{marker::atomic::MarkerInputData, render::pathing_window::PathingFilterState}, indexmap::IndexMap, nexus::imgui::{Condition, TreeNode, Ui}, std::{collections::{HashMap, HashSet}, sync::Arc}
 };
 
 pub struct Category {
@@ -38,11 +36,11 @@ impl Category {
             } else if attr_name.eq_ignore_ascii_case("displayname") {
                 display_name = Some(attr.value);
             } else if attr_name.eq_ignore_ascii_case("isseparator") {
-                if let Ok(val) = attr.value.parse() {
+                if let Some(val) = parse_bool(&attr.value) {
                     is_separator = val;
                 }
             } else if attr_name.eq_ignore_ascii_case("ishidden") {
-                if let Ok(val) = attr.value.parse() {
+                if let Some(val) = parse_bool(&attr.value) {
                     is_hidden = val;
                 }
             } else if attr_name.eq_ignore_ascii_case("defaulttoggle") {
@@ -75,6 +73,74 @@ impl Category {
             sub_categories: Default::default(),
             marker_attributes,
         })
+    }
+
+    pub fn attain_state(&self, all_categories: &HashMap<String, Category>, state: &mut HashMap<String, bool>) {
+        let _ = state.entry(self.full_id.clone()).or_insert(self.default_toggle);
+        for (_local, global) in self.sub_categories.iter() {
+            all_categories[global].attain_state(all_categories, state);
+        }
+    }
+
+    pub fn draw(&self, ui: &Ui, all_categories: &HashMap<String, Category>, state: &mut HashMap<String, bool>, filter_state: PathingFilterState, open_items: &mut HashSet<String>) {
+        let push_token = ui.push_id(&self.full_id);
+        if self.is_hidden {
+            push_token.pop();
+            return
+        }
+        let mut display = true;
+        if let Some(substate) = state.get(&self.full_id) {
+            let enabled = *substate && filter_state.contains(PathingFilterState::Enabled);
+            let disabled = !*substate && filter_state.contains(PathingFilterState::Disabled);
+            display = enabled | disabled;
+        }
+        if display {
+            let mut unbuilt = TreeNode::new(&self.display_name)
+                .frame_padding(true)
+                .tree_push_on_open(false)
+                .opened(
+                    open_items.contains(&self.full_id),
+                    Condition::Always,
+                );
+            if self.is_separator {
+                unbuilt = unbuilt.leaf(true);
+            } else if self.sub_categories.is_empty() {
+                unbuilt = unbuilt.bullet(true);
+            } else {
+                unbuilt = unbuilt.framed(true);
+            }
+            let tree_token = unbuilt.push(ui);
+            ui.table_next_column();
+            if !self.is_separator {
+                if let Some(substate) = state.get_mut(&self.full_id) {
+                    ui.checkbox("", substate);
+                }
+            }
+            let mut internal_closure = || {
+                if !open_items.contains(&self.full_id) {
+                    open_items.insert(self.full_id.clone());
+                }
+                if !self.sub_categories.is_empty() {
+                    ui.indent(); //_by(1.0);
+                }
+                for (_local, global) in self.sub_categories.iter() {
+                    all_categories[global].draw(ui, all_categories, state, filter_state, open_items);
+                }
+                if !self.sub_categories.is_empty() {
+                    ui.unindent(); //_by(1.0);
+                }
+            };
+            ui.table_next_column();
+            if let Some(token) = tree_token {
+                internal_closure();
+                token.pop();
+            } else {
+                if open_items.contains(&self.full_id) {
+                    open_items.remove(&self.full_id);
+                }
+            }
+        }
+        push_token.pop();
     }
 
     pub fn merge(&mut self, mut new: Category) {
