@@ -1,3 +1,5 @@
+# DEVELOPMENT HAS MOVED TO [TaimiHUD/TaimiHUD](https://github.com/TaimiHUD/TaimiHUD)!
+
 # TaimiHUD
 
 A cross-platform Timers addon, leveraging [Raidcore Nexus](https://raidcore.gg/Nexus).
